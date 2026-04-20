@@ -64,7 +64,29 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
               textShadow: "0 2px 4px rgba(0,0,0,0.6)",
             }}
           >
-            {active.text}
+            {style.karaoke && active.words && active.words.length > 0
+              ? active.words.map((w, i) => {
+                  const isActive = time >= w.start && time <= w.end;
+                  const isPast = time > w.end;
+                  return (
+                    <span
+                      key={i}
+                      style={{
+                        color: isActive ? style.highlightColor : style.color,
+                        opacity: !isActive && !isPast ? 0.75 : 1,
+                        transform: isActive ? "scale(1.08)" : "scale(1)",
+                        display: "inline-block",
+                        transition: "color 80ms linear, transform 120ms ease-out, opacity 120ms",
+                        textShadow: isActive
+                          ? `0 0 12px ${hexToRgba(style.highlightColor, 0.6)}, 0 2px 4px rgba(0,0,0,0.6)`
+                          : "0 2px 4px rgba(0,0,0,0.6)",
+                      }}
+                    >
+                      {w.text}
+                    </span>
+                  );
+                })
+              : active.text}
           </span>
         )}
       </div>
