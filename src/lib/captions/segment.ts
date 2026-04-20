@@ -13,6 +13,7 @@ export function wordsToCaptions(words: Word[], maxChars = 42): Caption[] {
       start: buf[0].start,
       end: buf[buf.length - 1].end,
       text: buf.map((w) => w.text).join("").trim(),
+      words: buf.slice(),
     });
     buf = [];
     chars = 0;

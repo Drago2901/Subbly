@@ -10,6 +10,7 @@ export type Caption = {
   start: number;
   end: number;
   text: string;
+  words?: Word[];
 };
 
 export type CaptionStyle = {
@@ -21,6 +22,8 @@ export type CaptionStyle = {
   position: "top" | "middle" | "bottom";
   bold: boolean;
   uppercase: boolean;
+  karaoke: boolean;
+  highlightColor: string; // hex — color of active word
 };
 
 export const DEFAULT_STYLE: CaptionStyle = {
@@ -32,6 +35,8 @@ export const DEFAULT_STYLE: CaptionStyle = {
   position: "bottom",
   bold: true,
   uppercase: false,
+  karaoke: true,
+  highlightColor: "#FACC15",
 };
 
 export const FONT_OPTIONS = [

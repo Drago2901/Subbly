@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import type { Caption, CaptionStyle } from "@/lib/captions/types";
 
 type Props = {
@@ -13,12 +13,29 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
   { src, captions, style, onTimeUpdate, onLoaded },
   ref,
 ) {
+  const innerRef = useRef<HTMLVideoElement>(null);
+  useImperativeHandle(ref, () => innerRef.current as HTMLVideoElement, []);
   const [time, setTime] = useState(0);
   const active = captions.find((c) => time >= c.start && time <= c.end);
 
   useEffect(() => {
     setTime(0);
   }, [src]);
+
+  // Smooth rAF loop for karaoke word highlighting (timeupdate fires too slowly)
+  useEffect(() => {
+    if (!style.karaoke) return;
+    let raf = 0;
+    const tick = () => {
+      const v = innerRef.current;
+      if (v && !v.paused && !v.ended) {
+        setTime(v.currentTime);
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [style.karaoke]);
 
   const positionClass =
     style.position === "top"
@@ -30,7 +47,7 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
   return (
     <div className="relative w-full overflow-hidden rounded-xl bg-black shadow-elegant">
       <video
-        ref={ref}
+        ref={innerRef}
         src={src}
         className="block h-full w-full"
         controls
@@ -64,7 +81,29 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
               textShadow: "0 2px 4px rgba(0,0,0,0.6)",
             }}
           >
-            {active.text}
+            {style.karaoke && active.words && active.words.length > 0
+              ? active.words.map((w, i) => {
+                  const isActive = time >= w.start && time <= w.end;
+                  const isPast = time > w.end;
+                  return (
+                    <span
+                      key={i}
+                      style={{
+                        color: isActive ? style.highlightColor : style.color,
+                        opacity: !isActive && !isPast ? 0.75 : 1,
+                        transform: isActive ? "scale(1.08)" : "scale(1)",
+                        display: "inline-block",
+                        transition: "color 80ms linear, transform 120ms ease-out, opacity 120ms",
+                        textShadow: isActive
+                          ? `0 0 12px ${hexToRgba(style.highlightColor, 0.6)}, 0 2px 4px rgba(0,0,0,0.6)`
+                          : "0 2px 4px rgba(0,0,0,0.6)",
+                      }}
+                    >
+                      {w.text}
+                    </span>
+                  );
+                })
+              : active.text}
           </span>
         )}
       </div>
