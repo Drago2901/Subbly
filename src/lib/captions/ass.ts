@@ -64,27 +64,13 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
     .map((c) => {
       let body: string;
       if (style.karaoke && c.words && c.words.length > 0) {
-        // Karaoke: each word reveals primary->secondary color sweep using \kf (fill)
-        // \kf duration is in centiseconds. Swap primary<->secondary so "highlight" appears as word is spoken.
-        // We use \1c override per word: start in base color, switch to highlight at word time.
-        const parts = c.words.map((w) => {
-          const durCs = Math.max(1, Math.round((w.end - w.start) * 100));
+        // Per-word color animation: at each word's start, snap text color to highlight,
+        // then snap back to base at the word's end. Times are in ms relative to line start.
+        const segments = c.words.map((w) => {
+          const startMs = Math.max(0, Math.round((w.start - c.start) * 1000));
+          const endMs = Math.max(startMs + 1, Math.round((w.end - c.start) * 1000));
           const txt = style.uppercase ? w.text.toUpperCase() : w.text;
-          return `{\\kf${durCs}}${escapeAss(txt)}`;
-        });
-        // Use \k karaoke template — secondary colour is the "unsung" color shown before sweep,
-        // primary is the "sung" color. We swap so highlight color sweeps in as it's spoken.
-        body = `{\\1c${primary.replace("&H", "&H").substring(0, 2)}${primary.substring(4)}}` + parts.join("");
-        // Simpler & more reliable: use \k with explicit color tags per word
-        const segments: string[] = [];
-        c.words.forEach((w, i) => {
-          const startCs = Math.max(0, Math.round((w.start - c.start) * 100));
-          const endCs = Math.max(startCs + 1, Math.round((w.end - c.start) * 100));
-          const txt = style.uppercase ? w.text.toUpperCase() : w.text;
-          // Before this word: base color. During: highlight. After: base.
-          segments.push(
-            `{\\t(${startCs * 10},${startCs * 10},\\1c${stripAlpha(secondary)})\\t(${endCs * 10},${endCs * 10},\\1c${stripAlpha(primary)})}${escapeAss(txt)}`,
-          );
+          return `{\\t(${startMs},${startMs},\\1c${stripAlpha(secondary)})\\t(${endMs},${endMs},\\1c${stripAlpha(primary)})}${escapeAss(txt)}`;
         });
         body = segments.join("");
       } else {
