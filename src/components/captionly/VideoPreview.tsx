@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useState } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import type { Caption, CaptionStyle } from "@/lib/captions/types";
 
 type Props = {
@@ -13,12 +13,29 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
   { src, captions, style, onTimeUpdate, onLoaded },
   ref,
 ) {
+  const innerRef = useRef<HTMLVideoElement>(null);
+  useImperativeHandle(ref, () => innerRef.current as HTMLVideoElement, []);
   const [time, setTime] = useState(0);
   const active = captions.find((c) => time >= c.start && time <= c.end);
 
   useEffect(() => {
     setTime(0);
   }, [src]);
+
+  // Smooth rAF loop for karaoke word highlighting (timeupdate fires too slowly)
+  useEffect(() => {
+    if (!style.karaoke) return;
+    let raf = 0;
+    const tick = () => {
+      const v = innerRef.current;
+      if (v && !v.paused && !v.ended) {
+        setTime(v.currentTime);
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [style.karaoke]);
 
   const positionClass =
     style.position === "top"
