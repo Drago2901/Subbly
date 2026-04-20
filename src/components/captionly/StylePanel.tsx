@@ -121,7 +121,21 @@ export function StylePanel({ style, onChange }: Props) {
           checked={style.uppercase}
           onCheckedChange={(v) => set("uppercase", v)}
         />
+        <ToggleRow
+          icon={<span className="text-[10px]">✨</span>}
+          label="Karaoke highlight"
+          checked={style.karaoke}
+          onCheckedChange={(v) => set("karaoke", v)}
+        />
       </div>
+
+      {style.karaoke && (
+        <ColorField
+          label="Highlight color"
+          value={style.highlightColor}
+          onChange={(v) => set("highlightColor", v)}
+        />
+      )}
     </div>
   );
 }
