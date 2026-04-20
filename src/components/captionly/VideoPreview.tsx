@@ -47,7 +47,7 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
   return (
     <div className="relative w-full overflow-hidden rounded-xl bg-black shadow-elegant">
       <video
-        ref={ref}
+        ref={innerRef}
         src={src}
         className="block h-full w-full"
         controls
