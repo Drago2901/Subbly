@@ -222,8 +222,8 @@ const Editor = () => {
         const payload = {
           user_id: user.id,
           title: title || "Untitled project",
-          captions: captions as unknown as Record<string, unknown>[],
-          style: style as unknown as Record<string, unknown>,
+          captions: JSON.parse(JSON.stringify(captions)),
+          style: JSON.parse(JSON.stringify(style)),
           source_video_path: sourcePath,
           source_video_mime: sourceMime,
           source_video_name: sourceName,
