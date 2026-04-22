@@ -8,7 +8,6 @@ import { VideoPreview } from "@/components/captionly/VideoPreview";
 import { CaptionList } from "@/components/captionly/CaptionList";
 import { StylePanel } from "@/components/captionly/StylePanel";
 import { wordsToCaptions } from "@/lib/captions/segment";
-import { buildAss } from "@/lib/captions/ass";
 import { burnCaptions } from "@/lib/captions/render";
 import { DEFAULT_STYLE, type Caption, type CaptionStyle, type Word } from "@/lib/captions/types";
 
@@ -28,7 +27,7 @@ const Index = () => {
 
   useEffect(() => {
     document.title = "Captionly — AI Video Caption Editor";
-    const desc = "Upload a video, auto-generate captions with AI, edit text and styling, then export an MP4 with burned-in subtitles — all in your browser.";
+    const desc = "Upload a video, auto-generate captions with AI, edit text and styling, then export a video with burned-in subtitles — all in your browser.";
     let m = document.querySelector('meta[name="description"]');
     if (!m) {
       m = document.createElement("meta");
@@ -92,27 +91,29 @@ const Index = () => {
       toast.error("Upload a video first.");
       return;
     }
+
     setExporting(true);
     setExportProgress(0);
+
     try {
-      const w = meta?.width ?? 1080;
-      const h = meta?.height ?? 1920;
-      const ass = buildAss(captions, style, w, h);
       const blob = await burnCaptions({
         videoFile: file,
-        assText: ass,
+        captions,
+        style,
         onProgress: ({ progress }) => setExportProgress(progress),
-        onLog: (m) => console.log("[ffmpeg]", m),
+        onLog: (message) => console.log("[export]", message),
       });
+
+      const extension = blob.type.includes("mp4") ? "mp4" : "webm";
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `captioned-${file.name.replace(/\.[^.]+$/, "")}.mp4`;
+      a.download = `captioned-${file.name.replace(/\.[^.]+$/, "")}.${extension}`;
       document.body.appendChild(a);
       a.click();
       a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 5000);
-      toast.success("Export ready — downloading.");
+      toast.success("Export ready — downloading your video.");
     } catch (e: any) {
       console.error(e);
       toast.error(e?.message || "Export failed");
@@ -140,7 +141,7 @@ const Index = () => {
               </>
             ) : (
               <>
-                <Download className="mr-2 h-4 w-4" /> Export MP4
+                <Download className="mr-2 h-4 w-4" /> Export video
               </>
             )}
           </Button>
@@ -166,14 +167,14 @@ const Index = () => {
       </header>
 
       {!file && (
-        <main className="mx-auto flex w-full max-w-3xl flex-1 flex-col items-center justify-center px-6 py-10 animate-fade-in">
+        <main className="mx-auto flex w-full max-w-3xl flex-1 animate-fade-in flex-col items-center justify-center px-6 py-10">
           <div className="mb-8 text-center">
             <h2 className="text-4xl font-bold tracking-tight md:text-5xl">
               Caption your videos in{" "}
               <span className="bg-gradient-primary bg-clip-text text-transparent">seconds</span>
             </h2>
             <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
-              AI transcription with word-perfect timestamps. Edit text, restyle, and export an MP4
+              AI transcription with word-perfect timestamps. Edit text, restyle, and export a video
               with captions baked in — no signup, no upload to anyone but you.
             </p>
           </div>
@@ -184,8 +185,7 @@ const Index = () => {
       )}
 
       {file && videoUrl && (
-        <div className="grid flex-1 grid-cols-12 gap-3 overflow-hidden p-3 animate-fade-in">
-          {/* Left: captions */}
+        <div className="grid flex-1 animate-fade-in grid-cols-12 gap-3 overflow-hidden p-3">
           <aside className="col-span-12 flex h-[40vh] flex-col overflow-hidden rounded-xl border border-border bg-surface md:col-span-3 md:h-auto">
             <CaptionList
               captions={captions}
@@ -195,7 +195,6 @@ const Index = () => {
             />
           </aside>
 
-          {/* Center: preview */}
           <main className="col-span-12 flex flex-col gap-3 md:col-span-6">
             <div className="rounded-xl border border-border bg-surface p-3">
               <VideoPreview
@@ -238,7 +237,6 @@ const Index = () => {
             </div>
           </main>
 
-          {/* Right: style */}
           <aside className="col-span-12 overflow-y-auto rounded-xl border border-border bg-surface md:col-span-3">
             <StylePanel style={style} onChange={setStyle} />
           </aside>
