@@ -88,18 +88,21 @@ const Index = () => {
   };
 
   const exportVideo = async () => {
-    if (!file || !meta || captions.length === 0) {
-      toast.error("Add at least one caption first.");
+    if (!file) {
+      toast.error("Upload a video first.");
       return;
     }
     setExporting(true);
     setExportProgress(0);
     try {
-      const ass = buildAss(captions, style, meta.width, meta.height);
+      const w = meta?.width ?? 1080;
+      const h = meta?.height ?? 1920;
+      const ass = buildAss(captions, style, w, h);
       const blob = await burnCaptions({
         videoFile: file,
         assText: ass,
         onProgress: ({ progress }) => setExportProgress(progress),
+        onLog: (m) => console.log("[ffmpeg]", m),
       });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
