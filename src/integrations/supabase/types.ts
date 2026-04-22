@@ -14,7 +14,84 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      projects: {
+        Row: {
+          captions: Json
+          created_at: string
+          duration_seconds: number | null
+          exported_video_path: string | null
+          height: number | null
+          id: string
+          source_video_mime: string | null
+          source_video_name: string | null
+          source_video_path: string | null
+          style: Json
+          title: string
+          updated_at: string
+          user_id: string
+          width: number | null
+        }
+        Insert: {
+          captions?: Json
+          created_at?: string
+          duration_seconds?: number | null
+          exported_video_path?: string | null
+          height?: number | null
+          id?: string
+          source_video_mime?: string | null
+          source_video_name?: string | null
+          source_video_path?: string | null
+          style?: Json
+          title?: string
+          updated_at?: string
+          user_id: string
+          width?: number | null
+        }
+        Update: {
+          captions?: Json
+          created_at?: string
+          duration_seconds?: number | null
+          exported_video_path?: string | null
+          height?: number | null
+          id?: string
+          source_video_mime?: string | null
+          source_video_name?: string | null
+          source_video_path?: string | null
+          style?: Json
+          title?: string
+          updated_at?: string
+          user_id?: string
+          width?: number | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
