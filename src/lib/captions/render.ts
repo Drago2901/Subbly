@@ -116,7 +116,7 @@ export async function burnCaptions(opts: {
     recorder.start(250);
     await video.play();
     animationFrame = requestAnimationFrame(renderFrame);
-    await waitForEvent(video, "ended");
+    await waitForVideoEvent(video, "ended");
 
     cancelAnimationFrame(animationFrame);
     renderFrame();
@@ -334,6 +334,10 @@ function waitForVideoReady(video: HTMLVideoElement, readyState: number, event: s
     return Promise.resolve();
   }
 
+  return waitForVideoEvent(video, event);
+}
+
+function waitForVideoEvent(video: HTMLVideoElement, event: string) {
   return new Promise<void>((resolve, reject) => {
     const cleanup = () => {
       video.removeEventListener(event, onResolve);
