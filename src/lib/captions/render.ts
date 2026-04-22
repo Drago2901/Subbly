@@ -56,7 +56,11 @@ export async function burnCaptions(opts: {
     "-crf",
     "23",
     "-c:a",
-    "copy",
+    "aac",
+    "-b:a",
+    "128k",
+    "-movflags",
+    "+faststart",
     outputName,
   ]);
 
