@@ -130,7 +130,7 @@ const Index = () => {
           </Button>
           <Button
             onClick={exportVideo}
-            disabled={exporting || captions.length === 0}
+            disabled={exporting}
             className="bg-gradient-primary text-primary-foreground hover:opacity-95"
           >
             {exporting ? (
