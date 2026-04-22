@@ -32,9 +32,10 @@ export async function burnCaptions(opts: {
     video.playsInline = true;
     video.muted = true;
     video.crossOrigin = "anonymous";
+    video.load();
 
-    await waitForEvent(video, "loadedmetadata");
-    await waitForEvent(video, "canplay");
+    await waitForVideoReady(video, 1, "loadedmetadata");
+    await waitForVideoReady(video, 3, "canplay");
 
     if ("fonts" in document) {
       await (document as Document & { fonts: FontFaceSet }).fonts.ready;
@@ -328,11 +329,15 @@ function clamp(value: number, min: number, max: number) {
   return Math.min(max, Math.max(min, value));
 }
 
-function waitForEvent(target: EventTarget, event: string) {
+function waitForVideoReady(video: HTMLVideoElement, readyState: number, event: string) {
+  if (video.readyState >= readyState) {
+    return Promise.resolve();
+  }
+
   return new Promise<void>((resolve, reject) => {
     const cleanup = () => {
-      target.removeEventListener(event, onResolve);
-      target.removeEventListener("error", onError as EventListener);
+      video.removeEventListener(event, onResolve);
+      video.removeEventListener("error", onError);
     };
 
     const onResolve = () => {
@@ -345,8 +350,8 @@ function waitForEvent(target: EventTarget, event: string) {
       reject(new Error(`Video export failed while waiting for ${event}.`));
     };
 
-    target.addEventListener(event, onResolve, { once: true });
-    target.addEventListener("error", onError as EventListener, { once: true });
+    video.addEventListener(event, onResolve, { once: true });
+    video.addEventListener("error", onError, { once: true });
   });
 }
 
