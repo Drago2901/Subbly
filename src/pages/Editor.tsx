@@ -20,6 +20,7 @@ import { CaptionList } from "@/components/captionly/CaptionList";
 import { StylePanel } from "@/components/captionly/StylePanel";
 import { wordsToCaptions } from "@/lib/captions/segment";
 import { burnCaptions } from "@/lib/captions/render";
+import { transcodeWebmToMp4 } from "@/lib/captions/transcode";
 import {
   DEFAULT_STYLE,
   type Caption,
