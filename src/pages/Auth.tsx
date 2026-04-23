@@ -11,9 +11,9 @@ import { lovable } from "@/integrations/lovable";
 import { useAuth } from "@/hooks/useAuth";
 
 const Auth = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, isAdmin } = useAuth();
   const location = useLocation() as { state?: { from?: string } };
-  const redirectTo = location.state?.from || "/projects";
+  const redirectTo = location.state?.from || (isAdmin ? "/admin" : "/projects");
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

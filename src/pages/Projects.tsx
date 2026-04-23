@@ -37,7 +37,7 @@ type ProjectRow = {
 };
 
 const Projects = () => {
-  const { user, signOut } = useAuth();
+  const { user, signOut, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [projects, setProjects] = useState<ProjectRow[] | null>(null);
   const [pendingDelete, setPendingDelete] = useState<ProjectRow | null>(null);
@@ -104,6 +104,11 @@ const Projects = () => {
           </div>
         </Link>
         <div className="flex items-center gap-2">
+          {isAdmin && (
+            <Button asChild variant="outline" size="sm">
+              <Link to="/admin">Admin</Link>
+            </Button>
+          )}
           <Button onClick={() => navigate("/editor")} className="bg-gradient-primary text-primary-foreground hover:opacity-95">
             <Plus className="mr-1.5 h-4 w-4" /> New project
           </Button>
