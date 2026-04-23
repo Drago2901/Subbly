@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
+  ChevronDown,
   Cloud,
   Download,
   Loader2,
@@ -14,12 +15,23 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { VideoDropzone } from "@/components/captionly/VideoDropzone";
 import { VideoPreview } from "@/components/captionly/VideoPreview";
 import { CaptionList } from "@/components/captionly/CaptionList";
 import { StylePanel } from "@/components/captionly/StylePanel";
 import { wordsToCaptions } from "@/lib/captions/segment";
 import { burnCaptions } from "@/lib/captions/render";
+import { transcodeWebmToMp4 } from "@/lib/captions/transcode";
 import {
   DEFAULT_STYLE,
   type Caption,
@@ -56,6 +68,8 @@ const Editor = () => {
   const [storedSourceName, setStoredSourceName] = useState<string | null>(null);
   const [storedExportPath, setStoredExportPath] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
+  const [exportFormat, setExportFormat] = useState<"webm" | "mp4">("webm");
+  const [exportStage, setExportStage] = useState<"render" | "transcode">("render");
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -285,14 +299,26 @@ const Editor = () => {
     }
     setExporting(true);
     setExportProgress(0);
+    setExportStage("render");
     try {
-      const blob = await burnCaptions({
+      let blob = await burnCaptions({
         videoFile: file,
         captions,
         style,
         onProgress: ({ progress }) => setExportProgress(progress),
         onLog: (m) => console.log("[export]", m),
       });
+
+      if (exportFormat === "mp4") {
+        setExportStage("transcode");
+        setExportProgress(0);
+        toast.info("Converting to MP4 — this can take a moment.");
+        blob = await transcodeWebmToMp4({
+          webmBlob: blob,
+          onProgress: (p) => setExportProgress(p),
+          onLog: (m) => console.log("[ffmpeg]", m),
+        });
+      }
 
       const ext = blob.type.includes("mp4") ? "mp4" : "webm";
       const url = URL.createObjectURL(blob);
@@ -312,6 +338,7 @@ const Editor = () => {
       toast.error(e?.message || "Export failed");
     } finally {
       setExporting(false);
+      setExportStage("render");
     }
   };
 
@@ -329,27 +356,57 @@ const Editor = () => {
           </Button>
         )}
         {file && (
-          <Button
-            onClick={exportVideo}
-            disabled={exporting}
-            className="bg-gradient-primary text-primary-foreground hover:opacity-95"
-          >
-            {exporting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Rendering {Math.round(exportProgress * 100)}%
-              </>
-            ) : (
-              <>
-                <Download className="mr-2 h-4 w-4" /> Export video
-              </>
-            )}
-          </Button>
+          <div className="flex items-stretch overflow-hidden rounded-md">
+            <Button
+              onClick={exportVideo}
+              disabled={exporting}
+              className="rounded-r-none bg-gradient-primary text-primary-foreground hover:opacity-95"
+            >
+              {exporting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {exportStage === "transcode" ? "Converting" : "Rendering"}{" "}
+                  {Math.round(exportProgress * 100)}%
+                </>
+              ) : (
+                <>
+                  <Download className="mr-2 h-4 w-4" />
+                  Export {exportFormat.toUpperCase()}
+                </>
+              )}
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  disabled={exporting}
+                  className="rounded-l-none border-l border-primary-foreground/20 bg-gradient-primary px-2 text-primary-foreground hover:opacity-95"
+                  aria-label="Choose export format"
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Export format</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuRadioGroup
+                  value={exportFormat}
+                  onValueChange={(v) => setExportFormat(v as "webm" | "mp4")}
+                >
+                  <DropdownMenuRadioItem value="webm">
+                    WebM — fast, smaller file
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="mp4">
+                    MP4 — universal, slower export
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         )}
       </div>
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [file, exporting, exportProgress, saving, title, captions, style, meta],
+    [file, exporting, exportProgress, exportStage, exportFormat, saving, title, captions, style, meta],
   );
 
   if (loadingProject) {
