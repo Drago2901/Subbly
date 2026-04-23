@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
+  ChevronDown,
   Cloud,
   Download,
   Loader2,
@@ -14,6 +15,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { VideoDropzone } from "@/components/captionly/VideoDropzone";
 import { VideoPreview } from "@/components/captionly/VideoPreview";
 import { CaptionList } from "@/components/captionly/CaptionList";
@@ -57,6 +68,8 @@ const Editor = () => {
   const [storedSourceName, setStoredSourceName] = useState<string | null>(null);
   const [storedExportPath, setStoredExportPath] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
+  const [exportFormat, setExportFormat] = useState<"webm" | "mp4">("webm");
+  const [exportStage, setExportStage] = useState<"render" | "transcode">("render");
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
