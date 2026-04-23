@@ -70,8 +70,10 @@ export async function transcodeWebmToMp4(opts: {
     }
 
     const data = await ffmpeg.readFile(outputName);
-    const buffer = data instanceof Uint8Array ? data : new TextEncoder().encode(String(data));
-    const mp4Blob = new Blob([buffer], { type: "video/mp4" });
+    const bytes = data instanceof Uint8Array ? data : new TextEncoder().encode(String(data));
+    // Copy into a fresh ArrayBuffer to satisfy BlobPart typing (avoids SharedArrayBuffer union).
+    const arrayBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+    const mp4Blob = new Blob([arrayBuffer], { type: "video/mp4" });
 
     // Best-effort cleanup so memory doesn't balloon across exports.
     await ffmpeg.deleteFile(inputName).catch(() => undefined);
