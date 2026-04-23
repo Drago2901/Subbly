@@ -30,7 +30,11 @@ export async function burnCaptions(opts: {
     video.src = videoUrl;
     video.preload = "auto";
     video.playsInline = true;
-    video.muted = true;
+    // Do NOT set muted = true: muting an HTMLMediaElement causes
+    // MediaElementAudioSourceNode to output silence in most browsers,
+    // which would strip audio from the exported file.
+    video.muted = false;
+    video.volume = 1;
     video.crossOrigin = "anonymous";
     video.load();
 
