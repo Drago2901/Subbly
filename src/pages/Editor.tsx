@@ -406,7 +406,7 @@ const Editor = () => {
       </div>
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [file, exporting, exportProgress, saving, title, captions, style, meta],
+    [file, exporting, exportProgress, exportStage, exportFormat, saving, title, captions, style, meta],
   );
 
   if (loadingProject) {
