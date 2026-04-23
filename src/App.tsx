@@ -5,10 +5,12 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
 import { RequireAuth } from "@/components/auth/RequireAuth";
+import { RequireAdmin } from "@/components/auth/RequireAdmin";
 import Index from "./pages/Index.tsx";
 import Auth from "./pages/Auth.tsx";
 import Projects from "./pages/Projects.tsx";
 import Editor from "./pages/Editor.tsx";
+import Admin from "./pages/Admin.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -37,6 +39,14 @@ const App = () => (
                 <RequireAuth>
                   <Editor />
                 </RequireAuth>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <RequireAdmin>
+                  <Admin />
+                </RequireAdmin>
               }
             />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
