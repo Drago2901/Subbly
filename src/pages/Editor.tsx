@@ -299,14 +299,26 @@ const Editor = () => {
     }
     setExporting(true);
     setExportProgress(0);
+    setExportStage("render");
     try {
-      const blob = await burnCaptions({
+      let blob = await burnCaptions({
         videoFile: file,
         captions,
         style,
         onProgress: ({ progress }) => setExportProgress(progress),
         onLog: (m) => console.log("[export]", m),
       });
+
+      if (exportFormat === "mp4") {
+        setExportStage("transcode");
+        setExportProgress(0);
+        toast.info("Converting to MP4 — this can take a moment.");
+        blob = await transcodeWebmToMp4({
+          webmBlob: blob,
+          onProgress: (p) => setExportProgress(p),
+          onLog: (m) => console.log("[ffmpeg]", m),
+        });
+      }
 
       const ext = blob.type.includes("mp4") ? "mp4" : "webm";
       const url = URL.createObjectURL(blob);
@@ -326,6 +338,7 @@ const Editor = () => {
       toast.error(e?.message || "Export failed");
     } finally {
       setExporting(false);
+      setExportStage("render");
     }
   };
 
@@ -343,22 +356,52 @@ const Editor = () => {
           </Button>
         )}
         {file && (
-          <Button
-            onClick={exportVideo}
-            disabled={exporting}
-            className="bg-gradient-primary text-primary-foreground hover:opacity-95"
-          >
-            {exporting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Rendering {Math.round(exportProgress * 100)}%
-              </>
-            ) : (
-              <>
-                <Download className="mr-2 h-4 w-4" /> Export video
-              </>
-            )}
-          </Button>
+          <div className="flex items-stretch overflow-hidden rounded-md">
+            <Button
+              onClick={exportVideo}
+              disabled={exporting}
+              className="rounded-r-none bg-gradient-primary text-primary-foreground hover:opacity-95"
+            >
+              {exporting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {exportStage === "transcode" ? "Converting" : "Rendering"}{" "}
+                  {Math.round(exportProgress * 100)}%
+                </>
+              ) : (
+                <>
+                  <Download className="mr-2 h-4 w-4" />
+                  Export {exportFormat.toUpperCase()}
+                </>
+              )}
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  disabled={exporting}
+                  className="rounded-l-none border-l border-primary-foreground/20 bg-gradient-primary px-2 text-primary-foreground hover:opacity-95"
+                  aria-label="Choose export format"
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuLabel>Export format</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuRadioGroup
+                  value={exportFormat}
+                  onValueChange={(v) => setExportFormat(v as "webm" | "mp4")}
+                >
+                  <DropdownMenuRadioItem value="webm">
+                    WebM — fast, smaller file
+                  </DropdownMenuRadioItem>
+                  <DropdownMenuRadioItem value="mp4">
+                    MP4 — universal, slower export
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
         )}
       </div>
     ),
