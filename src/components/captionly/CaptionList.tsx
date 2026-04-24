@@ -1,4 +1,4 @@
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, Scissors, Combine } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { Caption } from "@/lib/captions/types";
@@ -29,6 +29,59 @@ export function CaptionList({ captions, currentTime, onChange, onSeek }: Props) 
     ]);
   };
 
+  const splitCaption = (id: string) => {
+    const idx = captions.findIndex((c) => c.id === id);
+    if (idx < 0) return;
+    const c = captions[idx];
+    const mid = (c.start + c.end) / 2;
+    const tokens = c.text.trim().split(/\s+/);
+    const half = Math.max(1, Math.floor(tokens.length / 2));
+    const leftText = tokens.slice(0, half).join(" ");
+    const rightText = tokens.slice(half).join(" ") || "...";
+
+    let leftWords = c.words;
+    let rightWords: typeof c.words;
+    if (c.words && c.words.length > 1) {
+      const wIdx = Math.max(1, Math.floor(c.words.length / 2));
+      leftWords = c.words.slice(0, wIdx);
+      rightWords = c.words.slice(wIdx);
+    }
+
+    const left: Caption = {
+      ...c,
+      end: mid,
+      text: leftText,
+      words: leftWords,
+    };
+    const right: Caption = {
+      id: crypto.randomUUID(),
+      start: mid,
+      end: c.end,
+      text: rightText,
+      words: rightWords,
+    };
+    const next = [...captions];
+    next.splice(idx, 1, left, right);
+    onChange(next);
+  };
+
+  const mergeWithNext = (id: string) => {
+    const idx = captions.findIndex((c) => c.id === id);
+    if (idx < 0 || idx >= captions.length - 1) return;
+    const a = captions[idx];
+    const b = captions[idx + 1];
+    const merged: Caption = {
+      id: a.id,
+      start: a.start,
+      end: b.end,
+      text: `${a.text} ${b.text}`.trim(),
+      words: a.words || b.words ? [...(a.words ?? []), ...(b.words ?? [])] : undefined,
+    };
+    const next = [...captions];
+    next.splice(idx, 2, merged);
+    onChange(next);
+  };
+
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
@@ -41,8 +94,9 @@ export function CaptionList({ captions, currentTime, onChange, onSeek }: Props) 
         </Button>
       </div>
       <div className="scrollbar-thin flex-1 space-y-2 overflow-y-auto p-3">
-        {captions.map((c) => {
+        {captions.map((c, idx) => {
           const active = currentTime >= c.start && currentTime <= c.end;
+          const hasNext = idx < captions.length - 1;
           return (
             <div
               key={c.id}
@@ -68,7 +122,24 @@ export function CaptionList({ captions, currentTime, onChange, onSeek }: Props) 
                 </button>
                 <div className="flex-1" />
                 <button
+                  onClick={() => splitCaption(c.id)}
+                  title="Split caption"
+                  className="text-muted-foreground opacity-0 transition-opacity hover:text-primary group-hover:opacity-100"
+                >
+                  <Scissors className="h-4 w-4" />
+                </button>
+                {hasNext && (
+                  <button
+                    onClick={() => mergeWithNext(c.id)}
+                    title="Merge with next"
+                    className="text-muted-foreground opacity-0 transition-opacity hover:text-primary group-hover:opacity-100"
+                  >
+                    <Combine className="h-4 w-4" />
+                  </button>
+                )}
+                <button
                   onClick={() => remove(c.id)}
+                  title="Delete"
                   className="text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
                 >
                   <Trash2 className="h-4 w-4" />
