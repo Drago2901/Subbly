@@ -480,6 +480,9 @@ const Editor = () => {
                 style={style}
                 onTimeUpdate={setCurrentTime}
                 onLoaded={setMeta}
+                onPositionChange={({ posX, posY }) =>
+                  setStyle((s) => ({ ...s, position: "free", posX, posY }))
+                }
               />
             </div>
             <div className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3">
@@ -518,7 +521,7 @@ const Editor = () => {
             </div>
           </main>
 
-          <aside className="col-span-12 overflow-y-auto rounded-xl border border-border bg-surface md:col-span-3">
+          <aside className="col-span-12 overflow-hidden rounded-xl border border-border bg-surface md:col-span-3">
             <StylePanel style={style} onChange={setStyle} />
           </aside>
         </div>

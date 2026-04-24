@@ -206,7 +206,7 @@ function drawCaptionOverlay(
   const active = captions.find((caption) => time >= caption.start && time <= caption.end);
   if (!active) return;
 
-  const fontSize = clamp(Math.round((style.fontSize / 1080) * height), 18, 120);
+  const fontSize = clamp(Math.round((style.fontSize / 1080) * height), 18, 160);
   const padX = Math.round(fontSize * 0.36);
   const padY = Math.round(fontSize * 0.24);
   const lineGap = Math.round(fontSize * 0.2);
@@ -217,13 +217,33 @@ function drawCaptionOverlay(
   const lines = wrapWords(words, maxLineWidth);
   const lineBoxHeight = fontSize + padY * 2;
   const blockHeight = lines.length * lineBoxHeight + Math.max(0, lines.length - 1) * lineGap;
-  const blockTop = getBlockTop(style.position, height, blockHeight, fontSize);
+  const maxLineW = lines.reduce((m, l) => Math.max(m, l.width), 0);
+  const blockWidth = maxLineW + padX * 2;
+
+  // Compute anchor position
+  const center = computeCenter(style, width, height, blockWidth, blockHeight);
+  const blockTop = center.y - blockHeight / 2;
+  const blockCenterX = center.x;
+
+  // Animation transform (origin = block center)
+  const enter = clamp((time - active.start) / 0.35, 0, 1);
+  const exit = clamp((active.end - time) / 0.25, 0, 1);
+  const anim = computeAnim(style.animation, enter, exit);
+
+  ctx.save();
+  ctx.globalAlpha = anim.opacity;
+  ctx.translate(blockCenterX, center.y);
+  if (anim.scale !== 1) ctx.scale(anim.scale, anim.scale);
+  if (anim.translateY) ctx.translate(0, anim.translateY * (height / 1080));
+  ctx.translate(-blockCenterX, -center.y);
 
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
 
+  const strokePx = Math.round((style.strokeWidth / 1080) * height);
+
   lines.forEach((line, lineIndex) => {
-    const lineLeft = (width - line.width) / 2;
+    const lineLeft = blockCenterX - line.width / 2;
     const lineTop = blockTop + lineIndex * (lineBoxHeight + lineGap);
     const baselineY = lineTop + padY + fontSize * 0.82;
 
@@ -251,6 +271,31 @@ function drawCaptionOverlay(
 
       ctx.save();
       setCanvasFont(ctx, style, fontSize);
+
+      // Stroke first
+      if (strokePx > 0) {
+        ctx.strokeStyle = style.strokeColor;
+        ctx.lineWidth = strokePx;
+        ctx.lineJoin = "round";
+        ctx.miterLimit = 2;
+        if (scale !== 1) {
+          const cx = cursorX + word.width / 2;
+          const cy = baselineY - fontSize * 0.38;
+          ctx.translate(cx, cy);
+          ctx.scale(scale, scale);
+          ctx.translate(-cx, -cy);
+        }
+        ctx.strokeText(word.text, cursorX, baselineY);
+      } else {
+        if (scale !== 1) {
+          const cx = cursorX + word.width / 2;
+          const cy = baselineY - fontSize * 0.38;
+          ctx.translate(cx, cy);
+          ctx.scale(scale, scale);
+          ctx.translate(-cx, -cy);
+        }
+      }
+
       ctx.fillStyle = hexToRgba(fillColor, alpha);
       ctx.shadowColor = isActiveWord
         ? hexToRgba(style.highlightColor, 0.7)
@@ -258,19 +303,13 @@ function drawCaptionOverlay(
       ctx.shadowBlur = isActiveWord ? Math.round(fontSize * 0.45) : Math.round(fontSize * 0.12);
       ctx.shadowOffsetY = 2;
 
-      if (scale !== 1) {
-        const centerX = cursorX + word.width / 2;
-        const centerY = baselineY - fontSize * 0.38;
-        ctx.translate(centerX, centerY);
-        ctx.scale(scale, scale);
-        ctx.translate(-centerX, -centerY);
-      }
-
       ctx.fillText(word.text, cursorX, baselineY);
       ctx.restore();
       cursorX += word.width;
     });
   });
+
+  ctx.restore();
 }
 
 type RenderWord = {
@@ -332,18 +371,66 @@ function wrapWords(words: RenderWord[], maxWidth: number): RenderLine[] {
 }
 
 function setCanvasFont(ctx: CanvasRenderingContext2D, style: CaptionStyle, fontSize: number) {
-  const weight = style.bold ? 700 : 500;
+  const weight = style.bold ? Math.max(style.fontWeight ?? 700, 700) : (style.fontWeight ?? 500);
   ctx.font = `${weight} ${fontSize}px "${style.fontFamily}", sans-serif`;
 }
 
-function getBlockTop(position: CaptionStyle["position"], height: number, blockHeight: number, fontSize: number) {
-  if (position === "top") {
-    return Math.max(height * 0.08, fontSize * 0.8);
+function computeCenter(
+  style: CaptionStyle,
+  width: number,
+  height: number,
+  blockWidth: number,
+  blockHeight: number,
+): { x: number; y: number } {
+  if (style.position === "free") {
+    const x = clamp(style.posX * width, blockWidth / 2, width - blockWidth / 2);
+    const y = clamp(style.posY * height, blockHeight / 2, height - blockHeight / 2);
+    return { x, y };
   }
-  if (position === "middle") {
-    return (height - blockHeight) / 2;
+  const x = width / 2;
+  if (style.position === "top") return { x, y: height * 0.12 };
+  if (style.position === "middle") return { x, y: height / 2 };
+  return { x, y: height * 0.88 };
+}
+
+function computeAnim(
+  anim: CaptionStyle["animation"],
+  enter: number,
+  exit: number,
+): { scale: number; translateY: number; opacity: number } {
+  const e = easeOutBack(enter);
+  const fade = Math.min(enter * 1.5, 1) * Math.min(exit * 1.5, 1);
+  switch (anim) {
+    case "zoom-in":
+      return { scale: 0.5 + 0.5 * e, translateY: 0, opacity: fade };
+    case "zoom-out":
+      return { scale: 1.5 - 0.5 * e, translateY: 0, opacity: fade };
+    case "pop":
+      return { scale: 0.7 + 0.3 * e, translateY: 0, opacity: fade };
+    case "fade":
+      return { scale: 1, translateY: 0, opacity: enter * exit };
+    case "slide-up":
+      return { scale: 1, translateY: (1 - e) * 30, opacity: fade };
+    case "slide-down":
+      return { scale: 1, translateY: (1 - e) * -30, opacity: fade };
+    case "bounce": {
+      const b = Math.sin(enter * Math.PI * 2) * (1 - enter) * 0.15;
+      return { scale: 0.7 + 0.3 * enter + b, translateY: 0, opacity: fade };
+    }
+    case "wave":
+      return { scale: 1, translateY: Math.sin(performance.now() / 200) * 4, opacity: fade };
+    case "typewriter":
+      return { scale: 1, translateY: 0, opacity: enter * exit };
+    case "none":
+    default:
+      return { scale: 1, translateY: 0, opacity: 1 };
   }
-  return height - Math.max(height * 0.08, fontSize * 1.6) - blockHeight;
+}
+
+function easeOutBack(t: number): number {
+  const c1 = 1.70158;
+  const c3 = c1 + 1;
+  return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
 }
 
 function fillRoundedRect(

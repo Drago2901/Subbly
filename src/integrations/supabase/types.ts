@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      brand_kits: {
+        Row: {
+          body_font: string | null
+          created_at: string
+          heading_font: string | null
+          id: string
+          logo_url: string | null
+          primary_color: string | null
+          secondary_color: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          body_font?: string | null
+          created_at?: string
+          heading_font?: string | null
+          id?: string
+          logo_url?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          body_font?: string | null
+          created_at?: string
+          heading_font?: string | null
+          id?: string
+          logo_url?: string | null
+          primary_color?: string | null
+          secondary_color?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -89,6 +125,33 @@ export type Database = {
           updated_at?: string
           user_id?: string
           width?: number | null
+        }
+        Relationships: []
+      }
+      style_presets: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          style: Json
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          style?: Json
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          style?: Json
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
