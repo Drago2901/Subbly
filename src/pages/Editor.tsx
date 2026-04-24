@@ -29,8 +29,9 @@ import { VideoDropzone } from "@/components/captionly/VideoDropzone";
 import { VideoPreview } from "@/components/captionly/VideoPreview";
 import { CaptionList } from "@/components/captionly/CaptionList";
 import { StylePanel } from "@/components/captionly/StylePanel";
+import { ExportProgressDialog } from "@/components/captionly/ExportProgressDialog";
 import { wordsToCaptions } from "@/lib/captions/segment";
-import { burnCaptions } from "@/lib/captions/render";
+import { burnCaptions, ExportCancelledError } from "@/lib/captions/render";
 import { transcodeWebmToMp4 } from "@/lib/captions/transcode";
 import {
   DEFAULT_STYLE,
@@ -71,6 +72,7 @@ const Editor = () => {
   const [exportFormat, setExportFormat] = useState<"webm" | "mp4">("webm");
   const [exportStage, setExportStage] = useState<"render" | "transcode">("render");
   const videoRef = useRef<HTMLVideoElement>(null);
+  const exportAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     document.title = "Editor — Captionly";
@@ -292,11 +294,20 @@ const Editor = () => {
     if (id) toast.success("Project saved");
   };
 
+  const cancelExport = () => {
+    if (exportAbortRef.current) {
+      exportAbortRef.current.abort();
+      toast.info("Cancelling export…");
+    }
+  };
+
   const exportVideo = async () => {
     if (!file) {
       toast.error("Upload a video first.");
       return;
     }
+    const controller = new AbortController();
+    exportAbortRef.current = controller;
     setExporting(true);
     setExportProgress(0);
     setExportStage("render");
@@ -305,20 +316,25 @@ const Editor = () => {
         videoFile: file,
         captions,
         style,
+        signal: controller.signal,
         onProgress: ({ progress }) => setExportProgress(progress),
         onLog: (m) => console.log("[export]", m),
       });
 
+      if (controller.signal.aborted) throw new ExportCancelledError();
+
       if (exportFormat === "mp4") {
         setExportStage("transcode");
         setExportProgress(0);
-        toast.info("Converting to MP4 — this can take a moment.");
         blob = await transcodeWebmToMp4({
           webmBlob: blob,
+          signal: controller.signal,
           onProgress: (p) => setExportProgress(p),
           onLog: (m) => console.log("[ffmpeg]", m),
         });
       }
+
+      if (controller.signal.aborted) throw new ExportCancelledError();
 
       const ext = blob.type.includes("mp4") ? "mp4" : "webm";
       const url = URL.createObjectURL(blob);
@@ -334,11 +350,17 @@ const Editor = () => {
       // Auto-save the project + the exported video
       await saveProject({ exportedBlob: blob });
     } catch (e: any) {
-      console.error(e);
-      toast.error(e?.message || "Export failed");
+      if (e?.name === "ExportCancelledError" || controller.signal.aborted) {
+        toast.info("Export cancelled");
+      } else {
+        console.error(e);
+        toast.error(e?.message || "Export failed");
+      }
     } finally {
+      exportAbortRef.current = null;
       setExporting(false);
       setExportStage("render");
+      setExportProgress(0);
     }
   };
 
