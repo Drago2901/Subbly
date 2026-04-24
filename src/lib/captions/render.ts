@@ -2,14 +2,24 @@ import type { Caption, CaptionStyle } from "@/lib/captions/types";
 
 export type RenderProgress = (info: { progress: number; message?: string }) => void;
 
+export class ExportCancelledError extends Error {
+  constructor() {
+    super("Export cancelled");
+    this.name = "ExportCancelledError";
+  }
+}
+
 export async function burnCaptions(opts: {
   videoFile: File;
   captions: Caption[];
   style: CaptionStyle;
   onProgress?: RenderProgress;
   onLog?: (msg: string) => void;
+  signal?: AbortSignal;
 }): Promise<Blob> {
-  const { videoFile, captions, style, onProgress, onLog } = opts;
+  const { videoFile, captions, style, onProgress, onLog, signal } = opts;
+
+  if (signal?.aborted) throw new ExportCancelledError();
 
   if (typeof MediaRecorder === "undefined") {
     throw new Error("This browser does not support video export.");
