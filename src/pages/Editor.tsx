@@ -548,6 +548,14 @@ const Editor = () => {
           </aside>
         </div>
       )}
+
+      <ExportProgressDialog
+        open={exporting}
+        stage={exportStage}
+        progress={exportProgress}
+        format={exportFormat}
+        onCancel={cancelExport}
+      />
     </div>
   );
 };
