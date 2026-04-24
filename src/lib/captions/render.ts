@@ -2,14 +2,24 @@ import type { Caption, CaptionStyle } from "@/lib/captions/types";
 
 export type RenderProgress = (info: { progress: number; message?: string }) => void;
 
+export class ExportCancelledError extends Error {
+  constructor() {
+    super("Export cancelled");
+    this.name = "ExportCancelledError";
+  }
+}
+
 export async function burnCaptions(opts: {
   videoFile: File;
   captions: Caption[];
   style: CaptionStyle;
   onProgress?: RenderProgress;
   onLog?: (msg: string) => void;
+  signal?: AbortSignal;
 }): Promise<Blob> {
-  const { videoFile, captions, style, onProgress, onLog } = opts;
+  const { videoFile, captions, style, onProgress, onLog, signal } = opts;
+
+  if (signal?.aborted) throw new ExportCancelledError();
 
   if (typeof MediaRecorder === "undefined") {
     throw new Error("This browser does not support video export.");
@@ -145,14 +155,18 @@ export async function burnCaptions(opts: {
       const STALL_MS = 8000;
       const onEnded = () => { cleanup(); resolve(); };
       const onError = () => { cleanup(); reject(new Error("Video playback errored during export.")); };
+      const onAbort = () => { cleanup(); reject(new ExportCancelledError()); };
       const watchdog = window.setInterval(() => {
-        // If we're effectively at the end, treat as done.
+        if (signal?.aborted) {
+          cleanup();
+          reject(new ExportCancelledError());
+          return;
+        }
         if (duration && video.currentTime >= duration - 0.05) {
           cleanup();
           resolve();
           return;
         }
-        // If currentTime hasn't advanced for STALL_MS, abort with a clear error.
         if (performance.now() - lastProgressTime > STALL_MS) {
           cleanup();
           reject(new Error(
@@ -165,9 +179,11 @@ export async function burnCaptions(opts: {
         window.clearInterval(watchdog);
         video.removeEventListener("ended", onEnded);
         video.removeEventListener("error", onError);
+        signal?.removeEventListener("abort", onAbort);
       };
       video.addEventListener("ended", onEnded, { once: true });
       video.addEventListener("error", onError, { once: true });
+      signal?.addEventListener("abort", onAbort, { once: true });
     });
 
     cancelAnimationFrame(animationFrame);

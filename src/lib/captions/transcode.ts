@@ -35,8 +35,15 @@ export async function transcodeWebmToMp4(opts: {
   webmBlob: Blob;
   onProgress?: (progress: number) => void;
   onLog?: (msg: string) => void;
+  signal?: AbortSignal;
 }): Promise<Blob> {
-  const { webmBlob, onProgress, onLog } = opts;
+  const { webmBlob, onProgress, onLog, signal } = opts;
+
+  if (signal?.aborted) {
+    const err = new Error("Export cancelled");
+    err.name = "ExportCancelledError";
+    throw err;
+  }
 
   const ffmpeg = await getFFmpeg(onLog);
 
@@ -45,14 +52,20 @@ export async function transcodeWebmToMp4(opts: {
   };
   ffmpeg.on("progress", progressHandler);
 
+  const onAbort = () => {
+    try { ffmpeg.terminate(); } catch { /* noop */ }
+    // Reset cached instance so next export reloads cleanly.
+    ffmpegInstance = null;
+    loadPromise = null;
+  };
+  signal?.addEventListener("abort", onAbort, { once: true });
+
   try {
     const inputName = "input.webm";
     const outputName = "output.mp4";
 
     await ffmpeg.writeFile(inputName, await fetchFile(webmBlob));
 
-    // H.264 video + AAC audio. yuv420p ensures broad player compatibility.
-    // +faststart moves moov atom to the front so the file plays immediately.
     const exitCode = await ffmpeg.exec([
       "-i", inputName,
       "-c:v", "libx264",
@@ -65,22 +78,27 @@ export async function transcodeWebmToMp4(opts: {
       outputName,
     ]);
 
+    if (signal?.aborted) {
+      const err = new Error("Export cancelled");
+      err.name = "ExportCancelledError";
+      throw err;
+    }
+
     if (exitCode !== 0) {
       throw new Error("ffmpeg failed to transcode the video to MP4.");
     }
 
     const data = await ffmpeg.readFile(outputName);
     const bytes = data instanceof Uint8Array ? data : new TextEncoder().encode(String(data));
-    // Copy into a fresh ArrayBuffer to satisfy BlobPart typing (avoids SharedArrayBuffer union).
     const arrayBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
     const mp4Blob = new Blob([arrayBuffer], { type: "video/mp4" });
 
-    // Best-effort cleanup so memory doesn't balloon across exports.
     await ffmpeg.deleteFile(inputName).catch(() => undefined);
     await ffmpeg.deleteFile(outputName).catch(() => undefined);
 
     return mp4Blob;
   } finally {
-    ffmpeg.off("progress", progressHandler);
+    try { ffmpeg.off("progress", progressHandler); } catch { /* instance may be terminated */ }
+    signal?.removeEventListener("abort", onAbort);
   }
 }
