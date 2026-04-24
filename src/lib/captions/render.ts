@@ -104,10 +104,17 @@ export async function burnCaptions(opts: {
       };
     });
 
+    let lastProgressTime = performance.now();
+    let lastReportedTime = -1;
+
     const renderFrame = () => {
       ctx.clearRect(0, 0, width, height);
       ctx.drawImage(video, 0, 0, width, height);
       drawCaptionOverlay(ctx, captions, style, width, height, video.currentTime);
+      if (video.currentTime !== lastReportedTime) {
+        lastReportedTime = video.currentTime;
+        lastProgressTime = performance.now();
+      }
       onProgress?.({
         progress: clamp(video.currentTime / duration, 0, 1),
         message: "Rendering video",
@@ -117,10 +124,51 @@ export async function burnCaptions(opts: {
       }
     };
 
+    // Make sure we start from the very beginning.
+    try { video.currentTime = 0; } catch { /* ignore */ }
+
     recorder.start(250);
-    await video.play();
+    try {
+      await video.play();
+    } catch (err) {
+      throw new Error(
+        `Could not start playback for export: ${err instanceof Error ? err.message : String(err)}. ` +
+        `Try clicking inside the page once before exporting.`
+      );
+    }
     animationFrame = requestAnimationFrame(renderFrame);
-    await waitForVideoEvent(video, "ended");
+
+    // Wait for "ended" but with a stall watchdog so we never hang forever
+    // (e.g. if the tab is backgrounded and rAF/playback is throttled, or
+    // if the source video never fires "ended" reliably).
+    await new Promise<void>((resolve, reject) => {
+      const STALL_MS = 8000;
+      const onEnded = () => { cleanup(); resolve(); };
+      const onError = () => { cleanup(); reject(new Error("Video playback errored during export.")); };
+      const watchdog = window.setInterval(() => {
+        // If we're effectively at the end, treat as done.
+        if (duration && video.currentTime >= duration - 0.05) {
+          cleanup();
+          resolve();
+          return;
+        }
+        // If currentTime hasn't advanced for STALL_MS, abort with a clear error.
+        if (performance.now() - lastProgressTime > STALL_MS) {
+          cleanup();
+          reject(new Error(
+            "Export stalled — playback didn't progress. " +
+            "Keep this tab focused while exporting and try again."
+          ));
+        }
+      }, 500);
+      const cleanup = () => {
+        window.clearInterval(watchdog);
+        video.removeEventListener("ended", onEnded);
+        video.removeEventListener("error", onError);
+      };
+      video.addEventListener("ended", onEnded, { once: true });
+      video.addEventListener("error", onError, { once: true });
+    });
 
     cancelAnimationFrame(animationFrame);
     renderFrame();
