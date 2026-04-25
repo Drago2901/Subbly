@@ -547,3 +547,37 @@ function getSupportedMimeType() {
 
   return candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) || "";
 }
+
+function computeDrawRect(
+  srcW: number,
+  srcH: number,
+  dstW: number,
+  dstH: number,
+  fit: "cover" | "contain",
+): { x: number; y: number; w: number; h: number } {
+  if (srcW <= 0 || srcH <= 0) return { x: 0, y: 0, w: dstW, h: dstH };
+  const srcAR = srcW / srcH;
+  const dstAR = dstW / dstH;
+  let w: number;
+  let h: number;
+  if (fit === "cover") {
+    if (srcAR > dstAR) {
+      // Source wider — match height, crop sides.
+      h = dstH;
+      w = h * srcAR;
+    } else {
+      w = dstW;
+      h = w / srcAR;
+    }
+  } else {
+    // contain: letterbox
+    if (srcAR > dstAR) {
+      w = dstW;
+      h = w / srcAR;
+    } else {
+      h = dstH;
+      w = h * srcAR;
+    }
+  }
+  return { x: (dstW - w) / 2, y: (dstH - h) / 2, w, h };
+}
