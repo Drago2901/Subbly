@@ -39,6 +39,11 @@ import {
   type CaptionStyle,
   type Word,
 } from "@/lib/captions/types";
+import {
+  EXPORT_PRESETS,
+  SOURCE_PRESET_ID,
+  getPresetById,
+} from "@/lib/captions/presets";
 import { useAuth } from "@/hooks/useAuth";
 
 type ProjectMeta = {
