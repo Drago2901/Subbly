@@ -691,6 +691,11 @@ const Editor = () => {
         format={exportFormat}
         onCancel={cancelExport}
       />
+      <TranscribeProgressDialog
+        open={transcribing}
+        progress={chunkProgress}
+        onCancel={cancelTranscribe}
+      />
     </div>
   );
 };
