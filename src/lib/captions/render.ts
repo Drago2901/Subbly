@@ -67,9 +67,18 @@ export async function burnCaptions(opts: {
       await (document as Document & { fonts: FontFaceSet }).fonts.ready;
     }
 
-    const width = video.videoWidth || 1280;
-    const height = video.videoHeight || 720;
+    const srcW = video.videoWidth || 1280;
+    const srcH = video.videoHeight || 720;
     const duration = Math.max(video.duration || 0, 0.001);
+
+    // Determine output canvas size. Default to source resolution.
+    const width = output?.width && output.width > 0 ? Math.round(output.width) : srcW;
+    const height = output?.height && output.height > 0 ? Math.round(output.height) : srcH;
+    const fit = output?.fit ?? "cover";
+    const bg = output?.background ?? "#000000";
+
+    // Pre-compute draw rect (cover/contain math).
+    const drawRect = computeDrawRect(srcW, srcH, width, height, fit);
 
     canvas.width = width;
     canvas.height = height;
