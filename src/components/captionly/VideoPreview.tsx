@@ -8,10 +8,12 @@ type Props = {
   onTimeUpdate?: (t: number) => void;
   onLoaded?: (info: { width: number; height: number; duration: number }) => void;
   onPositionChange?: (pos: { posX: number; posY: number }) => void;
+  /** Optional target frame (e.g. export preset) — preview will be letterboxed/cropped to match. */
+  frame?: { width: number; height: number; fit: "cover" | "contain" } | null;
 };
 
 export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPreview(
-  { src, captions, style, onTimeUpdate, onLoaded, onPositionChange },
+  { src, captions, style, onTimeUpdate, onLoaded, onPositionChange, frame },
   ref,
 ) {
   const innerRef = useRef<HTMLVideoElement>(null);
