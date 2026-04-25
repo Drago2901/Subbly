@@ -419,7 +419,7 @@ const Editor = () => {
                   <ChevronDown className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuContent align="end" className="w-72">
                 <DropdownMenuLabel>Export format</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuRadioGroup
@@ -433,6 +433,24 @@ const Editor = () => {
                     MP4 — universal, slower export
                   </DropdownMenuRadioItem>
                 </DropdownMenuRadioGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Resolution</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuRadioGroup
+                  value={exportPresetId}
+                  onValueChange={setExportPresetId}
+                >
+                  {EXPORT_PRESETS.map((p) => (
+                    <DropdownMenuRadioItem key={p.id} value={p.id}>
+                      <span className="flex flex-col">
+                        <span>{p.label}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {p.description}
+                        </span>
+                      </span>
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -440,7 +458,7 @@ const Editor = () => {
       </div>
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [file, exporting, exportProgress, exportStage, exportFormat, saving, title, captions, style, meta],
+    [file, exporting, exportProgress, exportStage, exportFormat, exportPresetId, saving, title, captions, style, meta],
   );
 
   if (loadingProject) {
