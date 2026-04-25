@@ -75,6 +75,7 @@ const Editor = () => {
   const [storedExportPath, setStoredExportPath] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [exportFormat, setExportFormat] = useState<"webm" | "mp4">("webm");
+  const [exportPresetId, setExportPresetId] = useState<string>(SOURCE_PRESET_ID);
   const [exportStage, setExportStage] = useState<"render" | "transcode">("render");
   const videoRef = useRef<HTMLVideoElement>(null);
   const exportAbortRef = useRef<AbortController | null>(null);
