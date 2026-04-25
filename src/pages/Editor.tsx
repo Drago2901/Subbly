@@ -86,8 +86,12 @@ const Editor = () => {
   const [currentTime, setCurrentTime] = useState(0);
   const [exportFormat, setExportFormat] = useState<"webm" | "mp4">("webm");
   const [exportStage, setExportStage] = useState<"render" | "transcode">("render");
+  const [chunkSeconds, setChunkSeconds] = useState<10 | 15 | 20>(15);
+  const [highAccuracy, setHighAccuracy] = useState(false);
+  const [chunkProgress, setChunkProgress] = useState<ChunkProgress | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const exportAbortRef = useRef<AbortController | null>(null);
+  const transcribeAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     document.title = "Editor — Captionly";
