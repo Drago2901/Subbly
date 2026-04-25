@@ -139,8 +139,9 @@ export async function burnCaptions(opts: {
     let lastReportedTime = -1;
 
     const renderFrame = () => {
-      ctx.clearRect(0, 0, width, height);
-      ctx.drawImage(video, 0, 0, width, height);
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(video, drawRect.x, drawRect.y, drawRect.w, drawRect.h);
       drawCaptionOverlay(ctx, captions, style, width, height, video.currentTime);
       if (video.currentTime !== lastReportedTime) {
         lastReportedTime = video.currentTime;
