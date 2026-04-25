@@ -610,7 +610,7 @@ const Editor = () => {
                 }
               />
             </div>
-            <div className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface px-4 py-3">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 {meta ? (
                   <>
@@ -625,24 +625,56 @@ const Editor = () => {
                   </span>
                 )}
               </div>
-              <Button
-                onClick={transcribe}
-                disabled={transcribing}
-                variant="secondary"
-                className="border border-primary/30 hover:border-primary/60"
-              >
-                {transcribing ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Transcribing…
-                  </>
-                ) : (
-                  <>
-                    <Wand2 className="mr-2 h-4 w-4 text-primary" />
-                    {captions.length ? "Re-transcribe" : "Auto-transcribe"}
-                  </>
-                )}
-              </Button>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-1.5">
+                  <Label htmlFor="chunk-size" className="text-xs text-muted-foreground">
+                    Chunk
+                  </Label>
+                  <Select
+                    value={String(chunkSeconds)}
+                    onValueChange={(v) => setChunkSeconds(Number(v) as 10 | 15 | 20)}
+                    disabled={transcribing}
+                  >
+                    <SelectTrigger id="chunk-size" className="h-8 w-[88px] text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10s</SelectItem>
+                      <SelectItem value="15">15s</SelectItem>
+                      <SelectItem value="20">20s</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Switch
+                    id="hi-acc"
+                    checked={highAccuracy}
+                    onCheckedChange={setHighAccuracy}
+                    disabled={transcribing}
+                  />
+                  <Label htmlFor="hi-acc" className="text-xs text-muted-foreground">
+                    High accuracy
+                  </Label>
+                </div>
+                <Button
+                  onClick={transcribe}
+                  disabled={transcribing}
+                  variant="secondary"
+                  className="border border-primary/30 hover:border-primary/60"
+                >
+                  {transcribing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Transcribing…
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="mr-2 h-4 w-4 text-primary" />
+                      {captions.length ? "Re-transcribe" : "Auto-transcribe"}
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </main>
 
