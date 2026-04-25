@@ -203,28 +203,92 @@ const Editor = () => {
     }
   };
 
+  const cancelTranscribe = () => {
+    transcribeAbortRef.current?.abort();
+    toast.info("Cancelling transcription…");
+  };
+
   const transcribe = async () => {
     if (!file) return;
+    const controller = new AbortController();
+    transcribeAbortRef.current = controller;
     setTranscribing(true);
+    setChunkProgress(null);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const { data, error } = await supabase.functions.invoke("transcribe-video", {
-        body: fd,
-      });
-      if (error) throw error;
-      const words: Word[] = data?.words ?? [];
+      // Decide whether to chunk: skip splitting for short clips (≤30s)
+      // since a single API call is faster and avoids re-encoding.
+      let duration = meta?.duration;
+      if (!duration) {
+        try {
+          duration = await probeVideoDuration(file);
+        } catch {
+          duration = undefined;
+        }
+      }
+
+      let words: Word[] = [];
+      let chunkCount = 1;
+
+      if (duration && duration > 30) {
+        const result = await transcribeChunked({
+          file,
+          chunkSeconds,
+          highAccuracy,
+          signal: controller.signal,
+          onProgress: setChunkProgress,
+        });
+        words = result.words;
+        chunkCount = result.chunkCount;
+      } else {
+        // Short video: single call, no chunking.
+        setChunkProgress({
+          stage: "transcribing",
+          chunksDone: 0,
+          chunksTotal: 1,
+          splitDone: 1,
+          splitTotal: 1,
+        });
+        const fd = new FormData();
+        fd.append("file", file);
+        const { data, error } = await supabase.functions.invoke("transcribe-video", {
+          body: fd,
+        });
+        if (error) throw error;
+        words = (data?.words ?? []) as Word[];
+        setChunkProgress({
+          stage: "merging",
+          chunksDone: 1,
+          chunksTotal: 1,
+          splitDone: 1,
+          splitTotal: 1,
+        });
+      }
+
+      if (controller.signal.aborted) {
+        toast.info("Transcription cancelled");
+        return;
+      }
       if (!words.length) {
         toast.error("No speech detected in this video.");
         return;
       }
       setCaptions(wordsToCaptions(words, 42));
-      toast.success("Transcription complete");
+      toast.success(
+        chunkCount > 1
+          ? `Transcription complete (${chunkCount} chunks merged)`
+          : "Transcription complete",
+      );
     } catch (e: any) {
-      console.error(e);
-      toast.error(e?.message || "Transcription failed");
+      if (controller.signal.aborted || e?.message === "Cancelled") {
+        toast.info("Transcription cancelled");
+      } else {
+        console.error(e);
+        toast.error(e?.message || "Transcription failed");
+      }
     } finally {
+      transcribeAbortRef.current = null;
       setTranscribing(false);
+      setChunkProgress(null);
     }
   };
 
