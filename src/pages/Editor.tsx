@@ -30,9 +30,24 @@ import { VideoPreview } from "@/components/captionly/VideoPreview";
 import { CaptionList } from "@/components/captionly/CaptionList";
 import { StylePanel } from "@/components/captionly/StylePanel";
 import { ExportProgressDialog } from "@/components/captionly/ExportProgressDialog";
+import { TranscribeProgressDialog } from "@/components/captionly/TranscribeProgressDialog";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { wordsToCaptions } from "@/lib/captions/segment";
 import { burnCaptions, ExportCancelledError } from "@/lib/captions/render";
 import { transcodeWebmToMp4 } from "@/lib/captions/transcode";
+import {
+  transcribeChunked,
+  type ChunkProgress,
+} from "@/lib/captions/transcribeChunked";
+import { probeVideoDuration } from "@/lib/captions/chunker";
 import {
   DEFAULT_STYLE,
   type Caption,
@@ -71,8 +86,12 @@ const Editor = () => {
   const [currentTime, setCurrentTime] = useState(0);
   const [exportFormat, setExportFormat] = useState<"webm" | "mp4">("webm");
   const [exportStage, setExportStage] = useState<"render" | "transcode">("render");
+  const [chunkSeconds, setChunkSeconds] = useState<10 | 15 | 20>(15);
+  const [highAccuracy, setHighAccuracy] = useState(false);
+  const [chunkProgress, setChunkProgress] = useState<ChunkProgress | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const exportAbortRef = useRef<AbortController | null>(null);
+  const transcribeAbortRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     document.title = "Editor — Captionly";
@@ -151,7 +170,27 @@ const Editor = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleFile = (f: File) => {
+  const handleFile = async (f: File) => {
+    const MAX_SIZE = 100 * 1024 * 1024; // 100 MB
+    const MAX_DURATION = 5 * 60; // 5 minutes
+    if (f.size > MAX_SIZE) {
+      toast.error(
+        `Video is ${(f.size / 1024 / 1024).toFixed(0)} MB. Maximum supported size is 100 MB.`,
+      );
+      return;
+    }
+    try {
+      const dur = await probeVideoDuration(f);
+      if (dur > MAX_DURATION + 1) {
+        toast.error(
+          `Video is ${dur.toFixed(0)}s. Maximum supported length is 5 minutes.`,
+        );
+        return;
+      }
+    } catch {
+      // If probing fails, allow but warn
+      toast.warning("Could not read video duration — proceeding anyway.");
+    }
     if (videoUrl) URL.revokeObjectURL(videoUrl);
     setFile(f);
     setVideoUrl(URL.createObjectURL(f));
@@ -164,28 +203,92 @@ const Editor = () => {
     }
   };
 
+  const cancelTranscribe = () => {
+    transcribeAbortRef.current?.abort();
+    toast.info("Cancelling transcription…");
+  };
+
   const transcribe = async () => {
     if (!file) return;
+    const controller = new AbortController();
+    transcribeAbortRef.current = controller;
     setTranscribing(true);
+    setChunkProgress(null);
     try {
-      const fd = new FormData();
-      fd.append("file", file);
-      const { data, error } = await supabase.functions.invoke("transcribe-video", {
-        body: fd,
-      });
-      if (error) throw error;
-      const words: Word[] = data?.words ?? [];
+      // Decide whether to chunk: skip splitting for short clips (≤30s)
+      // since a single API call is faster and avoids re-encoding.
+      let duration = meta?.duration;
+      if (!duration) {
+        try {
+          duration = await probeVideoDuration(file);
+        } catch {
+          duration = undefined;
+        }
+      }
+
+      let words: Word[] = [];
+      let chunkCount = 1;
+
+      if (duration && duration > 30) {
+        const result = await transcribeChunked({
+          file,
+          chunkSeconds,
+          highAccuracy,
+          signal: controller.signal,
+          onProgress: setChunkProgress,
+        });
+        words = result.words;
+        chunkCount = result.chunkCount;
+      } else {
+        // Short video: single call, no chunking.
+        setChunkProgress({
+          stage: "transcribing",
+          chunksDone: 0,
+          chunksTotal: 1,
+          splitDone: 1,
+          splitTotal: 1,
+        });
+        const fd = new FormData();
+        fd.append("file", file);
+        const { data, error } = await supabase.functions.invoke("transcribe-video", {
+          body: fd,
+        });
+        if (error) throw error;
+        words = (data?.words ?? []) as Word[];
+        setChunkProgress({
+          stage: "merging",
+          chunksDone: 1,
+          chunksTotal: 1,
+          splitDone: 1,
+          splitTotal: 1,
+        });
+      }
+
+      if (controller.signal.aborted) {
+        toast.info("Transcription cancelled");
+        return;
+      }
       if (!words.length) {
         toast.error("No speech detected in this video.");
         return;
       }
       setCaptions(wordsToCaptions(words, 42));
-      toast.success("Transcription complete");
+      toast.success(
+        chunkCount > 1
+          ? `Transcription complete (${chunkCount} chunks merged)`
+          : "Transcription complete",
+      );
     } catch (e: any) {
-      console.error(e);
-      toast.error(e?.message || "Transcription failed");
+      if (controller.signal.aborted || e?.message === "Cancelled") {
+        toast.info("Transcription cancelled");
+      } else {
+        console.error(e);
+        toast.error(e?.message || "Transcription failed");
+      }
     } finally {
+      transcribeAbortRef.current = null;
       setTranscribing(false);
+      setChunkProgress(null);
     }
   };
 
@@ -507,7 +610,7 @@ const Editor = () => {
                 }
               />
             </div>
-            <div className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-surface px-4 py-3">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 {meta ? (
                   <>
@@ -522,24 +625,56 @@ const Editor = () => {
                   </span>
                 )}
               </div>
-              <Button
-                onClick={transcribe}
-                disabled={transcribing}
-                variant="secondary"
-                className="border border-primary/30 hover:border-primary/60"
-              >
-                {transcribing ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Transcribing…
-                  </>
-                ) : (
-                  <>
-                    <Wand2 className="mr-2 h-4 w-4 text-primary" />
-                    {captions.length ? "Re-transcribe" : "Auto-transcribe"}
-                  </>
-                )}
-              </Button>
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center gap-1.5">
+                  <Label htmlFor="chunk-size" className="text-xs text-muted-foreground">
+                    Chunk
+                  </Label>
+                  <Select
+                    value={String(chunkSeconds)}
+                    onValueChange={(v) => setChunkSeconds(Number(v) as 10 | 15 | 20)}
+                    disabled={transcribing}
+                  >
+                    <SelectTrigger id="chunk-size" className="h-8 w-[88px] text-xs">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="10">10s</SelectItem>
+                      <SelectItem value="15">15s</SelectItem>
+                      <SelectItem value="20">20s</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Switch
+                    id="hi-acc"
+                    checked={highAccuracy}
+                    onCheckedChange={setHighAccuracy}
+                    disabled={transcribing}
+                  />
+                  <Label htmlFor="hi-acc" className="text-xs text-muted-foreground">
+                    High accuracy
+                  </Label>
+                </div>
+                <Button
+                  onClick={transcribe}
+                  disabled={transcribing}
+                  variant="secondary"
+                  className="border border-primary/30 hover:border-primary/60"
+                >
+                  {transcribing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Transcribing…
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="mr-2 h-4 w-4 text-primary" />
+                      {captions.length ? "Re-transcribe" : "Auto-transcribe"}
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
           </main>
 
@@ -555,6 +690,11 @@ const Editor = () => {
         progress={exportProgress}
         format={exportFormat}
         onCancel={cancelExport}
+      />
+      <TranscribeProgressDialog
+        open={transcribing}
+        progress={chunkProgress}
+        onCancel={cancelTranscribe}
       />
     </div>
   );
