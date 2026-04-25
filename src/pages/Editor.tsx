@@ -318,10 +318,16 @@ const Editor = () => {
     setExportProgress(0);
     setExportStage("render");
     try {
+      const preset = getPresetById(exportPresetId);
+      const output =
+        preset.id === SOURCE_PRESET_ID
+          ? undefined
+          : { width: preset.width, height: preset.height, fit: preset.fit };
       let blob = await burnCaptions({
         videoFile: file,
         captions,
         style,
+        output,
         signal: controller.signal,
         onProgress: ({ progress }) => setExportProgress(progress),
         onLog: (m) => console.log("[export]", m),
