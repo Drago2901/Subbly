@@ -39,6 +39,11 @@ import {
   type CaptionStyle,
   type Word,
 } from "@/lib/captions/types";
+import {
+  EXPORT_PRESETS,
+  SOURCE_PRESET_ID,
+  getPresetById,
+} from "@/lib/captions/presets";
 import { useAuth } from "@/hooks/useAuth";
 
 type ProjectMeta = {
@@ -70,6 +75,7 @@ const Editor = () => {
   const [storedExportPath, setStoredExportPath] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [exportFormat, setExportFormat] = useState<"webm" | "mp4">("webm");
+  const [exportPresetId, setExportPresetId] = useState<string>(SOURCE_PRESET_ID);
   const [exportStage, setExportStage] = useState<"render" | "transcode">("render");
   const videoRef = useRef<HTMLVideoElement>(null);
   const exportAbortRef = useRef<AbortController | null>(null);
@@ -312,10 +318,16 @@ const Editor = () => {
     setExportProgress(0);
     setExportStage("render");
     try {
+      const preset = getPresetById(exportPresetId);
+      const output =
+        preset.id === SOURCE_PRESET_ID
+          ? undefined
+          : { width: preset.width, height: preset.height, fit: preset.fit };
       let blob = await burnCaptions({
         videoFile: file,
         captions,
         style,
+        output,
         signal: controller.signal,
         onProgress: ({ progress }) => setExportProgress(progress),
         onLog: (m) => console.log("[export]", m),
@@ -407,7 +419,7 @@ const Editor = () => {
                   <ChevronDown className="h-4 w-4" />
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuContent align="end" className="w-72">
                 <DropdownMenuLabel>Export format</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuRadioGroup
@@ -421,6 +433,24 @@ const Editor = () => {
                     MP4 — universal, slower export
                   </DropdownMenuRadioItem>
                 </DropdownMenuRadioGroup>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel>Resolution</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuRadioGroup
+                  value={exportPresetId}
+                  onValueChange={setExportPresetId}
+                >
+                  {EXPORT_PRESETS.map((p) => (
+                    <DropdownMenuRadioItem key={p.id} value={p.id}>
+                      <span className="flex flex-col">
+                        <span>{p.label}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {p.description}
+                        </span>
+                      </span>
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
@@ -428,7 +458,7 @@ const Editor = () => {
       </div>
     ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [file, exporting, exportProgress, exportStage, exportFormat, saving, title, captions, style, meta],
+    [file, exporting, exportProgress, exportStage, exportFormat, exportPresetId, saving, title, captions, style, meta],
   );
 
   if (loadingProject) {

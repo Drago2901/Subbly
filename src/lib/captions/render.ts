@@ -2,6 +2,17 @@ import type { Caption, CaptionStyle } from "@/lib/captions/types";
 
 export type RenderProgress = (info: { progress: number; message?: string }) => void;
 
+export type ExportOutput = {
+  /** Target width in pixels. If omitted, source width is used. */
+  width?: number;
+  /** Target height in pixels. If omitted, source height is used. */
+  height?: number;
+  /** "cover" crops to fill (no bars), "contain" letterboxes. Default: "cover". */
+  fit?: "cover" | "contain";
+  /** Background color used when letterboxing. Default: black. */
+  background?: string;
+};
+
 export class ExportCancelledError extends Error {
   constructor() {
     super("Export cancelled");
@@ -13,11 +24,12 @@ export async function burnCaptions(opts: {
   videoFile: File;
   captions: Caption[];
   style: CaptionStyle;
+  output?: ExportOutput;
   onProgress?: RenderProgress;
   onLog?: (msg: string) => void;
   signal?: AbortSignal;
 }): Promise<Blob> {
-  const { videoFile, captions, style, onProgress, onLog, signal } = opts;
+  const { videoFile, captions, style, output, onProgress, onLog, signal } = opts;
 
   if (signal?.aborted) throw new ExportCancelledError();
 
@@ -55,9 +67,18 @@ export async function burnCaptions(opts: {
       await (document as Document & { fonts: FontFaceSet }).fonts.ready;
     }
 
-    const width = video.videoWidth || 1280;
-    const height = video.videoHeight || 720;
+    const srcW = video.videoWidth || 1280;
+    const srcH = video.videoHeight || 720;
     const duration = Math.max(video.duration || 0, 0.001);
+
+    // Determine output canvas size. Default to source resolution.
+    const width = output?.width && output.width > 0 ? Math.round(output.width) : srcW;
+    const height = output?.height && output.height > 0 ? Math.round(output.height) : srcH;
+    const fit = output?.fit ?? "cover";
+    const bg = output?.background ?? "#000000";
+
+    // Pre-compute draw rect (cover/contain math).
+    const drawRect = computeDrawRect(srcW, srcH, width, height, fit);
 
     canvas.width = width;
     canvas.height = height;
@@ -118,8 +139,9 @@ export async function burnCaptions(opts: {
     let lastReportedTime = -1;
 
     const renderFrame = () => {
-      ctx.clearRect(0, 0, width, height);
-      ctx.drawImage(video, 0, 0, width, height);
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, width, height);
+      ctx.drawImage(video, drawRect.x, drawRect.y, drawRect.w, drawRect.h);
       drawCaptionOverlay(ctx, captions, style, width, height, video.currentTime);
       if (video.currentTime !== lastReportedTime) {
         lastReportedTime = video.currentTime;
@@ -524,4 +546,38 @@ function getSupportedMimeType() {
   ];
 
   return candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) || "";
+}
+
+function computeDrawRect(
+  srcW: number,
+  srcH: number,
+  dstW: number,
+  dstH: number,
+  fit: "cover" | "contain",
+): { x: number; y: number; w: number; h: number } {
+  if (srcW <= 0 || srcH <= 0) return { x: 0, y: 0, w: dstW, h: dstH };
+  const srcAR = srcW / srcH;
+  const dstAR = dstW / dstH;
+  let w: number;
+  let h: number;
+  if (fit === "cover") {
+    if (srcAR > dstAR) {
+      // Source wider — match height, crop sides.
+      h = dstH;
+      w = h * srcAR;
+    } else {
+      w = dstW;
+      h = w / srcAR;
+    }
+  } else {
+    // contain: letterbox
+    if (srcAR > dstAR) {
+      w = dstW;
+      h = w / srcAR;
+    } else {
+      h = dstH;
+      w = h * srcAR;
+    }
+  }
+  return { x: (dstW - w) / 2, y: (dstH - h) / 2, w, h };
 }
