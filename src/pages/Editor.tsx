@@ -30,9 +30,24 @@ import { VideoPreview } from "@/components/captionly/VideoPreview";
 import { CaptionList } from "@/components/captionly/CaptionList";
 import { StylePanel } from "@/components/captionly/StylePanel";
 import { ExportProgressDialog } from "@/components/captionly/ExportProgressDialog";
+import { TranscribeProgressDialog } from "@/components/captionly/TranscribeProgressDialog";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { wordsToCaptions } from "@/lib/captions/segment";
 import { burnCaptions, ExportCancelledError } from "@/lib/captions/render";
 import { transcodeWebmToMp4 } from "@/lib/captions/transcode";
+import {
+  transcribeChunked,
+  type ChunkProgress,
+} from "@/lib/captions/transcribeChunked";
+import { probeVideoDuration } from "@/lib/captions/chunker";
 import {
   DEFAULT_STYLE,
   type Caption,
