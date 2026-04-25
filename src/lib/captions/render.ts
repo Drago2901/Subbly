@@ -2,6 +2,17 @@ import type { Caption, CaptionStyle } from "@/lib/captions/types";
 
 export type RenderProgress = (info: { progress: number; message?: string }) => void;
 
+export type ExportOutput = {
+  /** Target width in pixels. If omitted, source width is used. */
+  width?: number;
+  /** Target height in pixels. If omitted, source height is used. */
+  height?: number;
+  /** "cover" crops to fill (no bars), "contain" letterboxes. Default: "cover". */
+  fit?: "cover" | "contain";
+  /** Background color used when letterboxing. Default: black. */
+  background?: string;
+};
+
 export class ExportCancelledError extends Error {
   constructor() {
     super("Export cancelled");
@@ -13,11 +24,12 @@ export async function burnCaptions(opts: {
   videoFile: File;
   captions: Caption[];
   style: CaptionStyle;
+  output?: ExportOutput;
   onProgress?: RenderProgress;
   onLog?: (msg: string) => void;
   signal?: AbortSignal;
 }): Promise<Blob> {
-  const { videoFile, captions, style, onProgress, onLog, signal } = opts;
+  const { videoFile, captions, style, output, onProgress, onLog, signal } = opts;
 
   if (signal?.aborted) throw new ExportCancelledError();
 
