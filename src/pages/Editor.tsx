@@ -170,7 +170,27 @@ const Editor = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleFile = (f: File) => {
+  const handleFile = async (f: File) => {
+    const MAX_SIZE = 100 * 1024 * 1024; // 100 MB
+    const MAX_DURATION = 5 * 60; // 5 minutes
+    if (f.size > MAX_SIZE) {
+      toast.error(
+        `Video is ${(f.size / 1024 / 1024).toFixed(0)} MB. Maximum supported size is 100 MB.`,
+      );
+      return;
+    }
+    try {
+      const dur = await probeVideoDuration(f);
+      if (dur > MAX_DURATION + 1) {
+        toast.error(
+          `Video is ${dur.toFixed(0)}s. Maximum supported length is 5 minutes.`,
+        );
+        return;
+      }
+    } catch {
+      // If probing fails, allow but warn
+      toast.warning("Could not read video duration — proceeding anyway.");
+    }
     if (videoUrl) URL.revokeObjectURL(videoUrl);
     setFile(f);
     setVideoUrl(URL.createObjectURL(f));
