@@ -12,6 +12,13 @@ import {
   Wand2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -524,18 +531,63 @@ const Editor = () => {
           </aside>
 
           <main className="col-span-12 flex flex-col gap-3 md:col-span-6">
-            <div className="rounded-xl border border-border bg-surface p-3">
-              <VideoPreview
-                ref={videoRef}
-                src={videoUrl}
-                captions={captions}
-                style={style}
-                onTimeUpdate={setCurrentTime}
-                onLoaded={setMeta}
-                onPositionChange={({ posX, posY }) =>
-                  setStyle((s) => ({ ...s, position: "free", posX, posY }))
+            <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-3">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="text-xs font-medium text-muted-foreground">
+                  Preview resolution
+                </div>
+                <Select value={exportPresetId} onValueChange={setExportPresetId}>
+                  <SelectTrigger className="h-8 w-[260px] text-xs">
+                    <SelectValue placeholder="Select resolution" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {EXPORT_PRESETS.map((p) => (
+                      <SelectItem key={p.id} value={p.id}>
+                        <span className="flex flex-col">
+                          <span>{p.label}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {p.description}
+                          </span>
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div
+                className="mx-auto w-full"
+                style={
+                  exportPresetId !== SOURCE_PRESET_ID
+                    ? {
+                        maxWidth: (() => {
+                          const p = getPresetById(exportPresetId);
+                          // Constrain vertical/portrait formats so they don't dominate the column
+                          return p.height > p.width ? "320px" : "100%";
+                        })(),
+                      }
+                    : undefined
                 }
-              />
+              >
+                <VideoPreview
+                  ref={videoRef}
+                  src={videoUrl}
+                  captions={captions}
+                  style={style}
+                  onTimeUpdate={setCurrentTime}
+                  onLoaded={setMeta}
+                  onPositionChange={({ posX, posY }) =>
+                    setStyle((s) => ({ ...s, position: "free", posX, posY }))
+                  }
+                  frame={
+                    exportPresetId === SOURCE_PRESET_ID
+                      ? null
+                      : (() => {
+                          const p = getPresetById(exportPresetId);
+                          return { width: p.width, height: p.height, fit: p.fit };
+                        })()
+                  }
+                />
+              </div>
             </div>
             <div className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3">
               <div className="flex items-center gap-2 text-xs text-muted-foreground">
