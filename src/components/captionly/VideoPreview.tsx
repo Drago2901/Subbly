@@ -71,15 +71,22 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
   const animProgress = active ? Math.min(1, (time - active.start) / 0.35) : 0;
   const exitProgress = active ? Math.max(0, Math.min(1, (active.end - time) / 0.25)) : 1;
 
+  const aspectStyle = frame
+    ? { aspectRatio: `${frame.width} / ${frame.height}` }
+    : undefined;
+  const objectFit: "cover" | "contain" = frame?.fit ?? "contain";
+
   return (
     <div
       ref={containerRef}
-      className="relative w-full overflow-hidden rounded-xl bg-black shadow-elegant"
+      className="relative mx-auto w-full overflow-hidden rounded-xl bg-black shadow-elegant"
+      style={aspectStyle}
     >
       <video
         ref={innerRef}
         src={src}
         className="block h-full w-full"
+        style={{ objectFit }}
         controls
         onTimeUpdate={(e) => {
           const t = (e.target as HTMLVideoElement).currentTime;
