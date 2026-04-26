@@ -326,15 +326,15 @@ function StatCard({
   value: number | string;
 }) {
   return (
-    <Card>
-      <CardContent className="flex items-center justify-between py-6">
-        <div>
-          <p className="text-sm text-muted-foreground">{label}</p>
-          <p className="text-3xl font-semibold mt-1">{value}</p>
-        </div>
-        <div className="rounded-full bg-primary/10 p-3 text-primary">{icon}</div>
-      </CardContent>
-    </Card>
+    <div className="flex items-center justify-between rounded-xl border border-[#e8e4de] bg-white p-5">
+      <div>
+        <p className="text-[12px] text-[#aaa]">{label}</p>
+        <p className="mt-1 text-[26px] font-medium tracking-[-0.5px]">{value}</p>
+      </div>
+      <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#ffd5cc] bg-[#fff5f3] text-[#ff5c3a]">
+        {icon}
+      </div>
+    </div>
   );
 }
 
