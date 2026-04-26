@@ -185,47 +185,45 @@ const Admin = () => {
         ) : (
           <>
             {/* Users */}
-            <Card>
+            <Card className="border-[#e8e4de] bg-white shadow-none">
               <CardHeader>
-                <CardTitle>All users</CardTitle>
+                <CardTitle className="text-[16px] font-medium">All users</CardTitle>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>User ID</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Projects</TableHead>
-                      <TableHead>Joined</TableHead>
+                    <TableRow className="border-[#eeeae4] hover:bg-transparent">
+                      <TableHead className="text-[11px] uppercase tracking-[0.07em] text-[#aaa]">Name</TableHead>
+                      <TableHead className="text-[11px] uppercase tracking-[0.07em] text-[#aaa]">User ID</TableHead>
+                      <TableHead className="text-[11px] uppercase tracking-[0.07em] text-[#aaa]">Role</TableHead>
+                      <TableHead className="text-[11px] uppercase tracking-[0.07em] text-[#aaa]">Projects</TableHead>
+                      <TableHead className="text-[11px] uppercase tracking-[0.07em] text-[#aaa]">Joined</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {profiles?.length ? (
                       profiles.map((p) => (
-                        <TableRow key={p.id}>
-                          <TableCell className="font-medium">
-                            {p.display_name || "—"}
-                          </TableCell>
-                          <TableCell className="font-mono text-xs text-muted-foreground">
+                        <TableRow key={p.id} className="border-[#eeeae4] hover:bg-[#faf9f7]">
+                          <TableCell className="font-medium">{p.display_name || "—"}</TableCell>
+                          <TableCell className="font-mono text-xs text-[#aaa]">
                             {p.user_id.slice(0, 8)}…
                           </TableCell>
                           <TableCell>
                             {adminUserIds.has(p.user_id) ? (
-                              <Badge>admin</Badge>
+                              <Badge className="bg-[#ff5c3a] hover:bg-[#ee4f2e]">admin</Badge>
                             ) : (
-                              <Badge variant="secondary">user</Badge>
+                              <Badge variant="secondary" className="bg-[#fff5f3] text-[#ff5c3a] hover:bg-[#ffe5df]">user</Badge>
                             )}
                           </TableCell>
                           <TableCell>{projectCountByUser.get(p.user_id) ?? 0}</TableCell>
-                          <TableCell className="text-muted-foreground">
+                          <TableCell className="text-[#888]">
                             {new Date(p.created_at).toLocaleDateString()}
                           </TableCell>
                         </TableRow>
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center text-muted-foreground">
+                        <TableCell colSpan={5} className="text-center text-[#aaa]">
                           No users yet
                         </TableCell>
                       </TableRow>
@@ -236,37 +234,35 @@ const Admin = () => {
             </Card>
 
             {/* Projects */}
-            <Card>
+            <Card className="border-[#e8e4de] bg-white shadow-none">
               <CardHeader>
-                <CardTitle>All projects</CardTitle>
+                <CardTitle className="text-[16px] font-medium">All projects</CardTitle>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Owner</TableHead>
-                      <TableHead>Exported</TableHead>
-                      <TableHead>Updated</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                    <TableRow className="border-[#eeeae4] hover:bg-transparent">
+                      <TableHead className="text-[11px] uppercase tracking-[0.07em] text-[#aaa]">Title</TableHead>
+                      <TableHead className="text-[11px] uppercase tracking-[0.07em] text-[#aaa]">Owner</TableHead>
+                      <TableHead className="text-[11px] uppercase tracking-[0.07em] text-[#aaa]">Exported</TableHead>
+                      <TableHead className="text-[11px] uppercase tracking-[0.07em] text-[#aaa]">Updated</TableHead>
+                      <TableHead className="text-right text-[11px] uppercase tracking-[0.07em] text-[#aaa]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {projects?.length ? (
                       projects.map((p) => (
-                        <TableRow key={p.id}>
+                        <TableRow key={p.id} className="border-[#eeeae4] hover:bg-[#faf9f7]">
                           <TableCell className="font-medium">{p.title}</TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {userLabel(p.user_id)}
-                          </TableCell>
+                          <TableCell className="text-[#888]">{userLabel(p.user_id)}</TableCell>
                           <TableCell>
                             {p.exported_video_path ? (
-                              <Badge>yes</Badge>
+                              <Badge className="bg-[#ff5c3a] hover:bg-[#ee4f2e]">yes</Badge>
                             ) : (
-                              <Badge variant="secondary">no</Badge>
+                              <Badge variant="secondary" className="bg-[#faf9f7] text-[#888]">no</Badge>
                             )}
                           </TableCell>
-                          <TableCell className="text-muted-foreground">
+                          <TableCell className="text-[#888]">
                             {new Date(p.updated_at).toLocaleString()}
                           </TableCell>
                           <TableCell className="text-right">
@@ -275,15 +271,16 @@ const Admin = () => {
                               size="icon"
                               onClick={() => setPendingDeleteProject(p)}
                               aria-label="Delete project"
+                              className="text-[#bbb] hover:bg-[#fff5f3] hover:text-[#ff5c3a]"
                             >
-                              <Trash2 className="h-4 w-4 text-destructive" />
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </TableCell>
                         </TableRow>
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center text-muted-foreground">
+                        <TableCell colSpan={5} className="text-center text-[#aaa]">
                           No projects yet
                         </TableCell>
                       </TableRow>
