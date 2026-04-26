@@ -135,50 +135,52 @@ const Admin = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-surface">
-      <header className="border-b border-border bg-card/60 backdrop-blur">
-        <div className="container flex items-center justify-between py-4">
-          <div className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-primary" />
-            <span className="font-semibold">Admin Dashboard</span>
-            <Badge variant="secondary" className="ml-2">
-              {user?.email}
-            </Badge>
+    <div className="min-h-screen bg-[#f5f3ee] text-[#1a1a1a]">
+      <nav className="flex items-center justify-between border-b border-[#e8e4de] bg-white px-6 py-4 md:px-10">
+        <Link to="/admin" className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#ff5c3a]">
+            <Type className="h-4 w-4 text-white" strokeWidth={2} />
           </div>
-          <div className="flex items-center gap-2">
-            <Button asChild variant="ghost" size="sm">
-              <Link to="/projects">My projects</Link>
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => signOut()}>
-              <LogOut className="mr-2 h-4 w-4" /> Sign out
-            </Button>
+          <div>
+            <h1 className="flex items-center gap-1.5 text-[15px] font-medium leading-none">
+              Subbly <Shield className="h-3.5 w-3.5 text-[#ff5c3a]" />
+            </h1>
+            <p className="mt-0.5 text-[11px] text-[#aaa]">Admin · {user?.email}</p>
           </div>
+        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/projects"
+            className="rounded-md border border-[#ddd] bg-white px-4 py-1.5 text-[13px] text-[#555] hover:bg-[#faf9f7]"
+          >
+            My projects
+          </Link>
+          <button
+            onClick={() => signOut()}
+            className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] text-[#888] hover:bg-[#faf9f7] hover:text-[#1a1a1a]"
+          >
+            <LogOut className="h-3.5 w-3.5" /> Sign out
+          </button>
         </div>
-      </header>
+      </nav>
 
-      <main className="container py-8 space-y-8">
+      <main className="mx-auto w-full max-w-6xl px-6 py-10 md:px-10 space-y-8">
+        <div>
+          <div className="mb-2 text-[11px] tracking-[0.09em] text-[#ff5c3a]">ADMIN</div>
+          <h2 className="text-[30px] font-medium tracking-[-0.5px]">Overview</h2>
+          <p className="mt-1.5 text-sm text-[#888]">Manage users and projects across the platform.</p>
+        </div>
+
         {/* Stats */}
-        <section className="grid gap-4 md:grid-cols-3">
-          <StatCard
-            icon={<Users className="h-5 w-5" />}
-            label="Users"
-            value={profiles?.length ?? "—"}
-          />
-          <StatCard
-            icon={<FolderOpen className="h-5 w-5" />}
-            label="Projects"
-            value={projects?.length ?? "—"}
-          />
-          <StatCard
-            icon={<Download className="h-5 w-5" />}
-            label="Exports"
-            value={projects ? exportedCount : "—"}
-          />
+        <section className="grid gap-3.5 md:grid-cols-3">
+          <StatCard icon={<Users className="h-4 w-4" />} label="Users" value={profiles?.length ?? "—"} />
+          <StatCard icon={<FolderOpen className="h-4 w-4" />} label="Projects" value={projects?.length ?? "—"} />
+          <StatCard icon={<Download className="h-4 w-4" />} label="Exports" value={projects ? exportedCount : "—"} />
         </section>
 
         {loading ? (
           <div className="flex justify-center py-20">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            <Loader2 className="h-6 w-6 animate-spin text-[#ff5c3a]" />
           </div>
         ) : (
           <>
