@@ -59,7 +59,7 @@ const Admin = () => {
   const [working, setWorking] = useState(false);
 
   useEffect(() => {
-    document.title = "Admin dashboard — Captionly";
+    document.title = "Admin dashboard — Subbly";
   }, []);
 
   useEffect(() => {
