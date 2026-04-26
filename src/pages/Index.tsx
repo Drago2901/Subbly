@@ -8,7 +8,7 @@ const Index = () => {
   const { user, loading } = useAuth();
 
   useEffect(() => {
-    document.title = "Captionly — AI Video Caption Editor";
+    document.title = "Subbly — AI Video Caption Editor";
     const desc =
       "Upload a video, auto-generate captions with AI, edit text and styling, then export a captioned video — all in your browser.";
     let m = document.querySelector('meta[name="description"]');
@@ -32,7 +32,7 @@ const Index = () => {
             <Sparkles className="h-4 w-4 text-primary-foreground" />
           </div>
           <div>
-            <h1 className="text-base font-semibold leading-none">Captionly</h1>
+            <h1 className="text-base font-semibold leading-none">Subbly</h1>
             <p className="text-[11px] text-muted-foreground">AI caption editor</p>
           </div>
         </Link>
