@@ -1,7 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
-  ArrowRight,
   Download,
   FilmIcon,
   Loader2,
@@ -9,6 +8,7 @@ import {
   Plus,
   Trash2,
   Type,
+  ArrowUpRight,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -64,20 +64,19 @@ const Projects = () => {
     })();
   }, [user]);
 
+  const exportedCount = useMemo(
+    () => (projects ?? []).filter((p) => !!p.exported_video_path).length,
+    [projects],
+  );
+
   const handleDelete = async () => {
     if (!pendingDelete) return;
     setDeleting(true);
     try {
-      const paths = [pendingDelete.source_video_path, pendingDelete.exported_video_path].filter(
-        Boolean,
-      ) as string[];
-      if (paths.length) {
-        const sourcePaths = paths.filter((p) => p === pendingDelete.source_video_path);
-        const exportPaths = paths.filter((p) => p === pendingDelete.exported_video_path);
-        if (sourcePaths.length) await supabase.storage.from("project-videos").remove(sourcePaths);
-        if (exportPaths.length)
-          await supabase.storage.from("project-exports").remove(exportPaths);
-      }
+      const sourcePath = pendingDelete.source_video_path;
+      const exportPath = pendingDelete.exported_video_path;
+      if (sourcePath) await supabase.storage.from("project-videos").remove([sourcePath]);
+      if (exportPath) await supabase.storage.from("project-exports").remove([exportPath]);
       const { error } = await supabase.from("projects").delete().eq("id", pendingDelete.id);
       if (error) throw error;
       setProjects((prev) => prev?.filter((p) => p.id !== pendingDelete.id) ?? []);
@@ -90,52 +89,75 @@ const Projects = () => {
     }
   };
 
+  const userName = (user?.user_metadata?.full_name as string) || user?.email?.split("@")[0] || "Account";
+
   return (
-    <div className="min-h-screen bg-[#f5f3ee] text-[#1a1a1a]">
-      <nav className="flex items-center justify-between border-b border-[#e8e4de] bg-white px-6 py-4 md:px-10">
+    <div className="min-h-screen bg-[#f5f3ee] text-[#1a1a1a]" style={{ fontFamily: "'Outfit', sans-serif" }}>
+      <nav className="sticky top-0 z-[200] flex h-[62px] items-center justify-between border-b border-[#e8e4de] bg-white/95 px-6 backdrop-blur-xl md:px-12">
         <Link to="/projects" className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#ff5c3a]">
-            <Type className="h-4 w-4 text-white" strokeWidth={2} />
+          <div className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-[#ff5c3a]">
+            <Type className="h-[17px] w-[17px] text-white" strokeWidth={2.2} />
           </div>
-          <div>
-            <h1 className="text-[15px] font-medium leading-none">Subbly</h1>
-            <p className="mt-0.5 text-[11px] text-[#aaa]">{user?.email}</p>
-          </div>
+          <span className="font-serif-display text-[18px] tracking-[-0.2px]">Subbly</span>
         </Link>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
+          <div className="hidden flex-col text-right leading-tight sm:flex">
+            <span className="text-[13px] font-medium">{userName}</span>
+            <span className="text-[11px] text-[#b0aba4]">{user?.email}</span>
+          </div>
           {isAdmin && (
             <Link
               to="/admin"
-              className="rounded-md border border-[#ddd] bg-white px-4 py-1.5 text-[13px] text-[#555] hover:bg-[#faf9f7]"
+              className="rounded-lg border border-[#e8e4de] bg-transparent px-[18px] py-2 text-[13px] text-[#666] transition hover:border-[#b0aba4] hover:text-[#1a1a1a]"
             >
               Admin
             </Link>
           )}
           <button
             onClick={() => navigate("/editor")}
-            className="inline-flex items-center gap-1.5 rounded-md bg-[#ff5c3a] px-4 py-1.5 text-[13px] font-medium text-white hover:bg-[#ee4f2e]"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[#ff5c3a] px-[18px] py-2 text-[13px] font-medium text-white shadow-[0_2px_8px_rgba(255,92,58,0.2)] transition hover:-translate-y-px hover:bg-[#ff7558] hover:shadow-[0_4px_16px_rgba(255,92,58,0.3)]"
           >
-            <Plus className="h-3.5 w-3.5" /> New project
+            <Plus className="h-3.5 w-3.5" strokeWidth={2.2} /> New project
           </button>
           <button
             onClick={signOut}
-            className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] text-[#888] hover:bg-[#faf9f7] hover:text-[#1a1a1a]"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[#e8e4de] bg-transparent px-3 py-2 text-[13px] text-[#666] transition hover:border-[#b0aba4] hover:text-[#1a1a1a]"
           >
             <LogOut className="h-3.5 w-3.5" /> Sign out
           </button>
         </div>
       </nav>
 
-      <main className="mx-auto w-full max-w-6xl px-6 py-12 md:px-10">
-        <div className="mb-8 flex items-end justify-between">
+      <main className="mx-auto w-full max-w-[1100px] px-6 py-[52px] md:px-12">
+        <div className="mb-8 flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
           <div>
-            <div className="mb-2 text-[11px] tracking-[0.09em] text-[#ff5c3a]">YOUR LIBRARY</div>
-            <h2 className="text-[30px] font-medium tracking-[-0.5px]">Your projects</h2>
-            <p className="mt-1.5 text-sm text-[#888]">
+            <div className="mb-2 text-[11px] font-medium uppercase tracking-[0.12em] text-[#ff5c3a]">
+              Workspace
+            </div>
+            <h2 className="font-serif-display text-[38px] font-normal leading-none tracking-[-1px]">
+              Your projects
+            </h2>
+            <p className="mt-2 text-[14px] text-[#b0aba4]">
               Pick up where you left off, or start a new captioning session.
             </p>
           </div>
+          <div className="flex items-end gap-6">
+            <div className="text-right">
+              <div className="font-serif-display text-[28px] tracking-[-0.5px]">
+                {projects?.length ?? "—"}
+              </div>
+              <div className="mt-0.5 text-[11px] text-[#b0aba4]">Total projects</div>
+            </div>
+            <div className="h-9 w-px bg-[#e8e4de]" />
+            <div className="text-right">
+              <div className="font-serif-display text-[28px] tracking-[-0.5px]">
+                {projects ? exportedCount : "—"}
+              </div>
+              <div className="mt-0.5 text-[11px] text-[#b0aba4]">Exports saved</div>
+            </div>
+          </div>
         </div>
+        <div className="mb-8 h-px bg-[#e8e4de]" />
 
         {projects === null ? (
           <div className="flex items-center justify-center py-24">
@@ -144,48 +166,63 @@ const Projects = () => {
         ) : projects.length === 0 ? (
           <EmptyState onCreate={() => navigate("/editor")} />
         ) : (
-          <ul className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
-            {projects.map((project) => (
+          <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {projects.map((project, idx) => (
               <li
                 key={project.id}
-                className="group flex flex-col overflow-hidden rounded-xl border border-[#e8e4de] bg-white transition hover:border-[#ffd5cc] hover:shadow-[0_4px_16px_rgba(255,92,58,0.08)]"
+                onClick={() => navigate(`/editor?project=${project.id}`)}
+                className="group cursor-pointer overflow-hidden rounded-[14px] border border-[#e8e4de] bg-white shadow-[0_1px_3px_rgba(26,26,26,0.05),0_4px_16px_rgba(26,26,26,0.03)] transition hover:-translate-y-0.5 hover:border-[#ffd5cc] hover:shadow-[0_4px_20px_rgba(26,26,26,0.1),0_16px_40px_rgba(26,26,26,0.06)]"
+                style={{ animation: `slideUp .35s both`, animationDelay: `${0.04 + idx * 0.05}s` }}
               >
-                <button
-                  type="button"
-                  onClick={() => navigate(`/editor?project=${project.id}`)}
-                  className="flex flex-1 flex-col items-start gap-3 p-4 text-left"
-                >
-                  <div className="flex h-32 w-full items-center justify-center rounded-lg border border-[#eeeae4] bg-[#faf9f7]">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-[#ffd5cc] bg-[#fff5f3]">
-                      <FilmIcon className="h-5 w-5 text-[#ff5c3a]" strokeWidth={1.8} />
+                <div className="relative flex h-[150px] items-center justify-center overflow-hidden border-b border-[#e8e4de] bg-[#f5f3ee]">
+                  <div
+                    className="absolute inset-0 opacity-[0.35]"
+                    style={{
+                      background:
+                        "repeating-linear-gradient(90deg,transparent,transparent 39px,#e8e4de 39px,#e8e4de 40px),repeating-linear-gradient(180deg,transparent,transparent 39px,#e8e4de 39px,#e8e4de 40px)",
+                    }}
+                  />
+                  {project.exported_video_path && (
+                    <div className="absolute right-2.5 top-2.5 z-[2] inline-flex items-center gap-1.5 rounded-full border border-[#ffd5cc] bg-[#fff5f3] px-2.5 py-1 text-[10px] font-medium text-[#ff5c3a]">
+                      <span className="h-[5px] w-[5px] rounded-full bg-[#ff5c3a]" />
+                      Export saved
+                    </div>
+                  )}
+                  <div className="relative z-[1] flex h-[46px] w-[46px] items-center justify-center rounded-[11px] border border-[#e8e4de] bg-white shadow-[0_2px_8px_rgba(26,26,26,0.08)]">
+                    <FilmIcon className="h-5 w-5 text-[#ff5c3a]" strokeWidth={1.6} />
+                  </div>
+                </div>
+                <div className="px-5 py-4">
+                  <div className="mb-1.5 flex items-center justify-between gap-2">
+                    <span className="line-clamp-1 flex-1 text-[13.5px] font-medium">
+                      {project.title}
+                    </span>
+                    <div className="flex h-[22px] w-[22px] flex-shrink-0 items-center justify-center rounded-md bg-[#f5f3ee] transition group-hover:bg-[#ff5c3a]">
+                      <ArrowUpRight
+                        className="h-2.5 w-2.5 text-[#b0aba4] transition group-hover:text-white"
+                        strokeWidth={2.2}
+                      />
                     </div>
                   </div>
-                  <div className="flex w-full items-center justify-between gap-2">
-                    <h3 className="line-clamp-1 text-[14px] font-medium">{project.title}</h3>
-                    <ArrowRight className="h-3.5 w-3.5 text-[#bbb] transition group-hover:translate-x-0.5 group-hover:text-[#ff5c3a]" />
+                  <div className="font-mono-jb mb-0.5 text-[10.5px] tracking-[-0.02em] text-[#b0aba4]">
+                    {project.width && project.height
+                      ? `${project.width} × ${project.height}`
+                      : "No video saved"}
+                    {project.duration_seconds ? ` · ${project.duration_seconds.toFixed(1)}s` : ""}
                   </div>
-                  <div className="flex w-full flex-col gap-0.5">
-                    <p className="text-[11px] text-[#999]">
-                      {project.width && project.height
-                        ? `${project.width}×${project.height}`
-                        : "No video saved"}
-                      {project.duration_seconds
-                        ? ` · ${project.duration_seconds.toFixed(1)}s`
-                        : ""}
-                    </p>
-                    <p className="text-[11px] text-[#bbb]">
-                      Updated {new Date(project.updated_at).toLocaleString()}
-                    </p>
+                  <div className="text-[11.5px] text-[#b0aba4]">
+                    Updated {new Date(project.updated_at).toLocaleString()}
                   </div>
-                </button>
-                <div className="flex items-center justify-between border-t border-[#eeeae4] px-3 py-2">
-                  <span className="flex items-center gap-1 text-[11px] text-[#aaa]">
+                </div>
+                <div className="flex items-center justify-between border-t border-[#f5f3ee] bg-[#faf9f7] px-5 py-2.5">
+                  <span className="flex items-center gap-1.5 text-[11.5px] font-medium">
                     {project.exported_video_path ? (
                       <>
-                        <Download className="h-3 w-3" /> Export saved
+                        <Download className="h-3 w-3 text-[#ff5c3a]" strokeWidth={2} />
+                        <span className="text-[#ff5c3a]">Export saved</span>
                       </>
                     ) : (
-                      "Captions only"
+                      <span className="text-[#b0aba4]">Captions only</span>
                     )}
                   </span>
                   <button
@@ -193,7 +230,8 @@ const Projects = () => {
                       e.stopPropagation();
                       setPendingDelete(project);
                     }}
-                    className="rounded-md p-1.5 text-[#bbb] hover:bg-[#fff5f3] hover:text-[#ff5c3a]"
+                    className="rounded-md p-1.5 text-[#b0aba4] transition hover:bg-[#fff5f3] hover:text-[#ff5c3a]"
+                    aria-label="Delete project"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
@@ -203,6 +241,13 @@ const Projects = () => {
           </ul>
         )}
       </main>
+
+      <style>{`
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(14px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
 
       <AlertDialog open={!!pendingDelete} onOpenChange={(open) => !open && setPendingDelete(null)}>
         <AlertDialogContent>
@@ -214,7 +259,11 @@ const Projects = () => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} disabled={deleting} className="bg-[#ff5c3a] hover:bg-[#ee4f2e]">
+            <AlertDialogAction
+              onClick={handleDelete}
+              disabled={deleting}
+              className="bg-[#ff5c3a] hover:bg-[#ff7558]"
+            >
               {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Delete
             </AlertDialogAction>
@@ -227,19 +276,21 @@ const Projects = () => {
 
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#e0dbd4] bg-white px-6 py-20 text-center">
-      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-[#ffd5cc] bg-[#fff5f3]">
-        <FilmIcon className="h-6 w-6 text-[#ff5c3a]" strokeWidth={1.8} />
+    <div className="flex flex-col items-center justify-center rounded-[20px] border border-dashed border-[#e8e4de] bg-white px-6 py-24 text-center">
+      <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-[14px] border border-[#ffd5cc] bg-[#fff5f3]">
+        <FilmIcon className="h-6 w-6 text-[#ff5c3a]" strokeWidth={1.7} />
       </div>
-      <h3 className="text-[18px] font-medium tracking-[-0.3px]">No projects yet</h3>
-      <p className="mt-1.5 max-w-sm text-sm text-[#888]">
+      <h3 className="font-serif-display text-[24px] font-normal tracking-[-0.5px]">
+        No projects yet
+      </h3>
+      <p className="mt-2 max-w-sm text-[13.5px] text-[#b0aba4]">
         Upload a video, generate captions with AI, edit the styling, and we'll save it here.
       </p>
       <button
         onClick={onCreate}
-        className="mt-6 inline-flex items-center gap-1.5 rounded-md bg-[#ff5c3a] px-5 py-2.5 text-[13px] font-medium text-white hover:bg-[#ee4f2e]"
+        className="mt-6 inline-flex items-center gap-2 rounded-[10px] bg-[#ff5c3a] px-7 py-3 text-[14px] font-medium text-white transition hover:-translate-y-0.5 hover:bg-[#ff7558] hover:shadow-[0_6px_24px_rgba(255,92,58,0.32)]"
       >
-        <Plus className="h-3.5 w-3.5" /> Start a new project
+        <Plus className="h-3.5 w-3.5" strokeWidth={2.2} /> Start a new project
       </button>
     </div>
   );
