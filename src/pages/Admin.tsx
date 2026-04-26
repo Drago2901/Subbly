@@ -306,7 +306,7 @@ const Admin = () => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={working}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteProject} disabled={working}>
+            <AlertDialogAction onClick={handleDeleteProject} disabled={working} className="bg-[#ff5c3a] hover:bg-[#ee4f2e]">
               {working ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
