@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { Loader2, LogOut, Shield, Trash2, Users, FolderOpen, Download } from "lucide-react";
+import { Loader2, LogOut, Shield, Trash2, Users, FolderOpen, Download, Type } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -59,7 +59,7 @@ const Admin = () => {
   const [working, setWorking] = useState(false);
 
   useEffect(() => {
-    document.title = "Admin dashboard — Captionly";
+    document.title = "Admin dashboard — Subbly";
   }, []);
 
   useEffect(() => {
@@ -135,95 +135,95 @@ const Admin = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-surface">
-      <header className="border-b border-border bg-card/60 backdrop-blur">
-        <div className="container flex items-center justify-between py-4">
-          <div className="flex items-center gap-2">
-            <Shield className="h-5 w-5 text-primary" />
-            <span className="font-semibold">Admin Dashboard</span>
-            <Badge variant="secondary" className="ml-2">
-              {user?.email}
-            </Badge>
+    <div className="min-h-screen bg-[#f5f3ee] text-[#1a1a1a]">
+      <nav className="flex items-center justify-between border-b border-[#e8e4de] bg-white px-6 py-4 md:px-10">
+        <Link to="/admin" className="flex items-center gap-2.5">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#ff5c3a]">
+            <Type className="h-4 w-4 text-white" strokeWidth={2} />
           </div>
-          <div className="flex items-center gap-2">
-            <Button asChild variant="ghost" size="sm">
-              <Link to="/projects">My projects</Link>
-            </Button>
-            <Button variant="outline" size="sm" onClick={() => signOut()}>
-              <LogOut className="mr-2 h-4 w-4" /> Sign out
-            </Button>
+          <div>
+            <h1 className="flex items-center gap-1.5 text-[15px] font-medium leading-none">
+              Subbly <Shield className="h-3.5 w-3.5 text-[#ff5c3a]" />
+            </h1>
+            <p className="mt-0.5 text-[11px] text-[#aaa]">Admin · {user?.email}</p>
           </div>
+        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            to="/projects"
+            className="rounded-md border border-[#ddd] bg-white px-4 py-1.5 text-[13px] text-[#555] hover:bg-[#faf9f7]"
+          >
+            My projects
+          </Link>
+          <button
+            onClick={() => signOut()}
+            className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] text-[#888] hover:bg-[#faf9f7] hover:text-[#1a1a1a]"
+          >
+            <LogOut className="h-3.5 w-3.5" /> Sign out
+          </button>
         </div>
-      </header>
+      </nav>
 
-      <main className="container py-8 space-y-8">
+      <main className="mx-auto w-full max-w-6xl px-6 py-10 md:px-10 space-y-8">
+        <div>
+          <div className="mb-2 text-[11px] tracking-[0.09em] text-[#ff5c3a]">ADMIN</div>
+          <h2 className="text-[30px] font-medium tracking-[-0.5px]">Overview</h2>
+          <p className="mt-1.5 text-sm text-[#888]">Manage users and projects across the platform.</p>
+        </div>
+
         {/* Stats */}
-        <section className="grid gap-4 md:grid-cols-3">
-          <StatCard
-            icon={<Users className="h-5 w-5" />}
-            label="Users"
-            value={profiles?.length ?? "—"}
-          />
-          <StatCard
-            icon={<FolderOpen className="h-5 w-5" />}
-            label="Projects"
-            value={projects?.length ?? "—"}
-          />
-          <StatCard
-            icon={<Download className="h-5 w-5" />}
-            label="Exports"
-            value={projects ? exportedCount : "—"}
-          />
+        <section className="grid gap-3.5 md:grid-cols-3">
+          <StatCard icon={<Users className="h-4 w-4" />} label="Users" value={profiles?.length ?? "—"} />
+          <StatCard icon={<FolderOpen className="h-4 w-4" />} label="Projects" value={projects?.length ?? "—"} />
+          <StatCard icon={<Download className="h-4 w-4" />} label="Exports" value={projects ? exportedCount : "—"} />
         </section>
 
         {loading ? (
           <div className="flex justify-center py-20">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+            <Loader2 className="h-6 w-6 animate-spin text-[#ff5c3a]" />
           </div>
         ) : (
           <>
             {/* Users */}
-            <Card>
+            <Card className="border-[#e8e4de] bg-white shadow-none">
               <CardHeader>
-                <CardTitle>All users</CardTitle>
+                <CardTitle className="text-[16px] font-medium">All users</CardTitle>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>Name</TableHead>
-                      <TableHead>User ID</TableHead>
-                      <TableHead>Role</TableHead>
-                      <TableHead>Projects</TableHead>
-                      <TableHead>Joined</TableHead>
+                    <TableRow className="border-[#eeeae4] hover:bg-transparent">
+                      <TableHead className="text-[11px] uppercase tracking-[0.07em] text-[#aaa]">Name</TableHead>
+                      <TableHead className="text-[11px] uppercase tracking-[0.07em] text-[#aaa]">User ID</TableHead>
+                      <TableHead className="text-[11px] uppercase tracking-[0.07em] text-[#aaa]">Role</TableHead>
+                      <TableHead className="text-[11px] uppercase tracking-[0.07em] text-[#aaa]">Projects</TableHead>
+                      <TableHead className="text-[11px] uppercase tracking-[0.07em] text-[#aaa]">Joined</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {profiles?.length ? (
                       profiles.map((p) => (
-                        <TableRow key={p.id}>
-                          <TableCell className="font-medium">
-                            {p.display_name || "—"}
-                          </TableCell>
-                          <TableCell className="font-mono text-xs text-muted-foreground">
+                        <TableRow key={p.id} className="border-[#eeeae4] hover:bg-[#faf9f7]">
+                          <TableCell className="font-medium">{p.display_name || "—"}</TableCell>
+                          <TableCell className="font-mono text-xs text-[#aaa]">
                             {p.user_id.slice(0, 8)}…
                           </TableCell>
                           <TableCell>
                             {adminUserIds.has(p.user_id) ? (
-                              <Badge>admin</Badge>
+                              <Badge className="bg-[#ff5c3a] hover:bg-[#ee4f2e]">admin</Badge>
                             ) : (
-                              <Badge variant="secondary">user</Badge>
+                              <Badge variant="secondary" className="bg-[#fff5f3] text-[#ff5c3a] hover:bg-[#ffe5df]">user</Badge>
                             )}
                           </TableCell>
                           <TableCell>{projectCountByUser.get(p.user_id) ?? 0}</TableCell>
-                          <TableCell className="text-muted-foreground">
+                          <TableCell className="text-[#888]">
                             {new Date(p.created_at).toLocaleDateString()}
                           </TableCell>
                         </TableRow>
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center text-muted-foreground">
+                        <TableCell colSpan={5} className="text-center text-[#aaa]">
                           No users yet
                         </TableCell>
                       </TableRow>
@@ -234,37 +234,35 @@ const Admin = () => {
             </Card>
 
             {/* Projects */}
-            <Card>
+            <Card className="border-[#e8e4de] bg-white shadow-none">
               <CardHeader>
-                <CardTitle>All projects</CardTitle>
+                <CardTitle className="text-[16px] font-medium">All projects</CardTitle>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
-                    <TableRow>
-                      <TableHead>Title</TableHead>
-                      <TableHead>Owner</TableHead>
-                      <TableHead>Exported</TableHead>
-                      <TableHead>Updated</TableHead>
-                      <TableHead className="text-right">Actions</TableHead>
+                    <TableRow className="border-[#eeeae4] hover:bg-transparent">
+                      <TableHead className="text-[11px] uppercase tracking-[0.07em] text-[#aaa]">Title</TableHead>
+                      <TableHead className="text-[11px] uppercase tracking-[0.07em] text-[#aaa]">Owner</TableHead>
+                      <TableHead className="text-[11px] uppercase tracking-[0.07em] text-[#aaa]">Exported</TableHead>
+                      <TableHead className="text-[11px] uppercase tracking-[0.07em] text-[#aaa]">Updated</TableHead>
+                      <TableHead className="text-right text-[11px] uppercase tracking-[0.07em] text-[#aaa]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {projects?.length ? (
                       projects.map((p) => (
-                        <TableRow key={p.id}>
+                        <TableRow key={p.id} className="border-[#eeeae4] hover:bg-[#faf9f7]">
                           <TableCell className="font-medium">{p.title}</TableCell>
-                          <TableCell className="text-muted-foreground">
-                            {userLabel(p.user_id)}
-                          </TableCell>
+                          <TableCell className="text-[#888]">{userLabel(p.user_id)}</TableCell>
                           <TableCell>
                             {p.exported_video_path ? (
-                              <Badge>yes</Badge>
+                              <Badge className="bg-[#ff5c3a] hover:bg-[#ee4f2e]">yes</Badge>
                             ) : (
-                              <Badge variant="secondary">no</Badge>
+                              <Badge variant="secondary" className="bg-[#faf9f7] text-[#888]">no</Badge>
                             )}
                           </TableCell>
-                          <TableCell className="text-muted-foreground">
+                          <TableCell className="text-[#888]">
                             {new Date(p.updated_at).toLocaleString()}
                           </TableCell>
                           <TableCell className="text-right">
@@ -273,15 +271,16 @@ const Admin = () => {
                               size="icon"
                               onClick={() => setPendingDeleteProject(p)}
                               aria-label="Delete project"
+                              className="text-[#bbb] hover:bg-[#fff5f3] hover:text-[#ff5c3a]"
                             >
-                              <Trash2 className="h-4 w-4 text-destructive" />
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </TableCell>
                         </TableRow>
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell colSpan={5} className="text-center text-muted-foreground">
+                        <TableCell colSpan={5} className="text-center text-[#aaa]">
                           No projects yet
                         </TableCell>
                       </TableRow>
@@ -307,7 +306,7 @@ const Admin = () => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={working}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteProject} disabled={working}>
+            <AlertDialogAction onClick={handleDeleteProject} disabled={working} className="bg-[#ff5c3a] hover:bg-[#ee4f2e]">
               {working ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete"}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -327,15 +326,15 @@ function StatCard({
   value: number | string;
 }) {
   return (
-    <Card>
-      <CardContent className="flex items-center justify-between py-6">
-        <div>
-          <p className="text-sm text-muted-foreground">{label}</p>
-          <p className="text-3xl font-semibold mt-1">{value}</p>
-        </div>
-        <div className="rounded-full bg-primary/10 p-3 text-primary">{icon}</div>
-      </CardContent>
-    </Card>
+    <div className="flex items-center justify-between rounded-xl border border-[#e8e4de] bg-white p-5">
+      <div>
+        <p className="text-[12px] text-[#aaa]">{label}</p>
+        <p className="mt-1 text-[26px] font-medium tracking-[-0.5px]">{value}</p>
+      </div>
+      <div className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#ffd5cc] bg-[#fff5f3] text-[#ff5c3a]">
+        {icon}
+      </div>
+    </div>
   );
 }
 

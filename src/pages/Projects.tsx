@@ -7,11 +7,10 @@ import {
   Loader2,
   LogOut,
   Plus,
-  Sparkles,
   Trash2,
+  Type,
 } from "lucide-react";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -44,7 +43,7 @@ const Projects = () => {
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    document.title = "Your projects — Captionly";
+    document.title = "Your projects — Subbly";
   }, []);
 
   useEffect(() => {
@@ -92,81 +91,95 @@ const Projects = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-surface">
-      <header className="flex items-center justify-between border-b border-border bg-surface/60 px-6 py-3 backdrop-blur">
+    <div className="min-h-screen bg-[#f5f3ee] text-[#1a1a1a]">
+      <nav className="flex items-center justify-between border-b border-[#e8e4de] bg-white px-6 py-4 md:px-10">
         <Link to="/projects" className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-primary shadow-glow">
-            <Sparkles className="h-4 w-4 text-primary-foreground" />
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#ff5c3a]">
+            <Type className="h-4 w-4 text-white" strokeWidth={2} />
           </div>
           <div>
-            <h1 className="text-base font-semibold leading-none">Captionly</h1>
-            <p className="text-[11px] text-muted-foreground">{user?.email}</p>
+            <h1 className="text-[15px] font-medium leading-none">Subbly</h1>
+            <p className="mt-0.5 text-[11px] text-[#aaa]">{user?.email}</p>
           </div>
         </Link>
         <div className="flex items-center gap-2">
           {isAdmin && (
-            <Button asChild variant="outline" size="sm">
-              <Link to="/admin">Admin</Link>
-            </Button>
+            <Link
+              to="/admin"
+              className="rounded-md border border-[#ddd] bg-white px-4 py-1.5 text-[13px] text-[#555] hover:bg-[#faf9f7]"
+            >
+              Admin
+            </Link>
           )}
-          <Button onClick={() => navigate("/editor")} className="bg-gradient-primary text-primary-foreground hover:opacity-95">
-            <Plus className="mr-1.5 h-4 w-4" /> New project
-          </Button>
-          <Button variant="ghost" size="sm" onClick={signOut}>
-            <LogOut className="mr-1.5 h-4 w-4" /> Sign out
-          </Button>
+          <button
+            onClick={() => navigate("/editor")}
+            className="inline-flex items-center gap-1.5 rounded-md bg-[#ff5c3a] px-4 py-1.5 text-[13px] font-medium text-white hover:bg-[#ee4f2e]"
+          >
+            <Plus className="h-3.5 w-3.5" /> New project
+          </button>
+          <button
+            onClick={signOut}
+            className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] text-[#888] hover:bg-[#faf9f7] hover:text-[#1a1a1a]"
+          >
+            <LogOut className="h-3.5 w-3.5" /> Sign out
+          </button>
         </div>
-      </header>
+      </nav>
 
-      <main className="mx-auto w-full max-w-5xl px-6 py-10">
-        <div className="mb-6 flex items-end justify-between">
+      <main className="mx-auto w-full max-w-6xl px-6 py-12 md:px-10">
+        <div className="mb-8 flex items-end justify-between">
           <div>
-            <h2 className="text-2xl font-semibold tracking-tight">Your projects</h2>
-            <p className="text-sm text-muted-foreground">
+            <div className="mb-2 text-[11px] tracking-[0.09em] text-[#ff5c3a]">YOUR LIBRARY</div>
+            <h2 className="text-[30px] font-medium tracking-[-0.5px]">Your projects</h2>
+            <p className="mt-1.5 text-sm text-[#888]">
               Pick up where you left off, or start a new captioning session.
             </p>
           </div>
         </div>
 
         {projects === null ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="h-6 w-6 animate-spin text-primary" />
+          <div className="flex items-center justify-center py-24">
+            <Loader2 className="h-6 w-6 animate-spin text-[#ff5c3a]" />
           </div>
         ) : projects.length === 0 ? (
           <EmptyState onCreate={() => navigate("/editor")} />
         ) : (
-          <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <ul className="grid gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
             {projects.map((project) => (
               <li
                 key={project.id}
-                className="group flex flex-col overflow-hidden rounded-xl border border-border bg-surface transition hover:border-primary/40 hover:shadow-elegant"
+                className="group flex flex-col overflow-hidden rounded-xl border border-[#e8e4de] bg-white transition hover:border-[#ffd5cc] hover:shadow-[0_4px_16px_rgba(255,92,58,0.08)]"
               >
                 <button
                   type="button"
                   onClick={() => navigate(`/editor?project=${project.id}`)}
-                  className="flex flex-1 flex-col items-start gap-2 p-4 text-left"
+                  className="flex flex-1 flex-col items-start gap-3 p-4 text-left"
                 >
-                  <div className="flex h-32 w-full items-center justify-center rounded-lg bg-gradient-primary/10">
-                    <FilmIcon className="h-8 w-8 text-primary" />
+                  <div className="flex h-32 w-full items-center justify-center rounded-lg border border-[#eeeae4] bg-[#faf9f7]">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-lg border border-[#ffd5cc] bg-[#fff5f3]">
+                      <FilmIcon className="h-5 w-5 text-[#ff5c3a]" strokeWidth={1.8} />
+                    </div>
                   </div>
-                  <div className="mt-2 flex w-full items-center justify-between gap-2">
-                    <h3 className="line-clamp-1 font-medium">{project.title}</h3>
-                    <ArrowRight className="h-4 w-4 text-muted-foreground transition group-hover:translate-x-0.5 group-hover:text-foreground" />
+                  <div className="flex w-full items-center justify-between gap-2">
+                    <h3 className="line-clamp-1 text-[14px] font-medium">{project.title}</h3>
+                    <ArrowRight className="h-3.5 w-3.5 text-[#bbb] transition group-hover:translate-x-0.5 group-hover:text-[#ff5c3a]" />
                   </div>
-                  <p className="text-xs text-muted-foreground">
-                    {project.width && project.height
-                      ? `${project.width}×${project.height}`
-                      : "No video saved"}
-                    {project.duration_seconds
-                      ? ` · ${project.duration_seconds.toFixed(1)}s`
-                      : ""}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground">
-                    Updated {new Date(project.updated_at).toLocaleString()}
-                  </p>
+                  <div className="flex w-full flex-col gap-0.5">
+                    <p className="text-[11px] text-[#999]">
+                      {project.width && project.height
+                        ? `${project.width}×${project.height}`
+                        : "No video saved"}
+                      {project.duration_seconds
+                        ? ` · ${project.duration_seconds.toFixed(1)}s`
+                        : ""}
+                    </p>
+                    <p className="text-[11px] text-[#bbb]">
+                      Updated {new Date(project.updated_at).toLocaleString()}
+                    </p>
+                  </div>
                 </button>
-                <div className="flex items-center justify-between border-t border-border px-3 py-2">
-                  <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                <div className="flex items-center justify-between border-t border-[#eeeae4] px-3 py-2">
+                  <span className="flex items-center gap-1 text-[11px] text-[#aaa]">
                     {project.exported_video_path ? (
                       <>
                         <Download className="h-3 w-3" /> Export saved
@@ -175,16 +188,15 @@ const Projects = () => {
                       "Captions only"
                     )}
                   </span>
-                  <Button
-                    variant="ghost"
-                    size="sm"
+                  <button
                     onClick={(e) => {
                       e.stopPropagation();
                       setPendingDelete(project);
                     }}
+                    className="rounded-md p-1.5 text-[#bbb] hover:bg-[#fff5f3] hover:text-[#ff5c3a]"
                   >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
                 </div>
               </li>
             ))}
@@ -202,7 +214,7 @@ const Projects = () => {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={deleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDelete} disabled={deleting}>
+            <AlertDialogAction onClick={handleDelete} disabled={deleting} className="bg-[#ff5c3a] hover:bg-[#ee4f2e]">
               {deleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               Delete
             </AlertDialogAction>
@@ -215,17 +227,20 @@ const Projects = () => {
 
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-border bg-surface/40 px-6 py-16 text-center">
-      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-primary/10">
-        <FilmIcon className="h-6 w-6 text-primary" />
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[#e0dbd4] bg-white px-6 py-20 text-center">
+      <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl border border-[#ffd5cc] bg-[#fff5f3]">
+        <FilmIcon className="h-6 w-6 text-[#ff5c3a]" strokeWidth={1.8} />
       </div>
-      <h3 className="text-lg font-semibold">No projects yet</h3>
-      <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+      <h3 className="text-[18px] font-medium tracking-[-0.3px]">No projects yet</h3>
+      <p className="mt-1.5 max-w-sm text-sm text-[#888]">
         Upload a video, generate captions with AI, edit the styling, and we'll save it here.
       </p>
-      <Button onClick={onCreate} className="mt-6 bg-gradient-primary text-primary-foreground hover:opacity-95">
-        <Plus className="mr-1.5 h-4 w-4" /> Start a new project
-      </Button>
+      <button
+        onClick={onCreate}
+        className="mt-6 inline-flex items-center gap-1.5 rounded-md bg-[#ff5c3a] px-5 py-2.5 text-[13px] font-medium text-white hover:bg-[#ee4f2e]"
+      >
+        <Plus className="h-3.5 w-3.5" /> Start a new project
+      </button>
     </div>
   );
 }
