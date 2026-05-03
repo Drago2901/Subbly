@@ -44,21 +44,8 @@ export function checkRuntimeEnv(): EnvIssue | null {
     };
   }
 
-  // SharedArrayBuffer requires COOP/COEP. Our Vite config sets those, but
-  // generic static servers (python -m http.server, Live Server, etc.) do not.
-  const isolated =
-    typeof (window as unknown as { crossOriginIsolated?: boolean }).crossOriginIsolated ===
-    "boolean"
-      ? (window as unknown as { crossOriginIsolated: boolean }).crossOriginIsolated
-      : typeof SharedArrayBuffer !== "undefined";
-
-  if (!isolated) {
-    return {
-      code: "not-isolated",
-      message:
-        "This page isn't cross-origin isolated, so video processing can't start. Run the app with `bun run dev` (or `bun run preview`) and open the printed http://localhost URL — don't use Live Server or open the HTML file directly.",
-    };
-  }
+  // Note: cross-origin isolation is NOT required — we use the single-threaded
+  // UMD build of @ffmpeg/core, same as the rest of the Subbly pipeline.
 
   return null;
 }
