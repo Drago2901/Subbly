@@ -43,6 +43,14 @@ const App = () => (
               }
             />
             <Route
+              path="/snip30"
+              element={
+                <RequireAuth>
+                  <Snip30 />
+                </RequireAuth>
+              }
+            />
+            <Route
               path="/admin"
               element={
                 <RequireAdmin>
