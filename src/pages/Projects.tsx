@@ -9,6 +9,7 @@ import {
   Trash2,
   Type,
   ArrowUpRight,
+  Scissors,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -113,6 +114,12 @@ const Projects = () => {
               Admin
             </Link>
           )}
+          <Link
+            to="/snip30"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-[#e8e4de] bg-transparent px-[14px] py-2 text-[13px] text-[#666] transition hover:border-[#b0aba4] hover:text-[#1a1a1a]"
+          >
+            <Scissors className="h-3.5 w-3.5" /> Snip30
+          </Link>
           <button
             onClick={() => navigate("/editor")}
             className="inline-flex items-center gap-1.5 rounded-lg bg-[#ff5c3a] px-[18px] py-2 text-[13px] font-medium text-white shadow-[0_2px_8px_rgba(255,92,58,0.2)] transition hover:-translate-y-px hover:bg-[#ff7558] hover:shadow-[0_4px_16px_rgba(255,92,58,0.3)]"

@@ -11,6 +11,7 @@ import Auth from "./pages/Auth.tsx";
 import Projects from "./pages/Projects.tsx";
 import Editor from "./pages/Editor.tsx";
 import Admin from "./pages/Admin.tsx";
+import Snip30 from "./pages/Snip30.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
@@ -38,6 +39,14 @@ const App = () => (
               element={
                 <RequireAuth>
                   <Editor />
+                </RequireAuth>
+              }
+            />
+            <Route
+              path="/snip30"
+              element={
+                <RequireAuth>
+                  <Snip30 />
                 </RequireAuth>
               }
             />
