@@ -3,10 +3,10 @@ import { fetchFile } from "@ffmpeg/util";
 import { Upload, Film, Download, Loader2, X, CheckCircle2, AlertCircle, GripVertical, Layers, Play, Pause, SkipBack, SkipForward, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { getFFmpeg, resetFFmpeg } from "@/lib/ffmpeg-loader";
-import { checkRuntimeEnv } from "@/lib/env-check";
+import { getFFmpeg, resetFFmpeg } from "@/lib/snip30/ffmpeg-loader";
+import { checkRuntimeEnv } from "@/lib/snip30/env-check";
 import { toast } from "sonner";
-import { LiquidProgress } from "@/components/LiquidProgress";
+import { LiquidProgress } from "@/components/snip30/LiquidProgress";
 
 const MAX_SIZE = 500 * 1024 * 1024;
 const ACCEPTED = ["video/mp4", "video/quicktime", "video/x-msvideo"];

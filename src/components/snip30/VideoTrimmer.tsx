@@ -6,10 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Input } from "@/components/ui/input";
 import { Progress } from "@/components/ui/progress";
-import { getFFmpeg, resetFFmpeg } from "@/lib/ffmpeg-loader";
-import { checkRuntimeEnv } from "@/lib/env-check";
+import { getFFmpeg, resetFFmpeg } from "@/lib/snip30/ffmpeg-loader";
+import { checkRuntimeEnv } from "@/lib/snip30/env-check";
 import { toast } from "sonner";
-import { LiquidProgress } from "@/components/LiquidProgress";
+import { LiquidProgress } from "@/components/snip30/LiquidProgress";
 
 const MAX_DURATION = 30;
 const MAX_SIZE = 500 * 1024 * 1024; // 500MB
