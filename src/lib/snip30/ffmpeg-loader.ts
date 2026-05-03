@@ -25,11 +25,9 @@ export async function getFFmpeg(onProgress?: (msg: string) => void): Promise<FFm
       throw new Error("This browser does not support the WebAssembly/Worker features required for video processing.");
     }
 
-    // Prefer locally-bundled ESM single-threaded core (served from /ffmpeg/),
-    // so first load works fully offline / on a private network. Fall back to
-    // the public CDN only if the local assets aren't reachable.
-    const LOCAL_BASE = "/ffmpeg";
-    const CDN_BASE = "https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm";
+    // Single-threaded UMD build — does not need cross-origin isolation,
+    // matches the rest of the Subbly codebase (see src/lib/captions/transcode.ts).
+    const CDN_BASE = "https://unpkg.com/@ffmpeg/core@0.12.10/dist/umd";
 
     const createInstance = () => {
       const ffmpeg = new FFmpeg();
