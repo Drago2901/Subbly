@@ -54,15 +54,8 @@ export async function getFFmpeg(onProgress?: (msg: string) => void): Promise<FFm
       }
     };
 
-    const tryLoadLocal = async (ffmpeg: FFmpeg) => {
-      onProgress?.("Loading local FFmpeg engine…");
-      await loadWithTimeout(ffmpeg, {
-        coreURL: `${LOCAL_BASE}/ffmpeg-core.js`,
-        wasmURL: `${LOCAL_BASE}/ffmpeg-core.wasm`,
-      });
-    };
-
     const tryLoadCdn = async (ffmpeg: FFmpeg) => {
+      onProgress?.("Loading FFmpeg engine…");
       const [coreURL, wasmURL] = await Promise.all([
         toBlobURL(`${CDN_BASE}/ffmpeg-core.js`, "text/javascript"),
         toBlobURL(`${CDN_BASE}/ffmpeg-core.wasm`, "application/wasm"),
@@ -70,15 +63,8 @@ export async function getFFmpeg(onProgress?: (msg: string) => void): Promise<FFm
       await loadWithTimeout(ffmpeg, { coreURL, wasmURL });
     };
 
-    let ffmpeg = createInstance();
-    try {
-      await tryLoadLocal(ffmpeg);
-    } catch (localErr) {
-      onProgress?.(`Local FFmpeg load failed (${(localErr as Error).message}); falling back to CDN…`);
-      try { ffmpeg.terminate(); } catch {}
-      ffmpeg = createInstance();
-      await tryLoadCdn(ffmpeg);
-    }
+    const ffmpeg = createInstance();
+    await tryLoadCdn(ffmpeg);
 
     ffmpegInstance = ffmpeg;
     return ffmpeg;
