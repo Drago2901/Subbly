@@ -9,6 +9,7 @@ import {
   Trash2,
   Type,
   ArrowUpRight,
+  Scissors,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
