@@ -563,6 +563,14 @@ const Editor = () => {
         </div>
       </header>
 
+      <input
+        ref={srtInputRef}
+        type="file"
+        accept=".srt,application/x-subrip,text/plain"
+        className="hidden"
+        onChange={handleSrtFile}
+      />
+
       {!file && (
         <main className="mx-auto flex w-full max-w-3xl flex-1 animate-fade-in flex-col items-center justify-center px-6 py-10">
           <div className="mb-8 text-center">
