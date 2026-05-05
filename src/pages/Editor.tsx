@@ -481,6 +481,7 @@ const Editor = () => {
               <DropdownMenuTrigger asChild>
                 <Button
                   disabled={exporting}
+                  size="sm"
                   className="rounded-l-none border-l border-primary-foreground/20 bg-gradient-primary px-2 text-primary-foreground hover:opacity-95"
                   aria-label="Choose export format"
                 >
