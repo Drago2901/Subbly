@@ -47,15 +47,9 @@ const Index = () => {
         <div className="flex items-center gap-2.5">
           <Link
             to="/editor"
-            className="rounded-lg border border-[#e8e4de] bg-transparent px-[18px] py-2 text-[13px] text-[#666] transition hover:border-[#b0aba4] hover:text-[#1a1a1a]"
-          >
-            Sign in
-          </Link>
-          <Link
-            to="/editor"
             className="inline-flex items-center gap-1.5 rounded-lg bg-[#ff5c3a] px-[18px] py-2 text-[13px] font-medium text-white shadow-[0_2px_8px_rgba(255,92,58,0.2)] transition hover:-translate-y-px hover:bg-[#ff7558] hover:shadow-[0_4px_16px_rgba(255,92,58,0.3)]"
           >
-            Get started <ArrowRight className="h-3 w-3" strokeWidth={2.2} />
+            Open editor <ArrowRight className="h-3 w-3" strokeWidth={2.2} />
           </Link>
         </div>
       </nav>
