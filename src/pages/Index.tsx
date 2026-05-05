@@ -270,7 +270,7 @@ const Index = () => {
       </section>
 
       {/* CTA Banner */}
-      <div className="relative mx-6 mb-16 overflow-hidden rounded-[20px] bg-[#1a1a1a] p-12 text-center md:mx-12 md:p-[60px]">
+      <div className="relative mx-4 mb-16 overflow-hidden rounded-[20px] bg-[#1a1a1a] p-8 text-center md:mx-12 md:p-[60px]">
         <div
           className="pointer-events-none absolute inset-0"
           style={{
