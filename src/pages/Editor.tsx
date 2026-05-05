@@ -5,10 +5,12 @@ import {
   ChevronDown,
   Cloud,
   Download,
+  FileText,
   Loader2,
   LogOut,
   Save,
   Sparkles,
+  Upload,
   Wand2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -52,6 +54,7 @@ import {
   getPresetById,
 } from "@/lib/captions/presets";
 import { useAuth } from "@/hooks/useAuth";
+import { captionsToSrt, srtToCaptions } from "@/lib/captions/srt";
 
 type ProjectMeta = {
   width: number;
