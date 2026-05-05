@@ -93,14 +93,14 @@ const Projects = () => {
 
   return (
     <div className="min-h-screen bg-[#f5f3ee] text-[#1a1a1a]" style={{ fontFamily: "'Outfit', sans-serif" }}>
-      <nav className="sticky top-0 z-[200] flex h-[62px] items-center justify-between border-b border-[#e8e4de] bg-white/95 px-6 backdrop-blur-xl md:px-12">
+      <nav className="sticky top-0 z-[200] flex h-[62px] items-center justify-between gap-2 border-b border-[#e8e4de] bg-white/95 px-4 backdrop-blur-xl md:px-12">
         <Link to="/projects" className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-[#ff5c3a]">
             <Type className="h-[17px] w-[17px] text-white" strokeWidth={2.2} />
           </div>
           <span className="font-serif-display text-[18px] tracking-[-0.2px]">Subbly</span>
         </Link>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 md:gap-3">
           <div className="hidden flex-col text-right leading-tight sm:flex">
             <span className="text-[13px] font-medium">{userName}</span>
             <span className="text-[11px] text-[#b0aba4]">{user?.email}</span>
@@ -108,22 +108,25 @@ const Projects = () => {
           {isAdmin && (
             <Link
               to="/admin"
-              className="rounded-lg border border-[#e8e4de] bg-transparent px-[18px] py-2 text-[13px] text-[#666] transition hover:border-[#b0aba4] hover:text-[#1a1a1a]"
+              className="hidden rounded-lg border border-[#e8e4de] bg-transparent px-[18px] py-2 text-[13px] text-[#666] transition hover:border-[#b0aba4] hover:text-[#1a1a1a] sm:inline-flex"
             >
               Admin
             </Link>
           )}
           <button
             onClick={() => navigate("/editor")}
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[#ff5c3a] px-[18px] py-2 text-[13px] font-medium text-white shadow-[0_2px_8px_rgba(255,92,58,0.2)] transition hover:-translate-y-px hover:bg-[#ff7558] hover:shadow-[0_4px_16px_rgba(255,92,58,0.3)]"
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[#ff5c3a] px-3 py-2 text-[13px] font-medium text-white shadow-[0_2px_8px_rgba(255,92,58,0.2)] transition hover:-translate-y-px hover:bg-[#ff7558] hover:shadow-[0_4px_16px_rgba(255,92,58,0.3)] md:px-[18px]"
           >
-            <Plus className="h-3.5 w-3.5" strokeWidth={2.2} /> New project
+            <Plus className="h-3.5 w-3.5" strokeWidth={2.2} />
+            <span className="hidden sm:inline">New project</span>
           </button>
           <button
             onClick={signOut}
+            aria-label="Sign out"
             className="inline-flex items-center gap-1.5 rounded-lg border border-[#e8e4de] bg-transparent px-3 py-2 text-[13px] text-[#666] transition hover:border-[#b0aba4] hover:text-[#1a1a1a]"
           >
-            <LogOut className="h-3.5 w-3.5" /> Sign out
+            <LogOut className="h-3.5 w-3.5" />
+            <span className="hidden md:inline">Sign out</span>
           </button>
         </div>
       </nav>
