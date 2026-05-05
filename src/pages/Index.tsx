@@ -28,9 +28,6 @@ const Index = () => {
     m.setAttribute("content", desc);
   }, []);
 
-  if (!loading && user) {
-    return <Navigate to="/projects" replace />;
-  }
 
   return (
     <div className="min-h-screen bg-[#f5f3ee] text-[#1a1a1a]" style={{ fontFamily: "'Outfit', sans-serif" }}>
