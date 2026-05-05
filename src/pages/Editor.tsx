@@ -303,6 +303,10 @@ const Editor = () => {
   );
 
   const handleManualSave = async () => {
+    if (!user) {
+      toast.info("Sign in to save your project to the cloud.");
+      return;
+    }
     const id = await saveProject();
     if (id) toast.success("Project saved");
   };
@@ -480,7 +484,7 @@ const Editor = () => {
     <div className="flex h-screen flex-col bg-gradient-surface">
       <header className="flex items-center justify-between gap-3 border-b border-border bg-surface/60 px-4 py-3 backdrop-blur md:px-6">
         <div className="flex min-w-0 items-center gap-2.5">
-          <Link to="/projects" className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted">
+          <Link to="/" className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted">
             <ArrowLeft className="h-4 w-4" />
           </Link>
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-primary shadow-glow">
@@ -495,9 +499,15 @@ const Editor = () => {
         </div>
         <div className="flex items-center gap-2">
           {headerRight}
-          <Button variant="ghost" size="sm" onClick={signOut} className="hidden md:inline-flex">
-            <LogOut className="mr-1.5 h-4 w-4" /> Sign out
-          </Button>
+          {user ? (
+            <Button variant="ghost" size="sm" onClick={signOut} className="hidden md:inline-flex">
+              <LogOut className="mr-1.5 h-4 w-4" /> Sign out
+            </Button>
+          ) : (
+            <Link to="/auth" className="hidden md:inline-flex text-xs text-muted-foreground hover:text-foreground px-2">
+              Sign in
+            </Link>
+          )}
         </div>
       </header>
 

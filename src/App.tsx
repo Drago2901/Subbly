@@ -33,14 +33,7 @@ const App = () => (
                 </RequireAuth>
               }
             />
-            <Route
-              path="/editor"
-              element={
-                <RequireAuth>
-                  <Editor />
-                </RequireAuth>
-              }
-            />
+            <Route path="/editor" element={<Editor />} />
             <Route
               path="/admin"
               element={

@@ -28,9 +28,6 @@ const Index = () => {
     m.setAttribute("content", desc);
   }, []);
 
-  if (!loading && user) {
-    return <Navigate to="/projects" replace />;
-  }
 
   return (
     <div className="min-h-screen bg-[#f5f3ee] text-[#1a1a1a]" style={{ fontFamily: "'Outfit', sans-serif" }}>
@@ -49,16 +46,10 @@ const Index = () => {
         </div>
         <div className="flex items-center gap-2.5">
           <Link
-            to="/auth"
-            className="rounded-lg border border-[#e8e4de] bg-transparent px-[18px] py-2 text-[13px] text-[#666] transition hover:border-[#b0aba4] hover:text-[#1a1a1a]"
-          >
-            Sign in
-          </Link>
-          <Link
-            to="/auth"
+            to="/editor"
             className="inline-flex items-center gap-1.5 rounded-lg bg-[#ff5c3a] px-[18px] py-2 text-[13px] font-medium text-white shadow-[0_2px_8px_rgba(255,92,58,0.2)] transition hover:-translate-y-px hover:bg-[#ff7558] hover:shadow-[0_4px_16px_rgba(255,92,58,0.3)]"
           >
-            Get started <ArrowRight className="h-3 w-3" strokeWidth={2.2} />
+            Open editor <ArrowRight className="h-3 w-3" strokeWidth={2.2} />
           </Link>
         </div>
       </nav>
@@ -80,7 +71,7 @@ const Index = () => {
           </p>
           <div className="mb-14 flex flex-wrap justify-center gap-3">
             <Link
-              to="/auth"
+              to="/editor"
               className="inline-flex items-center gap-2 rounded-[10px] bg-[#ff5c3a] px-7 py-3.5 text-[14.5px] font-medium text-white transition hover:-translate-y-0.5 hover:bg-[#ff7558] hover:shadow-[0_6px_24px_rgba(255,92,58,0.32)]"
             >
               Start captioning <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.5} />
@@ -294,7 +285,7 @@ const Index = () => {
           No credit card required. First 3 videos on us.
         </p>
         <Link
-          to="/auth"
+          to="/editor"
           className="relative inline-flex items-center gap-2 rounded-[10px] bg-[#ff5c3a] px-[30px] py-3.5 text-[14.5px] font-medium text-white transition hover:-translate-y-0.5 hover:bg-[#ff7558] hover:shadow-[0_6px_24px_rgba(255,92,58,0.4)]"
         >
           Get started free <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.5} />
