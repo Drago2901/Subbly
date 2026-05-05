@@ -535,22 +535,22 @@ const Editor = () => {
 
   return (
     <div className="flex h-screen flex-col bg-gradient-surface">
-      <header className="flex items-center justify-between gap-3 border-b border-border bg-surface/60 px-4 py-3 backdrop-blur md:px-6">
-        <div className="flex min-w-0 items-center gap-2.5">
-          <Link to="/" className="flex h-8 w-8 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted">
+      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-surface/60 px-3 py-2 backdrop-blur md:gap-3 md:px-6 md:py-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <Link to="/" className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted">
             <ArrowLeft className="h-4 w-4" />
           </Link>
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-primary shadow-glow">
+          <div className="hidden h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-primary shadow-glow sm:flex">
             <Sparkles className="h-4 w-4 text-primary-foreground" />
           </div>
           <Input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Project title"
-            className="h-8 w-44 max-w-[40vw] border-transparent bg-transparent px-2 text-sm font-medium hover:border-border focus-visible:border-border md:w-60"
+            className="h-8 min-w-0 flex-1 border-transparent bg-transparent px-2 text-sm font-medium hover:border-border focus-visible:border-border md:w-60 md:flex-none"
           />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-shrink-0 items-center gap-1.5 md:gap-2">
           {headerRight}
           {user ? (
             <Button variant="ghost" size="sm" onClick={signOut} className="hidden md:inline-flex">
