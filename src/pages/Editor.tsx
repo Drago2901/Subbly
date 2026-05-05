@@ -432,6 +432,16 @@ const Editor = () => {
   const headerRight = useMemo(
     () => (
       <div className="flex items-center gap-2">
+        <Button variant="ghost" size="sm" onClick={handleImportSrtClick}>
+          <Upload className="mr-1.5 h-4 w-4" />
+          Import SRT
+        </Button>
+        {captions.length > 0 && (
+          <Button variant="ghost" size="sm" onClick={handleExportSrt}>
+            <FileText className="mr-1.5 h-4 w-4" />
+            Export SRT
+          </Button>
+        )}
         {file && (
           <Button variant="ghost" size="sm" onClick={handleManualSave} disabled={saving}>
             {saving ? (
