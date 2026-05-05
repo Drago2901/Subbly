@@ -432,25 +432,25 @@ const Editor = () => {
 
   const headerRight = useMemo(
     () => (
-      <div className="flex items-center gap-2">
-        <Button variant="ghost" size="sm" onClick={handleImportSrtClick}>
-          <Upload className="mr-1.5 h-4 w-4" />
-          Import SRT
+      <div className="flex items-center gap-1 md:gap-2">
+        <Button variant="ghost" size="sm" onClick={handleImportSrtClick} className="px-2 md:px-3">
+          <Upload className="h-4 w-4 md:mr-1.5" />
+          <span className="hidden md:inline">Import SRT</span>
         </Button>
         {captions.length > 0 && (
-          <Button variant="ghost" size="sm" onClick={handleExportSrt}>
-            <FileText className="mr-1.5 h-4 w-4" />
-            Export SRT
+          <Button variant="ghost" size="sm" onClick={handleExportSrt} className="px-2 md:px-3">
+            <FileText className="h-4 w-4 md:mr-1.5" />
+            <span className="hidden md:inline">Export SRT</span>
           </Button>
         )}
         {file && (
-          <Button variant="ghost" size="sm" onClick={handleManualSave} disabled={saving}>
+          <Button variant="ghost" size="sm" onClick={handleManualSave} disabled={saving} className="px-2 md:px-3">
             {saving ? (
-              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin md:mr-1.5" />
             ) : (
-              <Save className="mr-1.5 h-4 w-4" />
+              <Save className="h-4 w-4 md:mr-1.5" />
             )}
-            Save
+            <span className="hidden md:inline">Save</span>
           </Button>
         )}
         {file && (
@@ -458,18 +458,22 @@ const Editor = () => {
             <Button
               onClick={exportVideo}
               disabled={exporting}
-              className="rounded-r-none bg-gradient-primary text-primary-foreground hover:opacity-95"
+              size="sm"
+              className="rounded-r-none bg-gradient-primary px-3 text-primary-foreground hover:opacity-95"
             >
               {exporting ? (
                 <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {exportStage === "transcode" ? "Converting" : "Rendering"}{" "}
-                  {Math.round(exportProgress * 100)}%
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                  <span className="text-xs">
+                    {exportStage === "transcode" ? "Converting" : "Rendering"}{" "}
+                    {Math.round(exportProgress * 100)}%
+                  </span>
                 </>
               ) : (
                 <>
-                  <Download className="mr-2 h-4 w-4" />
-                  Export {exportFormat.toUpperCase()}
+                  <Download className="h-4 w-4 md:mr-1.5" />
+                  <span className="hidden md:inline">Export {exportFormat.toUpperCase()}</span>
+                  <span className="ml-1 md:hidden text-xs font-medium">{exportFormat.toUpperCase()}</span>
                 </>
               )}
             </Button>
