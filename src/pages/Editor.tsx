@@ -595,25 +595,25 @@ const Editor = () => {
         </main>
       )}
 
-      {file && videoUrl && (
-        <div className="grid flex-1 animate-fade-in grid-cols-12 gap-3 overflow-hidden p-3">
-          <aside className="col-span-12 flex h-[40vh] flex-col overflow-hidden rounded-xl border border-border bg-surface md:col-span-3 md:h-auto">
-            <CaptionList
-              captions={captions}
-              currentTime={currentTime}
-              onChange={setCaptions}
-              onSeek={seek}
-            />
-          </aside>
+      {file && videoUrl && (() => {
+        const captionsPanel = (
+          <CaptionList
+            captions={captions}
+            currentTime={currentTime}
+            onChange={setCaptions}
+            onSeek={seek}
+          />
+        );
 
-          <main className="col-span-12 flex flex-col gap-3 md:col-span-6">
+        const previewPanel = (
+          <div className="flex flex-col gap-3">
             <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="text-xs font-medium text-muted-foreground">
                   Preview resolution
                 </div>
                 <Select value={exportPresetId} onValueChange={setExportPresetId}>
-                  <SelectTrigger className="h-8 w-[260px] text-xs">
+                  <SelectTrigger className="h-8 w-full max-w-[260px] text-xs sm:w-[260px]">
                     <SelectValue placeholder="Select resolution" />
                   </SelectTrigger>
                   <SelectContent>
@@ -637,7 +637,6 @@ const Editor = () => {
                     ? {
                         maxWidth: (() => {
                           const p = getPresetById(exportPresetId);
-                          // Constrain vertical/portrait formats so they don't dominate the column
                           return p.height > p.width ? "320px" : "100%";
                         })(),
                       }
@@ -665,8 +664,8 @@ const Editor = () => {
                 />
               </div>
             </div>
-            <div className="flex items-center justify-between rounded-xl border border-border bg-surface px-4 py-3">
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-surface px-3 py-2.5 md:px-4 md:py-3">
+              <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground md:text-xs">
                 {meta ? (
                   <>
                     {meta.width}×{meta.height} · {meta.duration.toFixed(1)}s
@@ -675,7 +674,7 @@ const Editor = () => {
                   "Loading metadata…"
                 )}
                 {storedSourcePath && (
-                  <span className="ml-2 inline-flex items-center gap-1 rounded-full border border-primary/30 px-2 py-0.5 text-[10px] text-primary">
+                  <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 px-2 py-0.5 text-[10px] text-primary">
                     <Cloud className="h-3 w-3" /> Saved
                   </span>
                 )}
@@ -684,6 +683,7 @@ const Editor = () => {
                 onClick={transcribe}
                 disabled={transcribing}
                 variant="secondary"
+                size="sm"
                 className="border border-primary/30 hover:border-primary/60"
               >
                 {transcribing ? (
@@ -699,13 +699,48 @@ const Editor = () => {
                 )}
               </Button>
             </div>
-          </main>
+          </div>
+        );
 
-          <aside className="col-span-12 overflow-hidden rounded-xl border border-border bg-surface md:col-span-3">
-            <StylePanel style={style} onChange={setStyle} />
-          </aside>
-        </div>
-      )}
+        const stylePanel = <StylePanel style={style} onChange={setStyle} />;
+
+        return (
+          <>
+            {/* Desktop layout */}
+            <div className="hidden flex-1 animate-fade-in grid-cols-12 gap-3 overflow-hidden p-3 md:grid">
+              <aside className="col-span-3 flex flex-col overflow-hidden rounded-xl border border-border bg-surface">
+                {captionsPanel}
+              </aside>
+              <main className="col-span-6 flex flex-col gap-3 overflow-y-auto">
+                {previewPanel}
+              </main>
+              <aside className="col-span-3 overflow-hidden rounded-xl border border-border bg-surface">
+                {stylePanel}
+              </aside>
+            </div>
+
+            {/* Mobile layout */}
+            <div className="flex flex-1 animate-fade-in flex-col overflow-hidden p-2 md:hidden">
+              <Tabs defaultValue="preview" className="flex flex-1 flex-col overflow-hidden">
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="captions">Captions</TabsTrigger>
+                  <TabsTrigger value="preview">Preview</TabsTrigger>
+                  <TabsTrigger value="style">Style</TabsTrigger>
+                </TabsList>
+                <TabsContent value="captions" className="mt-2 flex-1 overflow-hidden rounded-xl border border-border bg-surface">
+                  {captionsPanel}
+                </TabsContent>
+                <TabsContent value="preview" className="mt-2 flex-1 overflow-y-auto">
+                  {previewPanel}
+                </TabsContent>
+                <TabsContent value="style" className="mt-2 flex-1 overflow-y-auto rounded-xl border border-border bg-surface">
+                  {stylePanel}
+                </TabsContent>
+              </Tabs>
+            </div>
+          </>
+        );
+      })()}
 
       <ExportProgressDialog
         open={exporting}
