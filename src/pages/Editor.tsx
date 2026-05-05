@@ -5,10 +5,12 @@ import {
   ChevronDown,
   Cloud,
   Download,
+  FileText,
   Loader2,
   LogOut,
   Save,
   Sparkles,
+  Upload,
   Wand2,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -52,6 +54,7 @@ import {
   getPresetById,
 } from "@/lib/captions/presets";
 import { useAuth } from "@/hooks/useAuth";
+import { captionsToSrt, srtToCaptions } from "@/lib/captions/srt";
 
 type ProjectMeta = {
   width: number;
@@ -86,6 +89,7 @@ const Editor = () => {
   const [exportStage, setExportStage] = useState<"render" | "transcode">("render");
   const videoRef = useRef<HTMLVideoElement>(null);
   const exportAbortRef = useRef<AbortController | null>(null);
+  const srtInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     document.title = "Editor — Captionly";
@@ -311,6 +315,44 @@ const Editor = () => {
     if (id) toast.success("Project saved");
   };
 
+  const handleExportSrt = () => {
+    if (!captions.length) {
+      toast.error("No captions to export.");
+      return;
+    }
+    const srt = captionsToSrt(captions);
+    const blob = new Blob([srt], { type: "application/x-subrip;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${(title || "captions").replace(/[^a-z0-9-_]+/gi, "_")}.srt`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 5000);
+    toast.success("SRT downloaded");
+  };
+
+  const handleImportSrtClick = () => srtInputRef.current?.click();
+
+  const handleSrtFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    try {
+      const text = await f.text();
+      const parsed = srtToCaptions(text);
+      if (!parsed.length) {
+        toast.error("No captions found in SRT file.");
+        return;
+      }
+      setCaptions(parsed);
+      toast.success(`Imported ${parsed.length} captions`);
+    } catch (err: any) {
+      toast.error(err?.message || "Could not read SRT file");
+    }
+  };
+
   const cancelExport = () => {
     if (exportAbortRef.current) {
       exportAbortRef.current.abort();
@@ -390,6 +432,16 @@ const Editor = () => {
   const headerRight = useMemo(
     () => (
       <div className="flex items-center gap-2">
+        <Button variant="ghost" size="sm" onClick={handleImportSrtClick}>
+          <Upload className="mr-1.5 h-4 w-4" />
+          Import SRT
+        </Button>
+        {captions.length > 0 && (
+          <Button variant="ghost" size="sm" onClick={handleExportSrt}>
+            <FileText className="mr-1.5 h-4 w-4" />
+            Export SRT
+          </Button>
+        )}
         {file && (
           <Button variant="ghost" size="sm" onClick={handleManualSave} disabled={saving}>
             {saving ? (
@@ -510,6 +562,14 @@ const Editor = () => {
           )}
         </div>
       </header>
+
+      <input
+        ref={srtInputRef}
+        type="file"
+        accept=".srt,application/x-subrip,text/plain"
+        className="hidden"
+        onChange={handleSrtFile}
+      />
 
       {!file && (
         <main className="mx-auto flex w-full max-w-3xl flex-1 animate-fade-in flex-col items-center justify-center px-6 py-10">
