@@ -432,61 +432,69 @@ const Editor = () => {
 
   const headerRight = useMemo(
     () => (
-      <div className="flex items-center gap-1 md:gap-2">
-        <Button variant="ghost" size="sm" onClick={handleImportSrtClick} className="px-2 md:px-3">
-          <Upload className="h-4 w-4 md:mr-1.5" />
+      <div className="flex items-center gap-1.5 md:gap-2">
+        <button
+          onClick={handleImportSrtClick}
+          className="inline-flex items-center gap-1.5 rounded-[7px] px-2.5 py-1.5 text-[12.5px] text-[#888] transition hover:bg-[#f5f3ee] hover:text-[#555] md:px-3"
+        >
+          <Upload className="h-3.5 w-3.5" strokeWidth={1.8} />
           <span className="hidden md:inline">Import SRT</span>
-        </Button>
+        </button>
         {captions.length > 0 && (
-          <Button variant="ghost" size="sm" onClick={handleExportSrt} className="px-2 md:px-3">
-            <FileText className="h-4 w-4 md:mr-1.5" />
+          <button
+            onClick={handleExportSrt}
+            className="inline-flex items-center gap-1.5 rounded-[7px] px-2.5 py-1.5 text-[12.5px] text-[#888] transition hover:bg-[#f5f3ee] hover:text-[#555] md:px-3"
+          >
+            <FileText className="h-3.5 w-3.5" strokeWidth={1.8} />
             <span className="hidden md:inline">Export SRT</span>
-          </Button>
+          </button>
         )}
         {file && (
-          <Button variant="ghost" size="sm" onClick={handleManualSave} disabled={saving} className="px-2 md:px-3">
+          <button
+            onClick={handleManualSave}
+            disabled={saving}
+            className="inline-flex items-center gap-1.5 rounded-[7px] border border-[#e8e4de] bg-[#f5f3ee] px-3 py-1.5 text-[12.5px] text-[#555] transition hover:bg-[#eeeae4] disabled:opacity-50"
+          >
             {saving ? (
-              <Loader2 className="h-4 w-4 animate-spin md:mr-1.5" />
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
-              <Save className="h-4 w-4 md:mr-1.5" />
+              <Save className="h-3.5 w-3.5" strokeWidth={1.8} />
             )}
             <span className="hidden md:inline">Save</span>
-          </Button>
+          </button>
         )}
         {file && (
-          <div className="flex items-stretch overflow-hidden rounded-md">
-            <Button
+          <div className="flex items-stretch overflow-hidden rounded-[7px]">
+            <button
               onClick={exportVideo}
               disabled={exporting}
-              size="sm"
-              className="rounded-r-none bg-gradient-primary px-3 text-primary-foreground hover:opacity-95"
+              className="inline-flex items-center gap-1.5 rounded-l-[7px] bg-[#ff5c3a] px-4 py-1.5 text-[12.5px] font-medium text-white transition hover:bg-[#e84e2e] disabled:opacity-70"
             >
               {exporting ? (
                 <>
-                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                  <span className="text-xs">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span className="text-[11px]">
                     {exportStage === "transcode" ? "Converting" : "Rendering"}{" "}
                     {Math.round(exportProgress * 100)}%
                   </span>
                 </>
               ) : (
                 <>
-                  <Download className="h-4 w-4 md:mr-1.5" />
-                  <span className="hidden md:inline">Export {exportFormat.toUpperCase()}</span>
-                  <span className="ml-1 md:hidden text-xs font-medium">{exportFormat.toUpperCase()}</span>
+                  <Download className="h-3.5 w-3.5" strokeWidth={2} />
+                  <span className="hidden sm:inline">Export {exportFormat.toUpperCase()}</span>
+                  <span className="sm:hidden">{exportFormat.toUpperCase()}</span>
                 </>
               )}
-            </Button>
+            </button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
+                <button
                   disabled={exporting}
-                  size="sm"
-                  className="rounded-l-none border-l border-primary-foreground/20 bg-gradient-primary px-2 text-primary-foreground hover:opacity-95"
+                  className="flex items-center justify-center border-l border-white/20 bg-[#ff5c3a] px-2 text-white transition hover:bg-[#e84e2e] disabled:opacity-70"
                   aria-label="Choose export format"
                 >
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-72">
                 <DropdownMenuLabel>Export format</DropdownMenuLabel>
