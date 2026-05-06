@@ -432,61 +432,69 @@ const Editor = () => {
 
   const headerRight = useMemo(
     () => (
-      <div className="flex items-center gap-1 md:gap-2">
-        <Button variant="ghost" size="sm" onClick={handleImportSrtClick} className="px-2 md:px-3">
-          <Upload className="h-4 w-4 md:mr-1.5" />
+      <div className="flex items-center gap-1.5 md:gap-2">
+        <button
+          onClick={handleImportSrtClick}
+          className="inline-flex items-center gap-1.5 rounded-[7px] px-2.5 py-1.5 text-[12.5px] text-[#888] transition hover:bg-[#f5f3ee] hover:text-[#555] md:px-3"
+        >
+          <Upload className="h-3.5 w-3.5" strokeWidth={1.8} />
           <span className="hidden md:inline">Import SRT</span>
-        </Button>
+        </button>
         {captions.length > 0 && (
-          <Button variant="ghost" size="sm" onClick={handleExportSrt} className="px-2 md:px-3">
-            <FileText className="h-4 w-4 md:mr-1.5" />
+          <button
+            onClick={handleExportSrt}
+            className="inline-flex items-center gap-1.5 rounded-[7px] px-2.5 py-1.5 text-[12.5px] text-[#888] transition hover:bg-[#f5f3ee] hover:text-[#555] md:px-3"
+          >
+            <FileText className="h-3.5 w-3.5" strokeWidth={1.8} />
             <span className="hidden md:inline">Export SRT</span>
-          </Button>
+          </button>
         )}
         {file && (
-          <Button variant="ghost" size="sm" onClick={handleManualSave} disabled={saving} className="px-2 md:px-3">
+          <button
+            onClick={handleManualSave}
+            disabled={saving}
+            className="inline-flex items-center gap-1.5 rounded-[7px] border border-[#e8e4de] bg-[#f5f3ee] px-3 py-1.5 text-[12.5px] text-[#555] transition hover:bg-[#eeeae4] disabled:opacity-50"
+          >
             {saving ? (
-              <Loader2 className="h-4 w-4 animate-spin md:mr-1.5" />
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
-              <Save className="h-4 w-4 md:mr-1.5" />
+              <Save className="h-3.5 w-3.5" strokeWidth={1.8} />
             )}
             <span className="hidden md:inline">Save</span>
-          </Button>
+          </button>
         )}
         {file && (
-          <div className="flex items-stretch overflow-hidden rounded-md">
-            <Button
+          <div className="flex items-stretch overflow-hidden rounded-[7px]">
+            <button
               onClick={exportVideo}
               disabled={exporting}
-              size="sm"
-              className="rounded-r-none bg-gradient-primary px-3 text-primary-foreground hover:opacity-95"
+              className="inline-flex items-center gap-1.5 rounded-l-[7px] bg-[#ff5c3a] px-4 py-1.5 text-[12.5px] font-medium text-white transition hover:bg-[#e84e2e] disabled:opacity-70"
             >
               {exporting ? (
                 <>
-                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                  <span className="text-xs">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <span className="text-[11px]">
                     {exportStage === "transcode" ? "Converting" : "Rendering"}{" "}
                     {Math.round(exportProgress * 100)}%
                   </span>
                 </>
               ) : (
                 <>
-                  <Download className="h-4 w-4 md:mr-1.5" />
-                  <span className="hidden md:inline">Export {exportFormat.toUpperCase()}</span>
-                  <span className="ml-1 md:hidden text-xs font-medium">{exportFormat.toUpperCase()}</span>
+                  <Download className="h-3.5 w-3.5" strokeWidth={2} />
+                  <span className="hidden sm:inline">Export {exportFormat.toUpperCase()}</span>
+                  <span className="sm:hidden">{exportFormat.toUpperCase()}</span>
                 </>
               )}
-            </Button>
+            </button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button
+                <button
                   disabled={exporting}
-                  size="sm"
-                  className="rounded-l-none border-l border-primary-foreground/20 bg-gradient-primary px-2 text-primary-foreground hover:opacity-95"
+                  className="flex items-center justify-center border-l border-white/20 bg-[#ff5c3a] px-2 text-white transition hover:bg-[#e84e2e] disabled:opacity-70"
                   aria-label="Choose export format"
                 >
-                  <ChevronDown className="h-4 w-4" />
-                </Button>
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-72">
                 <DropdownMenuLabel>Export format</DropdownMenuLabel>
@@ -532,37 +540,54 @@ const Editor = () => {
 
   if (loadingProject) {
     return (
-      <div className="flex h-screen items-center justify-center bg-gradient-surface">
-        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+      <div className="flex h-screen items-center justify-center bg-[#f5f3ee]">
+        <Loader2 className="h-6 w-6 animate-spin text-[#ff5c3a]" />
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen flex-col bg-gradient-surface">
-      <header className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-surface/60 px-3 py-2 backdrop-blur md:gap-3 md:px-6 md:py-3">
-        <div className="flex min-w-0 flex-1 items-center gap-2">
-          <Link to="/" className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg border border-border text-muted-foreground hover:bg-muted">
-            <ArrowLeft className="h-4 w-4" />
+    <div
+      className="flex h-screen flex-col overflow-hidden bg-[#f5f3ee] text-[#1a1a1a]"
+      style={{ fontFamily: "'Outfit', sans-serif" }}
+    >
+      <header className="flex flex-shrink-0 flex-wrap items-center justify-between gap-2 border-b border-[#e8e4de] bg-white px-3 py-2 md:gap-3 md:px-5">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
+          <Link
+            to="/"
+            className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-[7px] border border-[#e8e4de] bg-white text-[#666] transition hover:bg-[#f5f3ee]"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
           </Link>
-          <div className="hidden h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-gradient-primary shadow-glow sm:flex">
-            <Sparkles className="h-4 w-4 text-primary-foreground" />
+          <div className="flex items-center gap-2">
+            <div className="flex h-7 w-7 items-center justify-center rounded-[7px] bg-[#ff5c3a]">
+              <Sparkles className="h-[15px] w-[15px] text-white" strokeWidth={2} />
+            </div>
+            <span className="hidden text-[14px] font-semibold sm:inline">Captionly</span>
           </div>
+          <div className="hidden h-[18px] w-px bg-[#e8e4de] sm:block" />
           <Input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder="Project title"
-            className="h-8 min-w-0 flex-1 border-transparent bg-transparent px-2 text-sm font-medium hover:border-border focus-visible:border-border md:w-60 md:flex-none"
+            className="h-8 min-w-0 flex-1 border-transparent bg-transparent px-2 text-[13px] font-medium text-[#1a1a1a] hover:border-[#e8e4de] focus-visible:border-[#e8e4de] focus-visible:ring-0 md:w-60 md:flex-none"
           />
         </div>
         <div className="flex flex-shrink-0 items-center gap-1.5 md:gap-2">
           {headerRight}
           {user ? (
-            <Button variant="ghost" size="sm" onClick={signOut} className="hidden md:inline-flex">
-              <LogOut className="mr-1.5 h-4 w-4" /> Sign out
-            </Button>
+            <button
+              onClick={signOut}
+              className="hidden items-center gap-1.5 rounded-[7px] px-2.5 py-1.5 text-[12.5px] text-[#888] transition hover:bg-[#f5f3ee] hover:text-[#555] md:inline-flex"
+            >
+              <LogOut className="h-3.5 w-3.5" strokeWidth={1.8} />
+              Sign out
+            </button>
           ) : (
-            <Link to="/auth" className="hidden md:inline-flex text-xs text-muted-foreground hover:text-foreground px-2">
+            <Link
+              to="/auth"
+              className="hidden items-center rounded-[7px] px-2.5 py-1.5 text-[12.5px] text-[#888] transition hover:bg-[#f5f3ee] hover:text-[#555] md:inline-flex"
+            >
               Sign in
             </Link>
           )}
@@ -578,15 +603,13 @@ const Editor = () => {
       />
 
       {!file && (
-        <main className="mx-auto flex w-full max-w-3xl flex-1 animate-fade-in flex-col items-center justify-center px-6 py-10">
-          <div className="mb-8 text-center">
-            <h2 className="text-4xl font-bold tracking-tight md:text-5xl">
-              Caption your videos in{" "}
-              <span className="bg-gradient-primary bg-clip-text text-transparent">seconds</span>
+        <main className="mx-auto flex w-full max-w-[640px] flex-1 flex-col items-center justify-center gap-8 overflow-y-auto px-6 py-10">
+          <div className="text-center">
+            <h2 className="mb-2.5 text-[32px] font-medium leading-[1.1] tracking-[-1.2px] md:text-[36px]">
+              Caption your videos in <span className="text-[#ff5c3a]">seconds</span>
             </h2>
-            <p className="mx-auto mt-3 max-w-xl text-muted-foreground">
-              Upload a video to start. We'll save your captions and styling so you can come back
-              anytime.
+            <p className="mx-auto max-w-[360px] text-[14px] leading-relaxed text-[#999]">
+              Upload a video to start. We'll save your captions and styling so you can come back anytime.
             </p>
           </div>
           <div className="w-full">
@@ -606,41 +629,47 @@ const Editor = () => {
         );
 
         const previewPanel = (
-          <div className="flex flex-col gap-3">
-            <div className="flex flex-col gap-3 rounded-xl border border-border bg-surface p-3">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <div className="text-xs font-medium text-muted-foreground">
-                  Preview resolution
-                </div>
+          <div className="flex h-full flex-col overflow-hidden bg-[#f5f3ee]">
+            <div className="flex flex-shrink-0 items-center justify-between gap-2 border-b border-[#e8e4de] bg-white px-4 py-2.5">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="hidden text-[11px] text-[#aaa] sm:inline">Preview resolution</span>
                 <Select value={exportPresetId} onValueChange={setExportPresetId}>
-                  <SelectTrigger className="h-8 w-full max-w-[260px] text-xs sm:w-[260px]">
-                    <SelectValue placeholder="Select resolution" />
+                  <SelectTrigger className="h-7 w-full max-w-[240px] rounded-[6px] border-[#e8e4de] bg-[#f5f3ee] px-3 text-[12px] text-[#1a1a1a] focus:ring-0 sm:w-[240px]">
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     {EXPORT_PRESETS.map((p) => (
                       <SelectItem key={p.id} value={p.id}>
                         <span className="flex flex-col">
-                          <span>{p.label}</span>
-                          <span className="text-[10px] text-muted-foreground">
-                            {p.description}
-                          </span>
+                          <span className="text-[13px]">{p.label}</span>
+                          <span className="text-[11px] text-[#bbb]">{p.description}</span>
                         </span>
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
+              <div className="flex items-center gap-1.5 text-[11px] text-[#aaa]">
+                {storedSourcePath && (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-[#ffd5cc] bg-[#fff5f3] px-2 py-0.5 text-[#ff5c3a]">
+                    <Cloud className="h-3 w-3" /> Saved
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-1 items-center justify-center overflow-hidden p-4 md:p-6">
               <div
-                className="mx-auto w-full"
+                className="w-full"
                 style={
                   exportPresetId !== SOURCE_PRESET_ID
                     ? {
                         maxWidth: (() => {
                           const p = getPresetById(exportPresetId);
-                          return p.height > p.width ? "320px" : "100%";
+                          return p.height > p.width ? "320px" : "720px";
                         })(),
                       }
-                    : undefined
+                    : { maxWidth: "720px" }
                 }
               >
                 <VideoPreview
@@ -664,40 +693,32 @@ const Editor = () => {
                 />
               </div>
             </div>
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-surface px-3 py-2.5 md:px-4 md:py-3">
-              <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground md:text-xs">
+
+            <div className="flex flex-shrink-0 flex-wrap items-center justify-between gap-2 border-t border-[#e8e4de] bg-white px-4 py-2.5">
+              <div className="text-[11px] text-[#aaa]">
                 {meta ? (
-                  <>
-                    {meta.width}×{meta.height} · {meta.duration.toFixed(1)}s
-                  </>
+                  <>{meta.width}×{meta.height} · {meta.duration.toFixed(1)}s</>
                 ) : (
                   "Loading metadata…"
                 )}
-                {storedSourcePath && (
-                  <span className="inline-flex items-center gap-1 rounded-full border border-primary/30 px-2 py-0.5 text-[10px] text-primary">
-                    <Cloud className="h-3 w-3" /> Saved
-                  </span>
-                )}
               </div>
-              <Button
+              <button
                 onClick={transcribe}
                 disabled={transcribing}
-                variant="secondary"
-                size="sm"
-                className="border border-primary/30 hover:border-primary/60"
+                className="inline-flex items-center gap-1.5 rounded-[7px] border border-[#e8e4de] bg-white px-3.5 py-1.5 text-[12.5px] font-medium text-[#1a1a1a] transition hover:border-[#ff5c3a] hover:bg-[#fff5f3] hover:text-[#ff5c3a] disabled:opacity-60"
               >
                 {transcribing ? (
                   <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     Transcribing…
                   </>
                 ) : (
                   <>
-                    <Wand2 className="mr-2 h-4 w-4 text-primary" />
+                    <Wand2 className="h-3.5 w-3.5" strokeWidth={1.8} />
                     {captions.length ? "Re-transcribe" : "Auto-transcribe"}
                   </>
                 )}
-              </Button>
+              </button>
             </div>
           </div>
         );
@@ -707,33 +728,33 @@ const Editor = () => {
         return (
           <>
             {/* Desktop layout */}
-            <div className="hidden flex-1 animate-fade-in grid-cols-12 gap-3 overflow-hidden p-3 md:grid">
-              <aside className="col-span-3 flex flex-col overflow-hidden rounded-xl border border-border bg-surface">
+            <div className="hidden flex-1 overflow-hidden md:flex">
+              <aside className="flex w-[280px] flex-shrink-0 flex-col overflow-hidden border-r border-[#e8e4de] bg-white">
                 {captionsPanel}
               </aside>
-              <main className="col-span-6 flex flex-col gap-3 overflow-y-auto">
+              <main className="flex flex-1 flex-col overflow-hidden">
                 {previewPanel}
               </main>
-              <aside className="col-span-3 overflow-hidden rounded-xl border border-border bg-surface">
+              <aside className="flex w-[300px] flex-shrink-0 flex-col overflow-hidden border-l border-[#e8e4de] bg-white">
                 {stylePanel}
               </aside>
             </div>
 
             {/* Mobile layout */}
-            <div className="flex flex-1 animate-fade-in flex-col overflow-hidden p-2 md:hidden">
+            <div className="flex flex-1 flex-col overflow-hidden bg-white p-2 md:hidden">
               <Tabs defaultValue="preview" className="flex flex-1 flex-col overflow-hidden">
-                <TabsList className="grid w-full grid-cols-3">
+                <TabsList className="grid w-full grid-cols-3 bg-[#f5f3ee]">
                   <TabsTrigger value="captions">Captions</TabsTrigger>
                   <TabsTrigger value="preview">Preview</TabsTrigger>
                   <TabsTrigger value="style">Style</TabsTrigger>
                 </TabsList>
-                <TabsContent value="captions" className="mt-2 flex-1 overflow-hidden rounded-xl border border-border bg-surface">
+                <TabsContent value="captions" className="mt-2 flex-1 overflow-hidden rounded-xl border border-[#e8e4de]">
                   {captionsPanel}
                 </TabsContent>
-                <TabsContent value="preview" className="mt-2 flex-1 overflow-y-auto">
+                <TabsContent value="preview" className="mt-2 flex-1 overflow-hidden rounded-xl border border-[#e8e4de]">
                   {previewPanel}
                 </TabsContent>
-                <TabsContent value="style" className="mt-2 flex-1 overflow-y-auto rounded-xl border border-border bg-surface">
+                <TabsContent value="style" className="mt-2 flex-1 overflow-hidden rounded-xl border border-[#e8e4de]">
                   {stylePanel}
                 </TabsContent>
               </Tabs>
