@@ -1,6 +1,4 @@
-import { Plus, Trash2, Scissors, Combine } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Plus, Trash2, Scissors, Combine, FileText } from "lucide-react";
 import type { Caption } from "@/lib/captions/types";
 
 type Props = {
@@ -12,7 +10,7 @@ type Props = {
 
 const fmt = (t: number) => {
   const m = Math.floor(t / 60);
-  const s = (t % 60).toFixed(2).padStart(5, "0");
+  const s = Math.floor(t % 60).toString().padStart(2, "0");
   return `${m}:${s}`;
 };
 
@@ -47,12 +45,7 @@ export function CaptionList({ captions, currentTime, onChange, onSeek }: Props) 
       rightWords = c.words.slice(wIdx);
     }
 
-    const left: Caption = {
-      ...c,
-      end: mid,
-      text: leftText,
-      words: leftWords,
-    };
+    const left: Caption = { ...c, end: mid, text: leftText, words: leftWords };
     const right: Caption = {
       id: crypto.randomUUID(),
       start: mid,
@@ -83,101 +76,115 @@ export function CaptionList({ captions, currentTime, onChange, onSeek }: Props) 
   };
 
   return (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
+    <div className="flex h-full flex-col bg-white" style={{ fontFamily: "'Outfit', sans-serif" }}>
+      <div className="flex items-center justify-between border-b border-[#f0ede8] px-4 pb-3 pt-3.5">
         <div>
-          <h3 className="text-sm font-semibold">Captions</h3>
-          <p className="text-xs text-muted-foreground">{captions.length} segments</p>
+          <div className="text-[13px] font-semibold text-[#1a1a1a]">Captions</div>
+          <div className="mt-0.5 text-[11px] text-[#bbb]">
+            {captions.length} segment{captions.length === 1 ? "" : "s"}
+          </div>
         </div>
-        <Button size="sm" variant="secondary" onClick={add}>
-          <Plus className="mr-1 h-4 w-4" /> Add
-        </Button>
+        <button
+          onClick={add}
+          className="inline-flex items-center gap-1.5 rounded-md border border-[#ffd5cc] bg-[#fff5f3] px-2.5 py-1 text-[12px] font-medium text-[#ff5c3a] transition hover:bg-[#ffe8e2]"
+        >
+          <Plus className="h-3 w-3" strokeWidth={2.5} />
+          Add
+        </button>
       </div>
-      <div className="scrollbar-thin flex-1 space-y-2 overflow-y-auto p-3">
+
+      <div className="scrollbar-thin flex-1 space-y-1.5 overflow-y-auto p-3">
+        {captions.length === 0 && (
+          <div className="flex h-full flex-col items-center justify-center gap-3 px-5 py-10 text-center">
+            <div className="flex h-11 w-11 items-center justify-center rounded-[10px] border border-[#e8e4de] bg-[#f5f3ee]">
+              <FileText className="h-5 w-5 text-[#ccc]" strokeWidth={1.8} />
+            </div>
+            <div className="text-[12.5px] font-medium text-[#bbb]">No captions yet</div>
+            <div className="text-[11.5px] leading-relaxed text-[#ccc]">
+              Click "Add" or auto-transcribe to create captions.
+            </div>
+          </div>
+        )}
+
         {captions.map((c, idx) => {
           const active = currentTime >= c.start && currentTime <= c.end;
           const hasNext = idx < captions.length - 1;
           return (
             <div
               key={c.id}
-              className={`group rounded-lg border p-3 transition-all ${
+              className={`group cursor-pointer rounded-lg border px-3 py-2.5 transition ${
                 active
-                  ? "border-primary/60 bg-primary/5 shadow-glow"
-                  : "border-border bg-surface-2 hover:border-border"
+                  ? "border-[#ff5c3a] bg-[#fff5f3]"
+                  : "border-[#e8e4de] bg-white hover:border-[#ffd5cc] hover:bg-[#fffaf9]"
               }`}
+              onClick={() => onSeek(c.start)}
             >
-              <div className="mb-2 flex items-center gap-2">
-                <button
-                  onClick={() => onSeek(c.start)}
-                  className="rounded bg-surface-3 px-2 py-1 font-mono text-[11px] text-muted-foreground hover:text-foreground"
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <span
+                  className={`text-[10px] font-semibold ${active ? "text-[#ff5c3a]" : "text-[#bbb]"}`}
+                  style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace" }}
                 >
-                  {fmt(c.start)}
-                </button>
-                <span className="text-muted-foreground">→</span>
-                <button
-                  onClick={() => onSeek(c.end)}
-                  className="rounded bg-surface-3 px-2 py-1 font-mono text-[11px] text-muted-foreground hover:text-foreground"
-                >
-                  {fmt(c.end)}
-                </button>
-                <div className="flex-1" />
-                <button
-                  onClick={() => splitCaption(c.id)}
-                  title="Split caption"
-                  className="text-muted-foreground opacity-0 transition-opacity hover:text-primary group-hover:opacity-100"
-                >
-                  <Scissors className="h-4 w-4" />
-                </button>
-                {hasNext && (
+                  {fmt(c.start)} – {fmt(c.end)}
+                </span>
+                <div className="flex items-center gap-1 opacity-0 transition group-hover:opacity-100">
                   <button
-                    onClick={() => mergeWithNext(c.id)}
-                    title="Merge with next"
-                    className="text-muted-foreground opacity-0 transition-opacity hover:text-primary group-hover:opacity-100"
+                    onClick={(e) => { e.stopPropagation(); splitCaption(c.id); }}
+                    title="Split"
+                    className="text-[#aaa] hover:text-[#ff5c3a]"
                   >
-                    <Combine className="h-4 w-4" />
+                    <Scissors className="h-3.5 w-3.5" />
                   </button>
-                )}
-                <button
-                  onClick={() => remove(c.id)}
-                  title="Delete"
-                  className="text-muted-foreground opacity-0 transition-opacity hover:text-destructive group-hover:opacity-100"
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
+                  {hasNext && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); mergeWithNext(c.id); }}
+                      title="Merge"
+                      className="text-[#aaa] hover:text-[#ff5c3a]"
+                    >
+                      <Combine className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); remove(c.id); }}
+                    title="Delete"
+                    className="text-[#aaa] hover:text-red-500"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </div>
-              <Input
+              <input
                 value={c.text}
+                onClick={(e) => e.stopPropagation()}
                 onChange={(e) => update(c.id, { text: e.target.value })}
-                className="border-0 bg-transparent px-0 text-sm focus-visible:ring-0"
+                className={`w-full bg-transparent text-[12px] leading-relaxed outline-none ${
+                  active ? "text-[#333]" : "text-[#666]"
+                }`}
               />
-              <div className="mt-2 grid grid-cols-2 gap-2">
-                <Input
+              <div className="mt-1.5 grid grid-cols-2 gap-1.5 opacity-0 transition group-hover:opacity-100">
+                <input
                   type="number"
                   step="0.1"
                   value={c.start.toFixed(2)}
+                  onClick={(e) => e.stopPropagation()}
                   onChange={(e) =>
                     update(c.id, { start: Math.max(0, parseFloat(e.target.value) || 0) })
                   }
-                  className="h-7 bg-surface-3 text-xs"
+                  className="h-6 rounded border border-[#e8e4de] bg-[#faf9f7] px-1.5 text-[10px] outline-none focus:border-[#ff5c3a]"
                 />
-                <Input
+                <input
                   type="number"
                   step="0.1"
                   value={c.end.toFixed(2)}
+                  onClick={(e) => e.stopPropagation()}
                   onChange={(e) =>
                     update(c.id, { end: Math.max(0, parseFloat(e.target.value) || 0) })
                   }
-                  className="h-7 bg-surface-3 text-xs"
+                  className="h-6 rounded border border-[#e8e4de] bg-[#faf9f7] px-1.5 text-[10px] outline-none focus:border-[#ff5c3a]"
                 />
               </div>
             </div>
           );
         })}
-        {captions.length === 0 && (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            No captions yet. Click "Add" to create one.
-          </p>
-        )}
       </div>
     </div>
   );
