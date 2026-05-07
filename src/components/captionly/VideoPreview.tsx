@@ -181,6 +181,8 @@ function getAnimationTransform(anim: CaptionAnimation, enter: number, exit: numb
   if (anim === "pop") return `scale(${0.7 + 0.3 * e})`;
   if (anim === "slide-up") return `translateY(${(1 - e) * 30}px)`;
   if (anim === "slide-down") return `translateY(${(1 - e) * -30}px)`;
+  if (anim === "slide-left") return `translateX(${(1 - e) * 60}px)`;
+  if (anim === "slide-right") return `translateX(${(1 - e) * -60}px)`;
   if (anim === "bounce") {
     const b = Math.sin(enter * Math.PI * 2) * (1 - enter) * 0.15;
     return `scale(${0.7 + 0.3 * enter + b})`;
@@ -188,6 +190,16 @@ function getAnimationTransform(anim: CaptionAnimation, enter: number, exit: numb
   if (anim === "wave") {
     const w = Math.sin(performance.now() / 200) * 4;
     return `translateY(${w}px)`;
+  }
+  if (anim === "shake") {
+    const intensity = (1 - enter) * 8 + 1.5;
+    const x = (Math.sin(performance.now() / 30) * intensity) | 0;
+    const y = (Math.cos(performance.now() / 25) * intensity * 0.6) | 0;
+    return `translate(${x}px, ${y}px)`;
+  }
+  if (anim === "glitch") {
+    const x = Math.sin(performance.now() / 60) * 3;
+    return `translateX(${x}px) skewX(${x * 0.6}deg)`;
   }
   return "";
 }
