@@ -39,6 +39,7 @@ import { VideoDropzone } from "@/components/captionly/VideoDropzone";
 import { VideoPreview } from "@/components/captionly/VideoPreview";
 import { CaptionList } from "@/components/captionly/CaptionList";
 import { StylePanel } from "@/components/captionly/StylePanel";
+import { Timeline } from "@/components/captionly/Timeline";
 import { ExportProgressDialog } from "@/components/captionly/ExportProgressDialog";
 import { wordsToCaptions } from "@/lib/captions/segment";
 import { burnCaptions, ExportCancelledError } from "@/lib/captions/render";
@@ -725,8 +726,21 @@ const Editor = () => {
 
         const stylePanel = <StylePanel style={style} onChange={setStyle} />;
 
+        const timelinePanel = meta ? (
+          <Timeline
+            duration={meta.duration}
+            currentTime={currentTime}
+            captions={captions}
+            onChange={setCaptions}
+            onSeek={(t) => {
+              setCurrentTime(t);
+              if (videoRef.current) videoRef.current.currentTime = t;
+            }}
+          />
+        ) : null;
+
         return (
-          <>
+          <div className="flex flex-1 flex-col overflow-hidden">
             {/* Desktop layout */}
             <div className="hidden flex-1 overflow-hidden md:flex">
               <aside className="flex w-[280px] flex-shrink-0 flex-col overflow-hidden border-r border-[#e8e4de] bg-white">
@@ -759,7 +773,10 @@ const Editor = () => {
                 </TabsContent>
               </Tabs>
             </div>
-          </>
+
+            {/* Timeline at bottom */}
+            {timelinePanel}
+          </div>
         );
       })()}
 
