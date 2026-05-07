@@ -39,6 +39,7 @@ import { VideoDropzone } from "@/components/captionly/VideoDropzone";
 import { VideoPreview } from "@/components/captionly/VideoPreview";
 import { CaptionList } from "@/components/captionly/CaptionList";
 import { StylePanel } from "@/components/captionly/StylePanel";
+import { Timeline } from "@/components/captionly/Timeline";
 import { ExportProgressDialog } from "@/components/captionly/ExportProgressDialog";
 import { wordsToCaptions } from "@/lib/captions/segment";
 import { burnCaptions, ExportCancelledError } from "@/lib/captions/render";
