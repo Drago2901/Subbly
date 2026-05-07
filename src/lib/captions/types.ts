@@ -98,15 +98,19 @@ export const FONT_OPTIONS = [
 
 export const ANIMATION_OPTIONS: { value: CaptionAnimation; label: string }[] = [
   { value: "none", label: "None" },
+  { value: "fade", label: "Fade In" },
+  { value: "pop", label: "Pop Up" },
+  { value: "bounce", label: "Bounce" },
   { value: "zoom-in", label: "Zoom In" },
   { value: "zoom-out", label: "Zoom Out" },
-  { value: "pop", label: "Pop" },
-  { value: "fade", label: "Fade" },
   { value: "slide-up", label: "Slide Up" },
   { value: "slide-down", label: "Slide Down" },
-  { value: "bounce", label: "Bounce" },
+  { value: "slide-left", label: "Slide Left" },
+  { value: "slide-right", label: "Slide Right" },
   { value: "typewriter", label: "Typewriter" },
   { value: "wave", label: "Wave" },
+  { value: "glitch", label: "Glitch" },
+  { value: "shake", label: "Shake" },
 ];
 
 export type CaptionTemplate = {
