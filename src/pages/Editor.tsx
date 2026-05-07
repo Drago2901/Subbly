@@ -211,7 +211,7 @@ const Editor = () => {
   const seek = (t: number) => {
     if (videoRef.current) {
       videoRef.current.currentTime = t;
-      videoRef.current.play().catch(() => {});
+      // Do NOT auto-play on seek — respect user's play/pause state.
     }
   };
 
