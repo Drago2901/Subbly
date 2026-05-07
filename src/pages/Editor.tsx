@@ -342,6 +342,10 @@ const Editor = () => {
     e.target.value = "";
     if (!f) return;
     try {
+      // Make sure SRT import never starts video playback.
+      if (videoRef.current && !videoRef.current.paused) {
+        videoRef.current.pause();
+      }
       const text = await f.text();
       const parsed = srtToCaptions(text);
       if (!parsed.length) {
@@ -349,6 +353,11 @@ const Editor = () => {
         return;
       }
       setCaptions(parsed);
+      // Show the first caption immediately on the preview.
+      if (videoRef.current) {
+        videoRef.current.currentTime = parsed[0].start;
+      }
+      setCurrentTime(parsed[0].start);
       toast.success(`Imported ${parsed.length} captions`);
     } catch (err: any) {
       toast.error(err?.message || "Could not read SRT file");
