@@ -21,9 +21,13 @@ export type CaptionAnimation =
   | "fade"
   | "slide-up"
   | "slide-down"
+  | "slide-left"
+  | "slide-right"
   | "bounce"
   | "typewriter"
-  | "wave";
+  | "wave"
+  | "glitch"
+  | "shake";
 
 export type CaptionStyle = {
   fontFamily: string;
