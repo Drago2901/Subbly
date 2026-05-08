@@ -830,6 +830,14 @@ const Editor = () => {
         format={exportFormat}
         onCancel={cancelExport}
       />
+
+      <PrepareMediaDialog
+        open={prepareOpen}
+        videoUrl={videoUrl}
+        fileName={pendingFile?.name ?? file?.name ?? null}
+        onCancel={handlePrepareCancel}
+        onConfirm={handlePrepareConfirm}
+      />
     </div>
   );
 };
