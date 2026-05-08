@@ -181,14 +181,17 @@ const Editor = () => {
     if (title === "Untitled project") {
       setTitle(f.name.replace(/\.[^.]+$/, ""));
     }
+    // Auto-start transcription as soon as the video is uploaded.
+    void transcribe(f);
   };
 
-  const transcribe = async () => {
-    if (!file) return;
+  const transcribe = async (override?: File) => {
+    const target = override ?? file;
+    if (!target) return;
     setTranscribing(true);
     try {
       const fd = new FormData();
-      fd.append("file", file);
+      fd.append("file", target);
       const { data, error } = await supabase.functions.invoke("transcribe-video", {
         body: fd,
       });
@@ -712,23 +715,12 @@ const Editor = () => {
                   "Loading metadata…"
                 )}
               </div>
-              <button
-                onClick={transcribe}
-                disabled={transcribing}
-                className="inline-flex items-center gap-1.5 rounded-[7px] border border-[#e8e4de] bg-white px-3.5 py-1.5 text-[12.5px] font-medium text-[#1a1a1a] transition hover:border-[#ff5c3a] hover:bg-[#fff5f3] hover:text-[#ff5c3a] disabled:opacity-60"
-              >
-                {transcribing ? (
-                  <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Transcribing…
-                  </>
-                ) : (
-                  <>
-                    <Wand2 className="h-3.5 w-3.5" strokeWidth={1.8} />
-                    {captions.length ? "Re-transcribe" : "Auto-transcribe"}
-                  </>
-                )}
-              </button>
+              {transcribing && (
+                <div className="inline-flex items-center gap-1.5 text-[12px] text-[#ff5c3a]">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Generating captions…
+                </div>
+              )}
             </div>
           </div>
         );
