@@ -2,7 +2,3 @@ project_id = "syyfclyefqjguhpwtqrq"
 
 [functions.transcribe-video]
 verify_jwt = false
-
-[functions.enhance-captions]
-verify_jwt = false
-

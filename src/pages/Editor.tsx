@@ -36,7 +36,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VideoDropzone } from "@/components/captionly/VideoDropzone";
-import { PrepareMediaDialog, type PrepareOptions } from "@/components/captionly/PrepareMediaDialog";
 import { VideoPreview } from "@/components/captionly/VideoPreview";
 import { CaptionList } from "@/components/captionly/CaptionList";
 import { StylePanel } from "@/components/captionly/StylePanel";
@@ -90,8 +89,6 @@ const Editor = () => {
   const [exportFormat, setExportFormat] = useState<"webm" | "mp4">("webm");
   const [exportPresetId, setExportPresetId] = useState<string>(SOURCE_PRESET_ID);
   const [exportStage, setExportStage] = useState<"render" | "transcode">("render");
-  const [prepareOpen, setPrepareOpen] = useState(false);
-  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const exportAbortRef = useRef<AbortController | null>(null);
   const srtInputRef = useRef<HTMLInputElement>(null);
@@ -184,33 +181,14 @@ const Editor = () => {
     if (title === "Untitled project") {
       setTitle(f.name.replace(/\.[^.]+$/, ""));
     }
-    // Open prepare-media dialog so the user can pick language / translate / emojis.
-    setPendingFile(f);
-    setPrepareOpen(true);
   };
 
-  const handlePrepareConfirm = (opts: PrepareOptions) => {
-    const target = pendingFile ?? file;
-    setPrepareOpen(false);
-    if (!target) return;
-    void transcribe(target, opts);
-  };
-
-  const handlePrepareCancel = () => {
-    setPrepareOpen(false);
-    setPendingFile(null);
-  };
-
-  const transcribe = async (override?: File, opts?: PrepareOptions) => {
-    const target = override ?? file;
-    if (!target) return;
+  const transcribe = async () => {
+    if (!file) return;
     setTranscribing(true);
     try {
       const fd = new FormData();
-      fd.append("file", target);
-      if (opts?.language) fd.append("language", opts.language);
-      if (opts?.translate) fd.append("translate", "true");
-      if (opts?.emojis) fd.append("emojis", "true");
+      fd.append("file", file);
       const { data, error } = await supabase.functions.invoke("transcribe-video", {
         body: fd,
       });
@@ -220,36 +198,13 @@ const Editor = () => {
         toast.error("No speech detected in this video.");
         return;
       }
-      let caps = wordsToCaptions(words, 42);
-      if ((opts?.translate || opts?.emojis) && caps.length) {
-        try {
-          const { data: enh, error: enhErr } = await supabase.functions.invoke(
-            "enhance-captions",
-            {
-              body: {
-                captions: caps.map((c) => ({ id: c.id, text: c.text })),
-                translate: !!opts?.translate,
-                emojis: !!opts?.emojis,
-              },
-            },
-          );
-          if (enhErr) throw enhErr;
-          const updates: Record<string, string> = {};
-          for (const u of enh?.captions ?? []) updates[u.id] = u.text;
-          caps = caps.map((c) => (updates[c.id] ? { ...c, text: updates[c.id] } : c));
-        } catch (e: any) {
-          console.warn("enhance-captions failed", e);
-          toast.error("Enhancement failed — showing original captions");
-        }
-      }
-      setCaptions(caps);
+      setCaptions(wordsToCaptions(words, 42));
       toast.success("Transcription complete");
     } catch (e: any) {
       console.error(e);
       toast.error(e?.message || "Transcription failed");
     } finally {
       setTranscribing(false);
-      setPendingFile(null);
     }
   };
 
@@ -757,12 +712,23 @@ const Editor = () => {
                   "Loading metadata…"
                 )}
               </div>
-              {transcribing && (
-                <div className="inline-flex items-center gap-1.5 text-[12px] text-[#ff5c3a]">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  Generating captions…
-                </div>
-              )}
+              <button
+                onClick={transcribe}
+                disabled={transcribing}
+                className="inline-flex items-center gap-1.5 rounded-[7px] border border-[#e8e4de] bg-white px-3.5 py-1.5 text-[12.5px] font-medium text-[#1a1a1a] transition hover:border-[#ff5c3a] hover:bg-[#fff5f3] hover:text-[#ff5c3a] disabled:opacity-60"
+              >
+                {transcribing ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Transcribing…
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="h-3.5 w-3.5" strokeWidth={1.8} />
+                    {captions.length ? "Re-transcribe" : "Auto-transcribe"}
+                  </>
+                )}
+              </button>
             </div>
           </div>
         );
@@ -829,14 +795,6 @@ const Editor = () => {
         progress={exportProgress}
         format={exportFormat}
         onCancel={cancelExport}
-      />
-
-      <PrepareMediaDialog
-        open={prepareOpen}
-        videoUrl={videoUrl}
-        fileName={pendingFile?.name ?? file?.name ?? null}
-        onCancel={handlePrepareCancel}
-        onConfirm={handlePrepareConfirm}
       />
     </div>
   );
