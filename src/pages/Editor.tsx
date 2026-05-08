@@ -715,23 +715,12 @@ const Editor = () => {
                   "Loading metadata…"
                 )}
               </div>
-              <button
-                onClick={transcribe}
-                disabled={transcribing}
-                className="inline-flex items-center gap-1.5 rounded-[7px] border border-[#e8e4de] bg-white px-3.5 py-1.5 text-[12.5px] font-medium text-[#1a1a1a] transition hover:border-[#ff5c3a] hover:bg-[#fff5f3] hover:text-[#ff5c3a] disabled:opacity-60"
-              >
-                {transcribing ? (
-                  <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Transcribing…
-                  </>
-                ) : (
-                  <>
-                    <Wand2 className="h-3.5 w-3.5" strokeWidth={1.8} />
-                    {captions.length ? "Re-transcribe" : "Auto-transcribe"}
-                  </>
-                )}
-              </button>
+              {transcribing && (
+                <div className="inline-flex items-center gap-1.5 text-[12px] text-[#ff5c3a]">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Generating captions…
+                </div>
+              )}
             </div>
           </div>
         );
