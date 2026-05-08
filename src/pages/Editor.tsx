@@ -181,14 +181,17 @@ const Editor = () => {
     if (title === "Untitled project") {
       setTitle(f.name.replace(/\.[^.]+$/, ""));
     }
+    // Auto-start transcription as soon as the video is uploaded.
+    void transcribe(f);
   };
 
-  const transcribe = async () => {
-    if (!file) return;
+  const transcribe = async (override?: File) => {
+    const target = override ?? file;
+    if (!target) return;
     setTranscribing(true);
     try {
       const fd = new FormData();
-      fd.append("file", file);
+      fd.append("file", target);
       const { data, error } = await supabase.functions.invoke("transcribe-video", {
         body: fd,
       });
