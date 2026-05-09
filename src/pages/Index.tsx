@@ -9,11 +9,15 @@ import {
   Check,
   Download,
   User,
+  Moon,
+  Sun,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
+import { useTheme } from "@/hooks/useTheme";
 
 const Index = () => {
   const { user, loading } = useAuth();
+  const { theme, toggle } = useTheme();
 
   useEffect(() => {
     document.title = "Subbly — AI Video Caption Editor";
