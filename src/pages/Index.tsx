@@ -49,6 +49,13 @@ const Index = () => {
           <a href="#pricing" className="text-[13.5px] text-[#666] transition hover:text-[#1a1a1a]">Pricing</a>
         </div>
         <div className="flex items-center gap-2.5">
+          <button
+            onClick={toggle}
+            aria-label="Toggle dark mode"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#e8e4de] bg-white text-[#666] transition hover:text-[#1a1a1a]"
+          >
+            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
           <Link
             to="/editor"
             className="inline-flex items-center gap-1.5 rounded-lg bg-[#ff5c3a] px-[18px] py-2 text-[13px] font-medium text-white shadow-[0_2px_8px_rgba(255,92,58,0.2)] transition hover:-translate-y-px hover:bg-[#ff7558] hover:shadow-[0_4px_16px_rgba(255,92,58,0.3)]"
