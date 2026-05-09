@@ -100,6 +100,11 @@ const Projects = () => {
           </div>
           <span className="font-serif-display text-[18px] tracking-[-0.2px]">Subbly</span>
         </Link>
+        <div className="hidden items-center gap-[26px] md:flex">
+          <span className="text-[13.5px] font-medium text-[#1a1a1a]">Projects</span>
+          <Link to="/pricing" className="text-[13.5px] text-[#666] hover:text-[#1a1a1a]">Pricing</Link>
+          <Link to="/subscription" className="text-[13.5px] text-[#666] hover:text-[#1a1a1a]">Subscription</Link>
+        </div>
         <div className="flex items-center gap-2 md:gap-3">
           <div className="hidden flex-col text-right leading-tight sm:flex">
             <span className="text-[13px] font-medium">{userName}</span>

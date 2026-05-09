@@ -10,6 +10,7 @@ import { RequireAdmin } from "@/components/auth/RequireAdmin";
 import Index from "./pages/Index.tsx";
 import Auth from "./pages/Auth.tsx";
 import Pricing from "./pages/Pricing.tsx";
+import Subscription from "./pages/Subscription.tsx";
 import Projects from "./pages/Projects.tsx";
 import Editor from "./pages/Editor.tsx";
 import Admin from "./pages/Admin.tsx";
@@ -29,6 +30,14 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/pricing" element={<Pricing />} />
+            <Route
+              path="/subscription"
+              element={
+                <RequireAuth>
+                  <Subscription />
+                </RequireAuth>
+              }
+            />
             <Route
               path="/projects"
               element={
