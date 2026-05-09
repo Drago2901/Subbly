@@ -85,3 +85,28 @@
   }
   .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
 }
+
+/* ===== Dark mode override for Subbly light-themed pages =====
+   The landing/projects/editor light UI uses hard-coded hex colors.
+   Under .dark we remap them via attribute selectors so a single
+   class toggle on <html> flips the whole site to dark. */
+.dark .bg-white { background-color: #15130f !important; }
+.dark .bg-\[\#f5f3ee\] { background-color: #0f0e0c !important; }
+.dark .bg-\[\#faf9f7\] { background-color: #1a1714 !important; }
+.dark .bg-\[\#fff5f3\] { background-color: #2a1612 !important; }
+.dark .bg-\[\#1a1a1a\] { background-color: #050505 !important; }
+.dark .bg-white\/95 { background-color: rgba(21,19,15,0.92) !important; }
+
+.dark .text-\[\#1a1a1a\] { color: #f5f3ee !important; }
+.dark .text-\[\#333\] { color: #e8e4de !important; }
+.dark .text-\[\#666\] { color: #a8a39c !important; }
+.dark .text-\[\#999\] { color: #908a82 !important; }
+.dark .text-\[\#b0aba4\] { color: #7a766f !important; }
+.dark .text-\[\#ccc\] { color: #4a4640 !important; }
+
+.dark .border-\[\#e8e4de\] { border-color: #2a2622 !important; }
+.dark .border-\[\#ffd5cc\] { border-color: #5a2820 !important; }
+.dark .border-\[\#b0aba4\] { border-color: #5a554f !important; }
+.dark .bg-\[\#e8e4de\] { background-color: #2a2622 !important; }
+
+.dark .from-\[\#ff5c3a\].to-\[\#ffd5cc\] { --tw-gradient-to: #5a2820 !important; }
