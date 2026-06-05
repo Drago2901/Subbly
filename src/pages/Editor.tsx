@@ -81,6 +81,7 @@ const Editor = () => {
   const [exporting, setExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [autoSaveState, setAutoSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [loadingProject, setLoadingProject] = useState(false);
   const [storedSourcePath, setStoredSourcePath] = useState<string | null>(null);
   const [storedSourceMime, setStoredSourceMime] = useState<string | null>(null);
@@ -93,6 +94,8 @@ const Editor = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const exportAbortRef = useRef<AbortController | null>(null);
   const srtInputRef = useRef<HTMLInputElement>(null);
+  // Snapshot of the last persisted caption/style/title, used to skip redundant auto-saves.
+  const lastSavedRef = useRef<string>("");
 
   useEffect(() => {
     document.title = "Editor — Captionly";
