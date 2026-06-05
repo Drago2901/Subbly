@@ -147,9 +147,9 @@ const Projects = () => {
             <div className="mb-2 text-[11px] font-medium uppercase tracking-[0.12em] text-[#ff5c3a]">
               Workspace
             </div>
-            <h2 className="font-serif-display text-[38px] font-normal leading-none tracking-[-1px]">
+            <h1 className="font-serif-display text-[38px] font-normal leading-none tracking-[-1px]">
               Your projects
-            </h2>
+            </h1>
             <p className="mt-2 text-[14px] text-[#b0aba4]">
               Pick up where you left off, or start a new captioning session.
             </p>
