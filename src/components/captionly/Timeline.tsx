@@ -605,6 +605,7 @@ function SkipBtn({
   return (
     <button
       title={title}
+      aria-label={title}
       onClick={onClick}
       className="flex h-[22px] w-[22px] items-center justify-center rounded text-[#b0aba4] transition hover:bg-[#e8e4de] hover:text-[#1a1a1a]"
     >
