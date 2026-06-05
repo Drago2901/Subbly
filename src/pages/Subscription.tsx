@@ -75,9 +75,7 @@ export default function Subscription() {
   const [period, setPeriod] = useState<Period>("monthly");
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  useEffect(() => {
-    document.title = "Subscription — Subbly";
-  }, []);
+
 
   const userName =
     (user?.user_metadata?.full_name as string) ||
