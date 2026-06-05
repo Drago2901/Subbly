@@ -189,7 +189,7 @@ export function Timeline({
       {/* TOOLBAR */}
       <div className="flex h-9 flex-shrink-0 items-center border-b border-[#e8e4de] bg-white px-2.5">
         <ToolGroup>
-          <button className="inline-flex h-6 items-center gap-1 rounded border border-[#ff5c3a] bg-[#fff5f3] px-2 text-[11px] font-medium text-[#ff5c3a] hover:bg-[#ffd5cc]">
+          <button aria-label="Add text caption" className="inline-flex h-6 items-center gap-1 rounded border border-[#ff5c3a] bg-[#fff5f3] px-2 text-[11px] font-medium text-[#ff5c3a] hover:bg-[#ffd5cc]">
             <Plus className="h-3 w-3" strokeWidth={2} /> Text
           </button>
         </ToolGroup>
