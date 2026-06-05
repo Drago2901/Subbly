@@ -486,6 +486,9 @@ function ToggleRow({
       </span>
       <button
         type="button"
+        role="switch"
+        aria-label={label}
+        aria-checked={checked}
         onClick={() => onChange(!checked)}
         className={`relative h-5 w-9 flex-shrink-0 rounded-full transition ${
           checked ? "bg-[#ff5c3a]" : "bg-[#e8e4de]"
