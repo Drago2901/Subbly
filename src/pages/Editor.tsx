@@ -58,6 +58,7 @@ import {
 } from "@/lib/captions/presets";
 import { useAuth } from "@/hooks/useAuth";
 import { captionsToSrt, srtToCaptions } from "@/lib/captions/srt";
+import { Seo } from "@/components/Seo";
 
 type ProjectMeta = {
   width: number;
