@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/hooks/useAuth";
+import { Seo } from "@/components/Seo";
 
 type TabKey = "overview" | "plans" | "payment" | "billing";
 type Period = "monthly" | "yearly";
