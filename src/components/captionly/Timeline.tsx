@@ -460,6 +460,7 @@ export function Timeline({
             onClick={onTogglePlay}
             disabled={!onTogglePlay}
             title="Play / Pause"
+            aria-label={playing ? "Pause" : "Play"}
             className="flex h-[26px] w-[26px] items-center justify-center rounded-full border-[1.5px] border-[#ff5c3a] bg-[#ff5c3a] text-white transition hover:bg-[#ff7558] disabled:opacity-50"
           >
             {playing ? (
