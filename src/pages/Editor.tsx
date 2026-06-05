@@ -616,6 +616,12 @@ const Editor = () => {
       className="flex h-screen flex-col overflow-hidden bg-[#f5f3ee] text-[#1a1a1a]"
       style={{ fontFamily: "'Outfit', sans-serif" }}
     >
+      <Seo
+        title="Editor — Subbly"
+        description="Subbly's caption editor — auto-transcribe your video, edit captions, style subtitles, and export a captioned video."
+        path="/editor"
+        noIndex
+      />
       <header className="flex flex-shrink-0 flex-wrap items-center justify-between gap-2 border-b border-[#e8e4de] bg-white px-3 py-2 md:gap-3 md:px-5">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <Link
