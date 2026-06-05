@@ -453,12 +453,14 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
           />
           <input
             type="color"
+            aria-label={`${label} color picker`}
             value={value}
             onChange={(e) => onChange(e.target.value)}
             className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
           />
         </label>
         <input
+          aria-label={`${label} hex value`}
           value={value.toUpperCase()}
           onChange={(e) => onChange(e.target.value)}
           className="w-full bg-transparent font-mono text-[11.5px] text-[#555] outline-none"
