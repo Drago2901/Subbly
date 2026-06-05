@@ -337,6 +337,39 @@ const Editor = () => {
     if (id) toast.success("Project saved");
   };
 
+  // Debounced auto-save (1s) of caption / style / title edits for an existing
+  // project. New, never-saved projects are persisted via manual Save or Export
+  // first (which uploads the source video), then auto-save keeps them in sync.
+  useEffect(() => {
+    if (!user || !projectId) return;
+    const snapshot = JSON.stringify({
+      captions,
+      style,
+      title: title || "Untitled project",
+    });
+    if (snapshot === lastSavedRef.current) return;
+
+    setAutoSaveState("saving");
+    const timer = setTimeout(async () => {
+      const { error } = await supabase
+        .from("projects")
+        .update({
+          captions: JSON.parse(JSON.stringify(captions)),
+          style: JSON.parse(JSON.stringify(style)),
+          title: title || "Untitled project",
+        })
+        .eq("id", projectId);
+      if (error) {
+        setAutoSaveState("idle");
+        return;
+      }
+      lastSavedRef.current = snapshot;
+      setAutoSaveState("saved");
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [captions, style, title, user, projectId]);
+
   const handleExportSrt = () => {
     if (!captions.length) {
       toast.error("No captions to export.");
