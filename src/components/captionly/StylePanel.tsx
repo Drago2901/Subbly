@@ -261,6 +261,7 @@ export function StylePanel({ style, onChange }: Props) {
             </div>
             <div className="mb-2 flex gap-1.5">
               <input
+                aria-label="Preset name"
                 value={presetName}
                 onChange={(e) => setPresetName(e.target.value)}
                 placeholder="Preset name"
