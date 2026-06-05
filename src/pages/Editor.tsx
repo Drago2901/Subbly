@@ -635,6 +635,21 @@ const Editor = () => {
             placeholder="Project title"
             className="h-8 min-w-0 flex-1 border-transparent bg-transparent px-2 text-[13px] font-medium text-[#1a1a1a] hover:border-[#e8e4de] focus-visible:border-[#e8e4de] focus-visible:ring-0 md:w-60 md:flex-none"
           />
+          {projectId && autoSaveState !== "idle" && (
+            <span className="hidden flex-shrink-0 items-center gap-1 text-[11px] text-[#aaa] sm:inline-flex">
+              {autoSaveState === "saving" ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                <>
+                  <Check className="h-3 w-3 text-emerald-500" strokeWidth={2.5} />
+                  Saved
+                </>
+              )}
+            </span>
+          )}
         </div>
         <div className="flex flex-shrink-0 items-center gap-1.5 md:gap-2">
           {headerRight}
