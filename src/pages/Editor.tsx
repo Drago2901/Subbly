@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
+  Check,
   ChevronDown,
   Cloud,
   Download,
@@ -80,6 +81,7 @@ const Editor = () => {
   const [exporting, setExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
   const [saving, setSaving] = useState(false);
+  const [autoSaveState, setAutoSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [loadingProject, setLoadingProject] = useState(false);
   const [storedSourcePath, setStoredSourcePath] = useState<string | null>(null);
   const [storedSourceMime, setStoredSourceMime] = useState<string | null>(null);
@@ -92,6 +94,8 @@ const Editor = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const exportAbortRef = useRef<AbortController | null>(null);
   const srtInputRef = useRef<HTMLInputElement>(null);
+  // Snapshot of the last persisted caption/style/title, used to skip redundant auto-saves.
+  const lastSavedRef = useRef<string>("");
 
   useEffect(() => {
     document.title = "Editor — Captionly";
@@ -116,9 +120,17 @@ const Editor = () => {
           return;
         }
         if (!active) return;
+        const loadedCaptions = (data.captions as Caption[]) ?? [];
+        const loadedStyle = { ...DEFAULT_STYLE, ...((data.style as Partial<CaptionStyle>) ?? {}) };
         setTitle(data.title);
-        setCaptions((data.captions as Caption[]) ?? []);
-        setStyle({ ...DEFAULT_STYLE, ...((data.style as Partial<CaptionStyle>) ?? {}) });
+        setCaptions(loadedCaptions);
+        setStyle(loadedStyle);
+        // Mark this as the baseline so auto-save doesn't fire on the initial load.
+        lastSavedRef.current = JSON.stringify({
+          captions: loadedCaptions,
+          style: loadedStyle,
+          title: data.title,
+        });
         setStoredSourcePath(data.source_video_path);
         setStoredSourceMime(data.source_video_mime);
         setStoredSourceName(data.source_video_name);
@@ -268,12 +280,19 @@ const Editor = () => {
           height: meta?.height ?? null,
         };
 
+        const savedSnapshot = JSON.stringify({
+          captions,
+          style,
+          title: title || "Untitled project",
+        });
+
         if (projectId) {
           const { error } = await supabase
             .from("projects")
             .update(payload)
             .eq("id", projectId);
           if (error) throw error;
+          lastSavedRef.current = savedSnapshot;
           return projectId;
         }
 
@@ -283,6 +302,7 @@ const Editor = () => {
           .select("id")
           .single();
         if (error) throw error;
+        lastSavedRef.current = savedSnapshot;
         setSearchParams({ project: data.id }, { replace: true });
         return data.id;
       } catch (err: any) {
@@ -316,6 +336,39 @@ const Editor = () => {
     const id = await saveProject();
     if (id) toast.success("Project saved");
   };
+
+  // Debounced auto-save (1s) of caption / style / title edits for an existing
+  // project. New, never-saved projects are persisted via manual Save or Export
+  // first (which uploads the source video), then auto-save keeps them in sync.
+  useEffect(() => {
+    if (!user || !projectId) return;
+    const snapshot = JSON.stringify({
+      captions,
+      style,
+      title: title || "Untitled project",
+    });
+    if (snapshot === lastSavedRef.current) return;
+
+    setAutoSaveState("saving");
+    const timer = setTimeout(async () => {
+      const { error } = await supabase
+        .from("projects")
+        .update({
+          captions: JSON.parse(JSON.stringify(captions)),
+          style: JSON.parse(JSON.stringify(style)),
+          title: title || "Untitled project",
+        })
+        .eq("id", projectId);
+      if (error) {
+        setAutoSaveState("idle");
+        return;
+      }
+      lastSavedRef.current = snapshot;
+      setAutoSaveState("saved");
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [captions, style, title, user, projectId]);
 
   const handleExportSrt = () => {
     if (!captions.length) {
@@ -582,6 +635,21 @@ const Editor = () => {
             placeholder="Project title"
             className="h-8 min-w-0 flex-1 border-transparent bg-transparent px-2 text-[13px] font-medium text-[#1a1a1a] hover:border-[#e8e4de] focus-visible:border-[#e8e4de] focus-visible:ring-0 md:w-60 md:flex-none"
           />
+          {projectId && autoSaveState !== "idle" && (
+            <span className="hidden flex-shrink-0 items-center gap-1 text-[11px] text-[#aaa] sm:inline-flex">
+              {autoSaveState === "saving" ? (
+                <>
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  Saving…
+                </>
+              ) : (
+                <>
+                  <Check className="h-3 w-3 text-emerald-500" strokeWidth={2.5} />
+                  Saved
+                </>
+              )}
+            </span>
+          )}
         </div>
         <div className="flex flex-shrink-0 items-center gap-1.5 md:gap-2">
           {headerRight}
