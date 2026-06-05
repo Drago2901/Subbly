@@ -335,7 +335,7 @@ export function StylePanel({ style, onChange }: Props) {
                 {brandKit.logo_url && (
                   <img
                     src={brandKit.logo_url}
-                    alt="Brand logo"
+                    alt={`${brandKit.heading_font || "Your"} brand kit logo`}
                     className="mx-3.5 mt-3 h-12 w-auto rounded bg-[#faf9f7] object-contain p-1"
                   />
                 )}
