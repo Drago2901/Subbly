@@ -325,6 +325,7 @@ const Index = () => {
           Get started free <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.5} />
         </Link>
       </div>
+      </main>
 
       {/* Footer */}
       <footer className="flex flex-col items-center justify-between gap-3 border-t border-[#e8e4de] bg-white px-6 py-5 text-xs text-[#b0aba4] md:flex-row md:px-12">
