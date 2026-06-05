@@ -56,6 +56,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-[#f5f3ee] text-[#1a1a1a]" style={{ fontFamily: "'Outfit', sans-serif" }}>
+      <Seo title="Subbly — AI Video Caption Editor" description={HOME_DESCRIPTION} path="/" jsonLd={HOME_JSONLD} />
       {/* Nav */}
       <nav className="sticky top-0 z-[200] flex h-[62px] items-center justify-between border-b border-[#e8e4de] bg-white/95 px-6 backdrop-blur-xl md:px-12">
         <Link to="/" className="flex items-center gap-2.5">
