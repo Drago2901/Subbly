@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { Link, Navigate } from "react-router-dom";
 import {
   ArrowRight,
@@ -14,23 +13,45 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
+import { Seo } from "@/components/Seo";
+
+const HOME_DESCRIPTION =
+  "Upload a video, auto-generate captions with AI, edit text and styling, then export a captioned video — all in your browser.";
+
+const HOME_JSONLD = [
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Subbly",
+    url: "https://subbly.lovable.app/",
+    description: "AI video caption editor.",
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "Subbly",
+    url: "https://subbly.lovable.app/",
+    description: HOME_DESCRIPTION,
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "Subbly",
+    applicationCategory: "MultimediaApplication",
+    operatingSystem: "Web",
+    description: HOME_DESCRIPTION,
+    offers: {
+      "@type": "Offer",
+      price: "0",
+      priceCurrency: "USD",
+    },
+  },
+];
 
 const Index = () => {
   const { user, loading } = useAuth();
   const { theme, toggle } = useTheme();
 
-  useEffect(() => {
-    document.title = "Subbly — AI Video Caption Editor";
-    const desc =
-      "Upload a video, auto-generate captions with AI, edit text and styling, then export a captioned video — all in your browser.";
-    let m = document.querySelector('meta[name="description"]');
-    if (!m) {
-      m = document.createElement("meta");
-      m.setAttribute("name", "description");
-      document.head.appendChild(m);
-    }
-    m.setAttribute("content", desc);
-  }, []);
 
 
   return (
