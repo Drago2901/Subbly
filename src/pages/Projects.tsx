@@ -43,9 +43,7 @@ const Projects = () => {
   const [pendingDelete, setPendingDelete] = useState<ProjectRow | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    document.title = "Your projects — Subbly";
-  }, []);
+
 
   useEffect(() => {
     if (!user) return;
