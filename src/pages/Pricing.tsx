@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
@@ -14,6 +14,10 @@ import {
   AlignJustify,
 } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
+import { Seo } from "@/components/Seo";
+
+const PRICING_DESCRIPTION =
+  "Pricing that scales with your content. Start free and upgrade when you're ready. Every plan includes AI captions and styling.";
 
 type Period = "monthly" | "annual";
 
@@ -116,27 +120,26 @@ export default function Pricing() {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  useEffect(() => {
-    document.title = "Pricing — Subbly";
-    const desc =
-      "Pricing that scales with your content. Start free and upgrade when you're ready. Every plan includes AI captions and styling.";
-    let m = document.querySelector('meta[name="description"]');
-    if (!m) {
-      m = document.createElement("meta");
-      m.setAttribute("name", "description");
-      document.head.appendChild(m);
-    }
-    m.setAttribute("content", desc);
-  }, []);
 
   const fmt = (n: number) =>
     n === 0 ? "0" : n % 1 === 0 ? n.toFixed(0) : n.toFixed(2);
+
+  const faqJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: FAQS.map((f) => ({
+      "@type": "Question",
+      name: f.q,
+      acceptedAnswer: { "@type": "Answer", text: f.a },
+    })),
+  };
 
   return (
     <div
       className="min-h-screen bg-[#f5f3ee] text-[#1a1a1a]"
       style={{ fontFamily: "'Outfit', sans-serif" }}
     >
+      <Seo title="Pricing — Subbly" description={PRICING_DESCRIPTION} path="/pricing" jsonLd={faqJsonLd} />
       {/* Nav */}
       <nav className="sticky top-0 z-[200] flex h-[62px] items-center justify-between border-b border-[#e8e4de] bg-white/95 px-6 backdrop-blur-xl md:px-12">
         <Link to="/" className="flex items-center gap-2.5">

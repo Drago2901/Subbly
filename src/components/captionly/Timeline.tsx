@@ -189,7 +189,7 @@ export function Timeline({
       {/* TOOLBAR */}
       <div className="flex h-9 flex-shrink-0 items-center border-b border-[#e8e4de] bg-white px-2.5">
         <ToolGroup>
-          <button className="inline-flex h-6 items-center gap-1 rounded border border-[#ff5c3a] bg-[#fff5f3] px-2 text-[11px] font-medium text-[#ff5c3a] hover:bg-[#ffd5cc]">
+          <button aria-label="Add text caption" className="inline-flex h-6 items-center gap-1 rounded border border-[#ff5c3a] bg-[#fff5f3] px-2 text-[11px] font-medium text-[#ff5c3a] hover:bg-[#ffd5cc]">
             <Plus className="h-3 w-3" strokeWidth={2} /> Text
           </button>
         </ToolGroup>
@@ -460,6 +460,7 @@ export function Timeline({
             onClick={onTogglePlay}
             disabled={!onTogglePlay}
             title="Play / Pause"
+            aria-label={playing ? "Pause" : "Play"}
             className="flex h-[26px] w-[26px] items-center justify-center rounded-full border-[1.5px] border-[#ff5c3a] bg-[#ff5c3a] text-white transition hover:bg-[#ff7558] disabled:opacity-50"
           >
             {playing ? (
@@ -534,6 +535,7 @@ export function Timeline({
       {selectedCaption && (
         <div className="flex items-center gap-2 border-t border-[#e8e4de] bg-white px-3 py-2">
           <input
+            aria-label="Selected caption text"
             value={selectedCaption.text}
             onChange={(e) =>
               onChange(
@@ -588,7 +590,7 @@ function ToolBtn({
     ? "text-violet-500 hover:bg-[#f5f3ee] hover:text-violet-600"
     : "text-[#b0aba4] hover:bg-[#f5f3ee] hover:text-[#1a1a1a]";
   return (
-    <button title={title} onClick={onClick} disabled={disabled} className={`${base} ${cls}`}>
+    <button title={title} aria-label={title} aria-pressed={active} onClick={onClick} disabled={disabled} className={`${base} ${cls}`}>
       {children}
     </button>
   );
@@ -605,6 +607,7 @@ function SkipBtn({
   return (
     <button
       title={title}
+      aria-label={title}
       onClick={onClick}
       className="flex h-[22px] w-[22px] items-center justify-center rounded text-[#b0aba4] transition hover:bg-[#e8e4de] hover:text-[#1a1a1a]"
     >

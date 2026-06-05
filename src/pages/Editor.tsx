@@ -58,6 +58,7 @@ import {
 } from "@/lib/captions/presets";
 import { useAuth } from "@/hooks/useAuth";
 import { captionsToSrt, srtToCaptions } from "@/lib/captions/srt";
+import { Seo } from "@/components/Seo";
 
 type ProjectMeta = {
   width: number;
@@ -98,8 +99,9 @@ const Editor = () => {
   const lastSavedRef = useRef<string>("");
 
   useEffect(() => {
-    document.title = "Editor — Captionly";
+    document.title = "Editor — Subbly";
   }, []);
+
 
   // Load project from URL
   useEffect(() => {
@@ -614,6 +616,12 @@ const Editor = () => {
       className="flex h-screen flex-col overflow-hidden bg-[#f5f3ee] text-[#1a1a1a]"
       style={{ fontFamily: "'Outfit', sans-serif" }}
     >
+      <Seo
+        title="Editor — Subbly"
+        description="Subbly's caption editor — auto-transcribe your video, edit captions, style subtitles, and export a captioned video."
+        path="/editor"
+        noIndex
+      />
       <header className="flex flex-shrink-0 flex-wrap items-center justify-between gap-2 border-b border-[#e8e4de] bg-white px-3 py-2 md:gap-3 md:px-5">
         <div className="flex min-w-0 flex-1 items-center gap-3">
           <Link
@@ -672,6 +680,9 @@ const Editor = () => {
         </div>
       </header>
 
+      {file && <h1 className="sr-only">Subbly caption editor</h1>}
+
+
       <input
         ref={srtInputRef}
         type="file"
@@ -683,9 +694,9 @@ const Editor = () => {
       {!file && (
         <main className="mx-auto flex w-full max-w-[640px] flex-1 flex-col items-center justify-center gap-8 overflow-y-auto px-6 py-10">
           <div className="text-center">
-            <h2 className="mb-2.5 text-[32px] font-medium leading-[1.1] tracking-[-1.2px] md:text-[36px]">
+            <h1 className="mb-2.5 text-[32px] font-medium leading-[1.1] tracking-[-1.2px] md:text-[36px]">
               Caption your videos in <span className="text-[#ff5c3a]">seconds</span>
-            </h2>
+            </h1>
             <p className="mx-auto max-w-[360px] text-[14px] leading-relaxed text-[#999]">
               Upload a video to start. We'll save your captions and styling so you can come back anytime.
             </p>

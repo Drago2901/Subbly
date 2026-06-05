@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   AlignJustify,
@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/hooks/useAuth";
+import { Seo } from "@/components/Seo";
 
 type TabKey = "overview" | "plans" | "payment" | "billing";
 type Period = "monthly" | "yearly";
@@ -74,9 +75,7 @@ export default function Subscription() {
   const [period, setPeriod] = useState<Period>("monthly");
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  useEffect(() => {
-    document.title = "Subscription — Subbly";
-  }, []);
+
 
   const userName =
     (user?.user_metadata?.full_name as string) ||
@@ -94,6 +93,12 @@ export default function Subscription() {
       className="min-h-screen bg-[#f5f3ee] pb-16 text-[#1a1a1a]"
       style={{ fontFamily: "'Outfit', sans-serif" }}
     >
+      <Seo
+        title="Subscription — Subbly"
+        description="Manage your Subbly subscription — view your plan, usage, payment methods, and billing history."
+        path="/subscription"
+        noIndex
+      />
       {/* Nav */}
       <nav className="sticky top-0 z-[200] flex h-[62px] items-center justify-between border-b border-[#e8e4de] bg-white/95 px-4 backdrop-blur-xl md:px-12">
         <Link to="/" className="flex items-center gap-2.5">

@@ -1,0 +1,14 @@
+# Subbly
+
+> Subbly is an AI video caption editor. Upload a video, auto-generate word-perfect captions, edit text and styling, then export an MP4 with subtitles burned in.
+
+Subbly transcribes speech automatically, lets you style captions with animated templates (TikTok, Reels, YouTube Shorts and more), fine-tune timing on a timeline, and burn captions directly into your video — all in the browser.
+
+## Pages
+
+- [Home](/): Overview of Subbly's AI captioning, styling templates, and export workflow.
+- [Pricing](/pricing): Free and paid plans, transcription hours, storage, render quality, and FAQs.
+
+## Optional
+
+- [Sign in](/auth): Create an account or sign in to save projects.

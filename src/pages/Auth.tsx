@@ -1,10 +1,11 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 import { Link, Navigate, useLocation } from "react-router-dom";
 import { Loader2, Type } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { useAuth } from "@/hooks/useAuth";
+import { Seo } from "@/components/Seo";
 
 const Auth = () => {
   const { user, loading, isAdmin } = useAuth();
@@ -18,9 +19,7 @@ const Auth = () => {
   const [submitting, setSubmitting] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  useEffect(() => {
-    document.title = "Sign in — Subbly";
-  }, []);
+
 
   if (!loading && user) {
     return <Navigate to={redirectTo} replace />;
@@ -76,6 +75,11 @@ const Auth = () => {
 
   return (
     <div className="flex min-h-screen flex-col bg-[#f5f3ee] text-[#1a1a1a]" style={{ fontFamily: "'Outfit', sans-serif" }}>
+      <Seo
+        title="Sign in — Subbly"
+        description="Sign in or create a free Subbly account to auto-caption your videos, style subtitles, and export captioned MP4s."
+        path="/auth"
+      />
       <nav className="sticky top-0 z-[200] flex h-[62px] items-center justify-between border-b border-[#e8e4de] bg-white/95 px-6 backdrop-blur-xl md:px-12">
         <Link to="/" className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-[#ff5c3a]">

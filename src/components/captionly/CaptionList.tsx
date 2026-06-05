@@ -130,6 +130,7 @@ export function CaptionList({ captions, currentTime, onChange, onSeek }: Props) 
                   <button
                     onClick={(e) => { e.stopPropagation(); splitCaption(c.id); }}
                     title="Split"
+                    aria-label="Split caption"
                     className="text-[#aaa] hover:text-[#ff5c3a]"
                   >
                     <Scissors className="h-3.5 w-3.5" />
@@ -138,6 +139,7 @@ export function CaptionList({ captions, currentTime, onChange, onSeek }: Props) 
                     <button
                       onClick={(e) => { e.stopPropagation(); mergeWithNext(c.id); }}
                       title="Merge"
+                      aria-label="Merge with next caption"
                       className="text-[#aaa] hover:text-[#ff5c3a]"
                     >
                       <Combine className="h-3.5 w-3.5" />
@@ -146,6 +148,7 @@ export function CaptionList({ captions, currentTime, onChange, onSeek }: Props) 
                   <button
                     onClick={(e) => { e.stopPropagation(); remove(c.id); }}
                     title="Delete"
+                    aria-label="Delete caption"
                     className="text-[#aaa] hover:text-red-500"
                   >
                     <Trash2 className="h-3.5 w-3.5" />
@@ -154,6 +157,7 @@ export function CaptionList({ captions, currentTime, onChange, onSeek }: Props) 
               </div>
               <input
                 value={c.text}
+                aria-label="Caption text"
                 onClick={(e) => e.stopPropagation()}
                 onChange={(e) => update(c.id, { text: e.target.value })}
                 className={`w-full bg-transparent text-[12px] leading-relaxed outline-none ${
@@ -164,6 +168,7 @@ export function CaptionList({ captions, currentTime, onChange, onSeek }: Props) 
                 <input
                   type="number"
                   step="0.1"
+                  aria-label="Caption start time in seconds"
                   value={c.start.toFixed(2)}
                   onClick={(e) => e.stopPropagation()}
                   onChange={(e) =>
@@ -174,6 +179,7 @@ export function CaptionList({ captions, currentTime, onChange, onSeek }: Props) 
                 <input
                   type="number"
                   step="0.1"
+                  aria-label="Caption end time in seconds"
                   value={c.end.toFixed(2)}
                   onClick={(e) => e.stopPropagation()}
                   onChange={(e) =>

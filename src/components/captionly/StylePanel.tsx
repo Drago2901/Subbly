@@ -124,6 +124,7 @@ export function StylePanel({ style, onChange }: Props) {
           <div className="space-y-5">
             <Field label="Font">
               <select
+                aria-label="Caption font"
                 value={style.fontFamily}
                 onChange={(e) => set("fontFamily", e.target.value)}
                 className="w-full cursor-pointer rounded-[7px] border border-[#e8e4de] bg-white px-3 py-2 text-[13px] text-[#1a1a1a] outline-none transition hover:border-[#ccc] focus:border-[#ff5c3a]"
@@ -260,6 +261,7 @@ export function StylePanel({ style, onChange }: Props) {
             </div>
             <div className="mb-2 flex gap-1.5">
               <input
+                aria-label="Preset name"
                 value={presetName}
                 onChange={(e) => setPresetName(e.target.value)}
                 placeholder="Preset name"
@@ -290,6 +292,7 @@ export function StylePanel({ style, onChange }: Props) {
                     </button>
                     <button
                       onClick={() => deletePreset(p.id)}
+                      aria-label={`Delete preset ${p.name}`}
                       className="text-[#aaa] hover:text-red-500"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -332,7 +335,7 @@ export function StylePanel({ style, onChange }: Props) {
                 {brandKit.logo_url && (
                   <img
                     src={brandKit.logo_url}
-                    alt="Brand logo"
+                    alt={`${brandKit.heading_font || "Your"} brand kit logo`}
                     className="mx-3.5 mt-3 h-12 w-auto rounded bg-[#faf9f7] object-contain p-1"
                   />
                 )}
@@ -423,6 +426,7 @@ function SliderRow({
         />
         <input
           type="range"
+          aria-label={label}
           min={min}
           max={max}
           step={step}
@@ -449,12 +453,14 @@ function ColorField({ label, value, onChange }: { label: string; value: string; 
           />
           <input
             type="color"
+            aria-label={`${label} color picker`}
             value={value}
             onChange={(e) => onChange(e.target.value)}
             className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
           />
         </label>
         <input
+          aria-label={`${label} hex value`}
           value={value.toUpperCase()}
           onChange={(e) => onChange(e.target.value)}
           className="w-full bg-transparent font-mono text-[11.5px] text-[#555] outline-none"
@@ -480,6 +486,9 @@ function ToggleRow({
       </span>
       <button
         type="button"
+        role="switch"
+        aria-label={label}
+        aria-checked={checked}
         onClick={() => onChange(!checked)}
         className={`relative h-5 w-9 flex-shrink-0 rounded-full transition ${
           checked ? "bg-[#ff5c3a]" : "bg-[#e8e4de]"

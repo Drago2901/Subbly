@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { Link, Navigate } from "react-router-dom";
 import {
   ArrowRight,
@@ -14,27 +13,50 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
+import { Seo } from "@/components/Seo";
+
+const HOME_DESCRIPTION =
+  "Upload a video, auto-generate captions with AI, edit text and styling, then export a captioned video — all in your browser.";
+
+const HOME_JSONLD = [
+  {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Subbly",
+    url: "https://subbly.lovable.app/",
+    description: "AI video caption editor.",
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "Subbly",
+    url: "https://subbly.lovable.app/",
+    description: HOME_DESCRIPTION,
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "Subbly",
+    applicationCategory: "MultimediaApplication",
+    operatingSystem: "Web",
+    description: HOME_DESCRIPTION,
+    offers: {
+      "@type": "Offer",
+      price: "0",
+      priceCurrency: "USD",
+    },
+  },
+];
 
 const Index = () => {
   const { user, loading } = useAuth();
   const { theme, toggle } = useTheme();
 
-  useEffect(() => {
-    document.title = "Subbly — AI Video Caption Editor";
-    const desc =
-      "Upload a video, auto-generate captions with AI, edit text and styling, then export a captioned video — all in your browser.";
-    let m = document.querySelector('meta[name="description"]');
-    if (!m) {
-      m = document.createElement("meta");
-      m.setAttribute("name", "description");
-      document.head.appendChild(m);
-    }
-    m.setAttribute("content", desc);
-  }, []);
 
 
   return (
     <div className="min-h-screen bg-[#f5f3ee] text-[#1a1a1a]" style={{ fontFamily: "'Outfit', sans-serif" }}>
+      <Seo title="Subbly — AI Video Caption Editor" description={HOME_DESCRIPTION} path="/" jsonLd={HOME_JSONLD} />
       {/* Nav */}
       <nav className="sticky top-0 z-[200] flex h-[62px] items-center justify-between border-b border-[#e8e4de] bg-white/95 px-6 backdrop-blur-xl md:px-12">
         <Link to="/" className="flex items-center gap-2.5">
@@ -65,6 +87,7 @@ const Index = () => {
         </div>
       </nav>
 
+      <main>
       {/* Hero */}
       <section className="bg-white px-6 pt-24 md:px-12">
         <div className="mx-auto max-w-[660px] text-center">
@@ -302,6 +325,7 @@ const Index = () => {
           Get started free <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.5} />
         </Link>
       </div>
+      </main>
 
       {/* Footer */}
       <footer className="flex flex-col items-center justify-between gap-3 border-t border-[#e8e4de] bg-white px-6 py-5 text-xs text-[#b0aba4] md:flex-row md:px-12">
