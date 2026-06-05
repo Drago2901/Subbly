@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ArrowRight,
@@ -14,6 +14,10 @@ import {
   AlignJustify,
 } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
+import { Seo } from "@/components/Seo";
+
+const PRICING_DESCRIPTION =
+  "Pricing that scales with your content. Start free and upgrade when you're ready. Every plan includes AI captions and styling.";
 
 type Period = "monthly" | "annual";
 
