@@ -98,8 +98,9 @@ const Editor = () => {
   const lastSavedRef = useRef<string>("");
 
   useEffect(() => {
-    document.title = "Editor — Captionly";
+    document.title = "Editor — Subbly";
   }, []);
+
 
   // Load project from URL
   useEffect(() => {
