@@ -588,7 +588,7 @@ function ToolBtn({
     ? "text-violet-500 hover:bg-[#f5f3ee] hover:text-violet-600"
     : "text-[#b0aba4] hover:bg-[#f5f3ee] hover:text-[#1a1a1a]";
   return (
-    <button title={title} onClick={onClick} disabled={disabled} className={`${base} ${cls}`}>
+    <button title={title} aria-label={title} aria-pressed={active} onClick={onClick} disabled={disabled} className={`${base} ${cls}`}>
       {children}
     </button>
   );
