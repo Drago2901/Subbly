@@ -120,9 +120,17 @@ const Editor = () => {
           return;
         }
         if (!active) return;
+        const loadedCaptions = (data.captions as Caption[]) ?? [];
+        const loadedStyle = { ...DEFAULT_STYLE, ...((data.style as Partial<CaptionStyle>) ?? {}) };
         setTitle(data.title);
-        setCaptions((data.captions as Caption[]) ?? []);
-        setStyle({ ...DEFAULT_STYLE, ...((data.style as Partial<CaptionStyle>) ?? {}) });
+        setCaptions(loadedCaptions);
+        setStyle(loadedStyle);
+        // Mark this as the baseline so auto-save doesn't fire on the initial load.
+        lastSavedRef.current = JSON.stringify({
+          captions: loadedCaptions,
+          style: loadedStyle,
+          title: data.title,
+        });
         setStoredSourcePath(data.source_video_path);
         setStoredSourceMime(data.source_video_mime);
         setStoredSourceName(data.source_video_name);
