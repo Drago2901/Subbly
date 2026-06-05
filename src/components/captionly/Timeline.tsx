@@ -535,6 +535,7 @@ export function Timeline({
       {selectedCaption && (
         <div className="flex items-center gap-2 border-t border-[#e8e4de] bg-white px-3 py-2">
           <input
+            aria-label="Selected caption text"
             value={selectedCaption.text}
             onChange={(e) =>
               onChange(
