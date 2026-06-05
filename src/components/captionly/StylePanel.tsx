@@ -292,6 +292,7 @@ export function StylePanel({ style, onChange }: Props) {
                     </button>
                     <button
                       onClick={() => deletePreset(p.id)}
+                      aria-label={`Delete preset ${p.name}`}
                       className="text-[#aaa] hover:text-red-500"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
