@@ -45,6 +45,7 @@ import { ExportProgressDialog } from "@/components/captionly/ExportProgressDialo
 import { wordsToCaptions } from "@/lib/captions/segment";
 import { burnCaptions, ExportCancelledError } from "@/lib/captions/render";
 import { transcodeWebmToMp4 } from "@/lib/captions/transcode";
+import { extractAudioNative } from "@/lib/captions/audio";
 import {
   DEFAULT_STYLE,
   type Caption,
@@ -201,8 +202,12 @@ const Editor = () => {
     if (!file) return;
     setTranscribing(true);
     try {
+      // Extract audio natively in-browser (no WASM download — near-instant)
+      const audioBlob = await extractAudioNative(file);
+
       const fd = new FormData();
-      fd.append("file", file);
+      fd.append("file", new File([audioBlob], "audio.wav", { type: "audio/wav" }));
+
       const { data, error } = await supabase.functions.invoke("transcribe-video", {
         body: fd,
       });

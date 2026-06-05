@@ -102,3 +102,84 @@ export async function transcodeWebmToMp4(opts: {
     signal?.removeEventListener("abort", onAbort);
   }
 }
+
+/**
+ * Extract audio from a video file and transcode it to a lightweight 16kHz mono WAV file.
+ * This runs entirely in-browser via FFmpeg, reducing payload size significantly.
+ */
+export async function extractAudio(opts: {
+  videoFile: File;
+  onProgress?: (progress: number) => void;
+  onLog?: (msg: string) => void;
+  signal?: AbortSignal;
+}): Promise<Blob> {
+  const { videoFile, onProgress, onLog, signal } = opts;
+
+  if (signal?.aborted) {
+    const err = new Error("Audio extraction cancelled");
+    err.name = "ExportCancelledError";
+    throw err;
+  }
+
+  const ffmpeg = await getFFmpeg(onLog);
+
+  const progressHandler = ({ progress }: { progress: number }) => {
+    onProgress?.(Math.max(0, Math.min(1, progress)));
+  };
+  ffmpeg.on("progress", progressHandler);
+
+  const onAbort = () => {
+    try { ffmpeg.terminate(); } catch { /* noop */ }
+    ffmpegInstance = null;
+    loadPromise = null;
+  };
+  signal?.addEventListener("abort", onAbort, { once: true });
+
+  try {
+    const ext = videoFile.name.split(".").pop() || "mp4";
+    const inputName = `input.${ext}`;
+    const outputName = "output_audio.wav";
+
+    await ffmpeg.writeFile(inputName, await fetchFile(videoFile));
+
+    if (signal?.aborted) {
+      const err = new Error("Audio extraction cancelled");
+      err.name = "ExportCancelledError";
+      throw err;
+    }
+
+    // Convert to 16kHz, mono, 16-bit WAV (pcm_s16le) to minimize file size
+    const exitCode = await ffmpeg.exec([
+      "-i", inputName,
+      "-vn",
+      "-acodec", "pcm_s16le",
+      "-ar", "16000",
+      "-ac", "1",
+      outputName,
+    ]);
+
+    if (signal?.aborted) {
+      const err = new Error("Audio extraction cancelled");
+      err.name = "ExportCancelledError";
+      throw err;
+    }
+
+    if (exitCode !== 0) {
+      throw new Error("ffmpeg failed to extract audio from the video.");
+    }
+
+    const data = await ffmpeg.readFile(outputName);
+    const bytes = data instanceof Uint8Array ? data : new TextEncoder().encode(String(data));
+    const arrayBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
+    const wavBlob = new Blob([arrayBuffer], { type: "audio/wav" });
+
+    await ffmpeg.deleteFile(inputName).catch(() => undefined);
+    await ffmpeg.deleteFile(outputName).catch(() => undefined);
+
+    return wavBlob;
+  } finally {
+    try { ffmpeg.off("progress", progressHandler); } catch { /* instance may be terminated */ }
+    signal?.removeEventListener("abort", onAbort);
+  }
+}
+
