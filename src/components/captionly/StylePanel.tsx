@@ -124,6 +124,7 @@ export function StylePanel({ style, onChange }: Props) {
           <div className="space-y-5">
             <Field label="Font">
               <select
+                aria-label="Caption font"
                 value={style.fontFamily}
                 onChange={(e) => set("fontFamily", e.target.value)}
                 className="w-full cursor-pointer rounded-[7px] border border-[#e8e4de] bg-white px-3 py-2 text-[13px] text-[#1a1a1a] outline-none transition hover:border-[#ccc] focus:border-[#ff5c3a]"
