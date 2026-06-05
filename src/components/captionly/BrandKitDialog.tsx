@@ -112,7 +112,7 @@ export function BrandKitDialog({ open, onOpenChange, brandKit, onSaved }: Props)
             <Label className="text-xs uppercase tracking-wide text-muted-foreground">Logo</Label>
             <div className="flex items-center gap-3 rounded-md border border-border bg-surface-2 p-3">
               {draft.logo_url ? (
-                <img src={draft.logo_url} alt="Logo" className="h-12 w-12 rounded bg-black/30 object-contain p-1" />
+                <img src={draft.logo_url} alt="Uploaded brand kit logo preview" className="h-12 w-12 rounded bg-black/30 object-contain p-1" />
               ) : (
                 <div className="flex h-12 w-12 items-center justify-center rounded bg-surface-3 text-muted-foreground">
                   <Upload className="h-5 w-5" />
