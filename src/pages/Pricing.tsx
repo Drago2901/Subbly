@@ -120,18 +120,6 @@ export default function Pricing() {
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  useEffect(() => {
-    document.title = "Pricing — Subbly";
-    const desc =
-      "Pricing that scales with your content. Start free and upgrade when you're ready. Every plan includes AI captions and styling.";
-    let m = document.querySelector('meta[name="description"]');
-    if (!m) {
-      m = document.createElement("meta");
-      m.setAttribute("name", "description");
-      document.head.appendChild(m);
-    }
-    m.setAttribute("content", desc);
-  }, []);
 
   const fmt = (n: number) =>
     n === 0 ? "0" : n % 1 === 0 ? n.toFixed(0) : n.toFixed(2);
