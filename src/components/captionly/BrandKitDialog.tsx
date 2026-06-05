@@ -144,13 +144,14 @@ export function BrandKitDialog({ open, onOpenChange, brandKit, onSaved }: Props)
 }
 
 function ColorBox({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void; }) {
+  const id = useId();
   return (
     <div className="space-y-2">
-      <Label className="text-xs uppercase tracking-wide text-muted-foreground">{label}</Label>
+      <Label htmlFor={`${id}-hex`} className="text-xs uppercase tracking-wide text-muted-foreground">{label}</Label>
       <div className="flex items-center gap-2 rounded-md border border-border bg-surface-2 px-2 py-1.5">
-        <input type="color" value={value} onChange={(e) => onChange(e.target.value)}
+        <input type="color" aria-label={`${label} color picker`} value={value} onChange={(e) => onChange(e.target.value)}
           className="h-7 w-9 cursor-pointer rounded border-0 bg-transparent" />
-        <Input value={value.toUpperCase()} onChange={(e) => onChange(e.target.value)}
+        <Input id={`${id}-hex`} value={value.toUpperCase()} onChange={(e) => onChange(e.target.value)}
           className="h-7 border-0 bg-transparent px-1 font-mono text-xs" />
       </div>
     </div>
@@ -158,10 +159,11 @@ function ColorBox({ label, value, onChange }: { label: string; value: string; on
 }
 
 function FontBox({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void; }) {
+  const id = useId();
   return (
     <div className="space-y-2">
-      <Label className="text-xs uppercase tracking-wide text-muted-foreground">{label}</Label>
-      <select value={value} onChange={(e) => onChange(e.target.value)}
+      <Label htmlFor={id} className="text-xs uppercase tracking-wide text-muted-foreground">{label}</Label>
+      <select id={id} value={value} onChange={(e) => onChange(e.target.value)}
         className="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-sm outline-none focus:border-primary"
         style={{ fontFamily: `"${value}", sans-serif` }}>
         {FONT_OPTIONS.map((f) => (
