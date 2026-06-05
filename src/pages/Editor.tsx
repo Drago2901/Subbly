@@ -680,6 +680,9 @@ const Editor = () => {
         </div>
       </header>
 
+      {file && <h1 className="sr-only">Subbly caption editor</h1>}
+
+
       <input
         ref={srtInputRef}
         type="file"
