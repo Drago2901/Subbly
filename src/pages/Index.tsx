@@ -87,6 +87,7 @@ const Index = () => {
         </div>
       </nav>
 
+      <main>
       {/* Hero */}
       <section className="bg-white px-6 pt-24 md:px-12">
         <div className="mx-auto max-w-[660px] text-center">
