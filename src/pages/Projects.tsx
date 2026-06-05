@@ -92,6 +92,12 @@ const Projects = () => {
 
   return (
     <div className="min-h-screen bg-[#f5f3ee] text-[#1a1a1a]" style={{ fontFamily: "'Outfit', sans-serif" }}>
+      <Seo
+        title="Your projects — Subbly"
+        description="Manage your Subbly captioning projects — pick up where you left off or start a new AI captioning session."
+        path="/projects"
+        noIndex
+      />
       <nav className="sticky top-0 z-[200] flex h-[62px] items-center justify-between gap-2 border-b border-[#e8e4de] bg-white/95 px-4 backdrop-blur-xl md:px-12">
         <Link to="/projects" className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-[#ff5c3a]">
