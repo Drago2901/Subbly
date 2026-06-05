@@ -19,9 +19,7 @@ const Auth = () => {
   const [submitting, setSubmitting] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
 
-  useEffect(() => {
-    document.title = "Sign in — Subbly";
-  }, []);
+
 
   if (!loading && user) {
     return <Navigate to={redirectTo} replace />;
