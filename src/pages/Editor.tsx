@@ -280,12 +280,19 @@ const Editor = () => {
           height: meta?.height ?? null,
         };
 
+        const savedSnapshot = JSON.stringify({
+          captions,
+          style,
+          title: title || "Untitled project",
+        });
+
         if (projectId) {
           const { error } = await supabase
             .from("projects")
             .update(payload)
             .eq("id", projectId);
           if (error) throw error;
+          lastSavedRef.current = savedSnapshot;
           return projectId;
         }
 
@@ -295,6 +302,7 @@ const Editor = () => {
           .select("id")
           .single();
         if (error) throw error;
+        lastSavedRef.current = savedSnapshot;
         setSearchParams({ project: data.id }, { replace: true });
         return data.id;
       } catch (err: any) {
