@@ -198,9 +198,19 @@ const Editor = () => {
     setMeta(null);
     setStoredSourcePath(null);
     setStoredExportPath(null);
+    setStoredThumbnailPath(null);
+    thumbnailBlobRef.current = null;
     if (title === "Untitled project") {
       setTitle(f.name.replace(/\.[^.]+$/, ""));
     }
+    // Auto-generate a thumbnail from the uploaded video for the projects gallery.
+    generateVideoThumbnail(f)
+      .then((blob) => {
+        thumbnailBlobRef.current = blob;
+      })
+      .catch(() => {
+        thumbnailBlobRef.current = null;
+      });
   };
 
   const transcribe = async () => {
