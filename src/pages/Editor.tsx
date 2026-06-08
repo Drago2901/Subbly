@@ -46,6 +46,7 @@ import { wordsToCaptions } from "@/lib/captions/segment";
 import { burnCaptions, ExportCancelledError } from "@/lib/captions/render";
 import { transcodeWebmToMp4 } from "@/lib/captions/transcode";
 import { extractAudioNative } from "@/lib/captions/audio";
+import { generateVideoThumbnail } from "@/lib/captions/thumbnail";
 import {
   DEFAULT_STYLE,
   type Caption,
