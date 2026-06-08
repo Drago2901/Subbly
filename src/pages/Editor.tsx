@@ -288,6 +288,21 @@ const Editor = () => {
           setStoredExportPath(path);
         }
 
+        let thumbnailPath = storedThumbnailPath;
+        if (thumbnailBlobRef.current && !thumbnailPath) {
+          const path = `${user.id}/${crypto.randomUUID()}.jpg`;
+          const { error } = await supabase.storage
+            .from("project-thumbnails")
+            .upload(path, thumbnailBlobRef.current, {
+              contentType: "image/jpeg",
+              upsert: false,
+            });
+          if (!error) {
+            thumbnailPath = path;
+            setStoredThumbnailPath(path);
+          }
+        }
+
         const payload = {
           user_id: user.id,
           title: title || "Untitled project",
@@ -297,6 +312,7 @@ const Editor = () => {
           source_video_mime: sourceMime,
           source_video_name: sourceName,
           exported_video_path: exportedPath,
+          thumbnail_path: thumbnailPath,
           duration_seconds: meta?.duration ?? null,
           width: meta?.width ?? null,
           height: meta?.height ?? null,
