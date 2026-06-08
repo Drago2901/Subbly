@@ -6,6 +6,7 @@ import {
   ChevronDown,
   Cloud,
   Download,
+  ImageIcon,
   FileText,
   Loader2,
   LogOut,
@@ -100,6 +101,7 @@ const Editor = () => {
   // Auto-generated thumbnail (JPEG) for the current video, pending upload on save.
   const thumbnailBlobRef = useRef<Blob | null>(null);
   const [storedThumbnailPath, setStoredThumbnailPath] = useState<string | null>(null);
+  const [regeneratingThumb, setRegeneratingThumb] = useState(false);
   // Snapshot of the last persisted caption/style/title, used to skip redundant auto-saves.
   const lastSavedRef = useRef<string>("");
 
@@ -375,6 +377,51 @@ const Editor = () => {
     const id = await saveProject();
     if (id) toast.success("Project saved");
   };
+
+  const regenerateThumbnail = async () => {
+    if (!file) {
+      toast.info("Upload a video first.");
+      return;
+    }
+    if (!user) {
+      toast.info("Sign in to save a thumbnail to the cloud.");
+      return;
+    }
+    setRegeneratingThumb(true);
+    try {
+      const blob = await generateVideoThumbnail(file, {
+        // Grab a frame at the current playhead when available.
+        seekRatio:
+          videoRef.current && meta?.duration
+            ? Math.min(0.99, Math.max(0, videoRef.current.currentTime / meta.duration))
+            : 0.1,
+      });
+      if (!blob) {
+        toast.error("Could not capture a frame from this video.");
+        return;
+      }
+      thumbnailBlobRef.current = blob;
+      const path = storedThumbnailPath ?? `${user.id}/${crypto.randomUUID()}.jpg`;
+      const { error } = await supabase.storage
+        .from("project-thumbnails")
+        .upload(path, blob, { contentType: "image/jpeg", upsert: true });
+      if (error) throw error;
+      setStoredThumbnailPath(path);
+      if (projectId) {
+        const { error: updErr } = await supabase
+          .from("projects")
+          .update({ thumbnail_path: path } as never)
+          .eq("id", projectId);
+        if (updErr) throw updErr;
+      }
+      toast.success("Thumbnail regenerated");
+    } catch (err: any) {
+      toast.error(err?.message || "Could not regenerate thumbnail");
+    } finally {
+      setRegeneratingThumb(false);
+    }
+  };
+
 
   // Debounced auto-save (1s) of caption / style / title edits for an existing
   // project. New, never-saved projects are persisted via manual Save or Export
@@ -828,23 +875,43 @@ const Editor = () => {
                   "Loading metadata…"
                 )}
               </div>
-              <button
-                onClick={transcribe}
-                disabled={transcribing}
-                className="inline-flex items-center gap-1.5 rounded-[7px] border border-[#e8e4de] bg-white px-3.5 py-1.5 text-[12.5px] font-medium text-[#1a1a1a] transition hover:border-[#ff5c3a] hover:bg-[#fff5f3] hover:text-[#ff5c3a] disabled:opacity-60"
-              >
-                {transcribing ? (
-                  <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Transcribing…
-                  </>
-                ) : (
-                  <>
-                    <Wand2 className="h-3.5 w-3.5" strokeWidth={1.8} />
-                    {captions.length ? "Re-transcribe" : "Auto-transcribe"}
-                  </>
-                )}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={regenerateThumbnail}
+                  disabled={regeneratingThumb || !file}
+                  title="Capture the current frame as the project thumbnail"
+                  className="inline-flex items-center gap-1.5 rounded-[7px] border border-[#e8e4de] bg-white px-3.5 py-1.5 text-[12.5px] font-medium text-[#1a1a1a] transition hover:border-[#ff5c3a] hover:bg-[#fff5f3] hover:text-[#ff5c3a] disabled:opacity-60"
+                >
+                  {regeneratingThumb ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Saving…
+                    </>
+                  ) : (
+                    <>
+                      <ImageIcon className="h-3.5 w-3.5" strokeWidth={1.8} />
+                      Regenerate thumbnail
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={transcribe}
+                  disabled={transcribing}
+                  className="inline-flex items-center gap-1.5 rounded-[7px] border border-[#e8e4de] bg-white px-3.5 py-1.5 text-[12.5px] font-medium text-[#1a1a1a] transition hover:border-[#ff5c3a] hover:bg-[#fff5f3] hover:text-[#ff5c3a] disabled:opacity-60"
+                >
+                  {transcribing ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Transcribing…
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="h-3.5 w-3.5" strokeWidth={1.8} />
+                      {captions.length ? "Re-transcribe" : "Auto-transcribe"}
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         );

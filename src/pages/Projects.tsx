@@ -37,12 +37,11 @@ type ProjectRow = {
   thumbnail_path: string | null;
 };
 
-const THUMBNAIL_BUCKET_URL = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/project-thumbnails`;
-
 const Projects = () => {
   const { user, signOut, isAdmin } = useAuth();
   const navigate = useNavigate();
   const [projects, setProjects] = useState<ProjectRow[] | null>(null);
+  const [thumbUrls, setThumbUrls] = useState<Record<string, string>>({});
   const [pendingDelete, setPendingDelete] = useState<ProjectRow | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -62,7 +61,22 @@ const Projects = () => {
         setProjects([]);
         return;
       }
-      setProjects((data as unknown as ProjectRow[]) ?? []);
+      const rows = (data as unknown as ProjectRow[]) ?? [];
+      setProjects(rows);
+
+      // Thumbnails live in a private bucket — generate short-lived signed URLs.
+      const withThumbs = rows.filter((r) => r.thumbnail_path);
+      if (withThumbs.length) {
+        const entries = await Promise.all(
+          withThumbs.map(async (r) => {
+            const { data: signed } = await supabase.storage
+              .from("project-thumbnails")
+              .createSignedUrl(r.thumbnail_path as string, 60 * 60);
+            return [r.id, signed?.signedUrl ?? ""] as const;
+          }),
+        );
+        setThumbUrls(Object.fromEntries(entries.filter(([, url]) => url)));
+      }
     })();
   }, [user]);
 
@@ -193,9 +207,9 @@ const Projects = () => {
                 style={{ animation: `slideUp .35s both`, animationDelay: `${0.04 + idx * 0.05}s` }}
               >
                 <div className="relative flex h-[150px] items-center justify-center overflow-hidden border-b border-[#e8e4de] bg-[#f5f3ee]">
-                  {project.thumbnail_path ? (
+                  {project.thumbnail_path && thumbUrls[project.id] ? (
                     <img
-                      src={`${THUMBNAIL_BUCKET_URL}/${project.thumbnail_path}`}
+                      src={thumbUrls[project.id]}
                       alt={`Thumbnail for ${project.title}`}
                       loading="lazy"
                       className="absolute inset-0 h-full w-full object-cover transition group-hover:scale-[1.03]"
