@@ -207,9 +207,9 @@ const Projects = () => {
                 style={{ animation: `slideUp .35s both`, animationDelay: `${0.04 + idx * 0.05}s` }}
               >
                 <div className="relative flex h-[150px] items-center justify-center overflow-hidden border-b border-[#e8e4de] bg-[#f5f3ee]">
-                  {project.thumbnail_path ? (
+                  {project.thumbnail_path && thumbUrls[project.id] ? (
                     <img
-                      src={`${THUMBNAIL_BUCKET_URL}/${project.thumbnail_path}`}
+                      src={thumbUrls[project.id]}
                       alt={`Thumbnail for ${project.title}`}
                       loading="lazy"
                       className="absolute inset-0 h-full w-full object-cover transition group-hover:scale-[1.03]"
