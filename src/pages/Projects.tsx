@@ -77,8 +77,10 @@ const Projects = () => {
     try {
       const sourcePath = pendingDelete.source_video_path;
       const exportPath = pendingDelete.exported_video_path;
+      const thumbnailPath = pendingDelete.thumbnail_path;
       if (sourcePath) await supabase.storage.from("project-videos").remove([sourcePath]);
       if (exportPath) await supabase.storage.from("project-exports").remove([exportPath]);
+      if (thumbnailPath) await supabase.storage.from("project-thumbnails").remove([thumbnailPath]);
       const { error } = await supabase.from("projects").delete().eq("id", pendingDelete.id);
       if (error) throw error;
       setProjects((prev) => prev?.filter((p) => p.id !== pendingDelete.id) ?? []);
