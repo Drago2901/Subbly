@@ -875,23 +875,43 @@ const Editor = () => {
                   "Loading metadata…"
                 )}
               </div>
-              <button
-                onClick={transcribe}
-                disabled={transcribing}
-                className="inline-flex items-center gap-1.5 rounded-[7px] border border-[#e8e4de] bg-white px-3.5 py-1.5 text-[12.5px] font-medium text-[#1a1a1a] transition hover:border-[#ff5c3a] hover:bg-[#fff5f3] hover:text-[#ff5c3a] disabled:opacity-60"
-              >
-                {transcribing ? (
-                  <>
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Transcribing…
-                  </>
-                ) : (
-                  <>
-                    <Wand2 className="h-3.5 w-3.5" strokeWidth={1.8} />
-                    {captions.length ? "Re-transcribe" : "Auto-transcribe"}
-                  </>
-                )}
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={regenerateThumbnail}
+                  disabled={regeneratingThumb || !file}
+                  title="Capture the current frame as the project thumbnail"
+                  className="inline-flex items-center gap-1.5 rounded-[7px] border border-[#e8e4de] bg-white px-3.5 py-1.5 text-[12.5px] font-medium text-[#1a1a1a] transition hover:border-[#ff5c3a] hover:bg-[#fff5f3] hover:text-[#ff5c3a] disabled:opacity-60"
+                >
+                  {regeneratingThumb ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Saving…
+                    </>
+                  ) : (
+                    <>
+                      <ImageIcon className="h-3.5 w-3.5" strokeWidth={1.8} />
+                      Regenerate thumbnail
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={transcribe}
+                  disabled={transcribing}
+                  className="inline-flex items-center gap-1.5 rounded-[7px] border border-[#e8e4de] bg-white px-3.5 py-1.5 text-[12.5px] font-medium text-[#1a1a1a] transition hover:border-[#ff5c3a] hover:bg-[#fff5f3] hover:text-[#ff5c3a] disabled:opacity-60"
+                >
+                  {transcribing ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Transcribing…
+                    </>
+                  ) : (
+                    <>
+                      <Wand2 className="h-3.5 w-3.5" strokeWidth={1.8} />
+                      {captions.length ? "Re-transcribe" : "Auto-transcribe"}
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </div>
         );
