@@ -360,6 +360,7 @@ const Editor = () => {
       storedSourceMime,
       storedSourceName,
       storedSourcePath,
+      storedThumbnailPath,
       style,
       title,
       user,
