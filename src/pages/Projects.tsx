@@ -62,7 +62,7 @@ const Projects = () => {
         setProjects([]);
         return;
       }
-      setProjects(data ?? []);
+      setProjects((data as unknown as ProjectRow[]) ?? []);
     })();
   }, [user]);
 
