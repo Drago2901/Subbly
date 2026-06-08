@@ -34,7 +34,10 @@ type ProjectRow = {
   duration_seconds: number | null;
   source_video_path: string | null;
   exported_video_path: string | null;
+  thumbnail_path: string | null;
 };
+
+const THUMBNAIL_BUCKET_URL = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/project-thumbnails`;
 
 const Projects = () => {
   const { user, signOut, isAdmin } = useAuth();
@@ -51,7 +54,7 @@ const Projects = () => {
       const { data, error } = await supabase
         .from("projects")
         .select(
-          "id, title, updated_at, width, height, duration_seconds, source_video_path, exported_video_path",
+          "id, title, updated_at, width, height, duration_seconds, source_video_path, exported_video_path, thumbnail_path",
         )
         .order("updated_at", { ascending: false });
       if (error) {
@@ -59,7 +62,7 @@ const Projects = () => {
         setProjects([]);
         return;
       }
-      setProjects(data ?? []);
+      setProjects((data as unknown as ProjectRow[]) ?? []);
     })();
   }, [user]);
 
@@ -74,8 +77,10 @@ const Projects = () => {
     try {
       const sourcePath = pendingDelete.source_video_path;
       const exportPath = pendingDelete.exported_video_path;
+      const thumbnailPath = pendingDelete.thumbnail_path;
       if (sourcePath) await supabase.storage.from("project-videos").remove([sourcePath]);
       if (exportPath) await supabase.storage.from("project-exports").remove([exportPath]);
+      if (thumbnailPath) await supabase.storage.from("project-thumbnails").remove([thumbnailPath]);
       const { error } = await supabase.from("projects").delete().eq("id", pendingDelete.id);
       if (error) throw error;
       setProjects((prev) => prev?.filter((p) => p.id !== pendingDelete.id) ?? []);
@@ -188,22 +193,33 @@ const Projects = () => {
                 style={{ animation: `slideUp .35s both`, animationDelay: `${0.04 + idx * 0.05}s` }}
               >
                 <div className="relative flex h-[150px] items-center justify-center overflow-hidden border-b border-[#e8e4de] bg-[#f5f3ee]">
-                  <div
-                    className="absolute inset-0 opacity-[0.35]"
-                    style={{
-                      background:
-                        "repeating-linear-gradient(90deg,transparent,transparent 39px,#e8e4de 39px,#e8e4de 40px),repeating-linear-gradient(180deg,transparent,transparent 39px,#e8e4de 39px,#e8e4de 40px)",
-                    }}
-                  />
+                  {project.thumbnail_path ? (
+                    <img
+                      src={`${THUMBNAIL_BUCKET_URL}/${project.thumbnail_path}`}
+                      alt={`Thumbnail for ${project.title}`}
+                      loading="lazy"
+                      className="absolute inset-0 h-full w-full object-cover transition group-hover:scale-[1.03]"
+                    />
+                  ) : (
+                    <>
+                      <div
+                        className="absolute inset-0 opacity-[0.35]"
+                        style={{
+                          background:
+                            "repeating-linear-gradient(90deg,transparent,transparent 39px,#e8e4de 39px,#e8e4de 40px),repeating-linear-gradient(180deg,transparent,transparent 39px,#e8e4de 39px,#e8e4de 40px)",
+                        }}
+                      />
+                      <div className="relative z-[1] flex h-[46px] w-[46px] items-center justify-center rounded-[11px] border border-[#e8e4de] bg-white shadow-[0_2px_8px_rgba(26,26,26,0.08)]">
+                        <FilmIcon className="h-5 w-5 text-[#ff5c3a]" strokeWidth={1.6} />
+                      </div>
+                    </>
+                  )}
                   {project.exported_video_path && (
                     <div className="absolute right-2.5 top-2.5 z-[2] inline-flex items-center gap-1.5 rounded-full border border-[#ffd5cc] bg-[#fff5f3] px-2.5 py-1 text-[10px] font-medium text-[#ff5c3a]">
                       <span className="h-[5px] w-[5px] rounded-full bg-[#ff5c3a]" />
                       Export saved
                     </div>
                   )}
-                  <div className="relative z-[1] flex h-[46px] w-[46px] items-center justify-center rounded-[11px] border border-[#e8e4de] bg-white shadow-[0_2px_8px_rgba(26,26,26,0.08)]">
-                    <FilmIcon className="h-5 w-5 text-[#ff5c3a]" strokeWidth={1.6} />
-                  </div>
                 </div>
                 <div className="px-5 py-4">
                   <div className="mb-1.5 flex items-center justify-between gap-2">
