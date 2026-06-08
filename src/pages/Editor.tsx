@@ -6,6 +6,7 @@ import {
   ChevronDown,
   Cloud,
   Download,
+  ImageIcon,
   FileText,
   Loader2,
   LogOut,
