@@ -376,6 +376,51 @@ const Editor = () => {
     if (id) toast.success("Project saved");
   };
 
+  const regenerateThumbnail = async () => {
+    if (!file) {
+      toast.info("Upload a video first.");
+      return;
+    }
+    if (!user) {
+      toast.info("Sign in to save a thumbnail to the cloud.");
+      return;
+    }
+    setRegeneratingThumb(true);
+    try {
+      const blob = await generateVideoThumbnail(file, {
+        // Grab a frame at the current playhead when available.
+        seekRatio:
+          videoRef.current && meta?.duration
+            ? Math.min(0.99, Math.max(0, videoRef.current.currentTime / meta.duration))
+            : 0.1,
+      });
+      if (!blob) {
+        toast.error("Could not capture a frame from this video.");
+        return;
+      }
+      thumbnailBlobRef.current = blob;
+      const path = storedThumbnailPath ?? `${user.id}/${crypto.randomUUID()}.jpg`;
+      const { error } = await supabase.storage
+        .from("project-thumbnails")
+        .upload(path, blob, { contentType: "image/jpeg", upsert: true });
+      if (error) throw error;
+      setStoredThumbnailPath(path);
+      if (projectId) {
+        const { error: updErr } = await supabase
+          .from("projects")
+          .update({ thumbnail_path: path } as never)
+          .eq("id", projectId);
+        if (updErr) throw updErr;
+      }
+      toast.success("Thumbnail regenerated");
+    } catch (err: any) {
+      toast.error(err?.message || "Could not regenerate thumbnail");
+    } finally {
+      setRegeneratingThumb(false);
+    }
+  };
+
+
   // Debounced auto-save (1s) of caption / style / title edits for an existing
   // project. New, never-saved projects are persisted via manual Save or Export
   // first (which uploads the source video), then auto-save keeps them in sync.
