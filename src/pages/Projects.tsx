@@ -34,7 +34,10 @@ type ProjectRow = {
   duration_seconds: number | null;
   source_video_path: string | null;
   exported_video_path: string | null;
+  thumbnail_path: string | null;
 };
+
+const THUMBNAIL_BUCKET_URL = `${import.meta.env.VITE_SUPABASE_URL}/storage/v1/object/public/project-thumbnails`;
 
 const Projects = () => {
   const { user, signOut, isAdmin } = useAuth();
