@@ -100,6 +100,7 @@ const Editor = () => {
   // Auto-generated thumbnail (JPEG) for the current video, pending upload on save.
   const thumbnailBlobRef = useRef<Blob | null>(null);
   const [storedThumbnailPath, setStoredThumbnailPath] = useState<string | null>(null);
+  const [regeneratingThumb, setRegeneratingThumb] = useState(false);
   // Snapshot of the last persisted caption/style/title, used to skip redundant auto-saves.
   const lastSavedRef = useRef<string>("");
 
