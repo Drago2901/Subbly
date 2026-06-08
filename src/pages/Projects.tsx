@@ -54,7 +54,7 @@ const Projects = () => {
       const { data, error } = await supabase
         .from("projects")
         .select(
-          "id, title, updated_at, width, height, duration_seconds, source_video_path, exported_video_path",
+          "id, title, updated_at, width, height, duration_seconds, source_video_path, exported_video_path, thumbnail_path",
         )
         .order("updated_at", { ascending: false });
       if (error) {
