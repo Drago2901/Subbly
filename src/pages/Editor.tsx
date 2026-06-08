@@ -327,7 +327,7 @@ const Editor = () => {
         if (projectId) {
           const { error } = await supabase
             .from("projects")
-            .update(payload)
+            .update(payload as never)
             .eq("id", projectId);
           if (error) throw error;
           lastSavedRef.current = savedSnapshot;
@@ -336,7 +336,7 @@ const Editor = () => {
 
         const { data, error } = await supabase
           .from("projects")
-          .insert(payload)
+          .insert(payload as never)
           .select("id")
           .single();
         if (error) throw error;
