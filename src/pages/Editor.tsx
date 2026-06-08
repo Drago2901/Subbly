@@ -97,6 +97,9 @@ const Editor = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const exportAbortRef = useRef<AbortController | null>(null);
   const srtInputRef = useRef<HTMLInputElement>(null);
+  // Auto-generated thumbnail (JPEG) for the current video, pending upload on save.
+  const thumbnailBlobRef = useRef<Blob | null>(null);
+  const [storedThumbnailPath, setStoredThumbnailPath] = useState<string | null>(null);
   // Snapshot of the last persisted caption/style/title, used to skip redundant auto-saves.
   const lastSavedRef = useRef<string>("");
 
