@@ -142,6 +142,7 @@ const Editor = () => {
         setStoredSourceMime(data.source_video_mime);
         setStoredSourceName(data.source_video_name);
         setStoredExportPath(data.exported_video_path);
+        setStoredThumbnailPath((data as { thumbnail_path?: string | null }).thumbnail_path ?? null);
         setMeta(
           data.width && data.height && data.duration_seconds
             ? {
