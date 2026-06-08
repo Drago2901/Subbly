@@ -191,22 +191,33 @@ const Projects = () => {
                 style={{ animation: `slideUp .35s both`, animationDelay: `${0.04 + idx * 0.05}s` }}
               >
                 <div className="relative flex h-[150px] items-center justify-center overflow-hidden border-b border-[#e8e4de] bg-[#f5f3ee]">
-                  <div
-                    className="absolute inset-0 opacity-[0.35]"
-                    style={{
-                      background:
-                        "repeating-linear-gradient(90deg,transparent,transparent 39px,#e8e4de 39px,#e8e4de 40px),repeating-linear-gradient(180deg,transparent,transparent 39px,#e8e4de 39px,#e8e4de 40px)",
-                    }}
-                  />
+                  {project.thumbnail_path ? (
+                    <img
+                      src={`${THUMBNAIL_BUCKET_URL}/${project.thumbnail_path}`}
+                      alt={`Thumbnail for ${project.title}`}
+                      loading="lazy"
+                      className="absolute inset-0 h-full w-full object-cover transition group-hover:scale-[1.03]"
+                    />
+                  ) : (
+                    <>
+                      <div
+                        className="absolute inset-0 opacity-[0.35]"
+                        style={{
+                          background:
+                            "repeating-linear-gradient(90deg,transparent,transparent 39px,#e8e4de 39px,#e8e4de 40px),repeating-linear-gradient(180deg,transparent,transparent 39px,#e8e4de 39px,#e8e4de 40px)",
+                        }}
+                      />
+                      <div className="relative z-[1] flex h-[46px] w-[46px] items-center justify-center rounded-[11px] border border-[#e8e4de] bg-white shadow-[0_2px_8px_rgba(26,26,26,0.08)]">
+                        <FilmIcon className="h-5 w-5 text-[#ff5c3a]" strokeWidth={1.6} />
+                      </div>
+                    </>
+                  )}
                   {project.exported_video_path && (
                     <div className="absolute right-2.5 top-2.5 z-[2] inline-flex items-center gap-1.5 rounded-full border border-[#ffd5cc] bg-[#fff5f3] px-2.5 py-1 text-[10px] font-medium text-[#ff5c3a]">
                       <span className="h-[5px] w-[5px] rounded-full bg-[#ff5c3a]" />
                       Export saved
                     </div>
                   )}
-                  <div className="relative z-[1] flex h-[46px] w-[46px] items-center justify-center rounded-[11px] border border-[#e8e4de] bg-white shadow-[0_2px_8px_rgba(26,26,26,0.08)]">
-                    <FilmIcon className="h-5 w-5 text-[#ff5c3a]" strokeWidth={1.6} />
-                  </div>
                 </div>
                 <div className="px-5 py-4">
                   <div className="mb-1.5 flex items-center justify-between gap-2">
