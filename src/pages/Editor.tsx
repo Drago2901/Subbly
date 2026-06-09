@@ -60,6 +60,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { captionsToSrt, srtToCaptions } from "@/lib/captions/srt";
 import { Seo } from "@/components/Seo";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 type ProjectMeta = {
   width: number;
@@ -70,8 +71,10 @@ type ProjectMeta = {
 const Editor = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
   const projectId = searchParams.get("project");
+  const [isPlaying, setIsPlaying] = useState(false);
 
   const [file, setFile] = useState<File | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -184,6 +187,24 @@ const Editor = () => {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Keep play/pause state reactive so the timeline transport stays in sync
+  // with the preview (and vice versa), regardless of which control is used.
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const onPlay = () => setIsPlaying(true);
+    const onPause = () => setIsPlaying(false);
+    setIsPlaying(!v.paused);
+    v.addEventListener("play", onPlay);
+    v.addEventListener("pause", onPause);
+    v.addEventListener("ended", onPause);
+    return () => {
+      v.removeEventListener("play", onPlay);
+      v.removeEventListener("pause", onPause);
+      v.removeEventListener("ended", onPause);
+    };
+  }, [videoUrl, isMobile]);
 
   const handleFile = (f: File) => {
     if (videoUrl) URL.revokeObjectURL(videoUrl);
@@ -829,7 +850,7 @@ const Editor = () => {
               setCurrentTime(t);
               if (videoRef.current) videoRef.current.currentTime = t;
             }}
-            playing={!!videoRef.current && !videoRef.current.paused}
+            playing={isPlaying}
             onTogglePlay={() => {
               const v = videoRef.current;
               if (!v) return;
@@ -841,38 +862,43 @@ const Editor = () => {
 
         return (
           <div className="flex flex-1 flex-col overflow-hidden">
-            {/* Desktop layout */}
-            <div className="hidden flex-1 overflow-hidden md:flex">
-              <aside className="flex w-[280px] flex-shrink-0 flex-col overflow-hidden border-r border-[#e8e4de] bg-white">
-                {captionsPanel}
-              </aside>
-              <main className="flex flex-1 flex-col overflow-hidden">
-                {previewPanel}
-              </main>
-              <aside className="flex w-[300px] flex-shrink-0 flex-col overflow-hidden border-l border-[#e8e4de] bg-white">
-                {stylePanel}
-              </aside>
-            </div>
+            {/* Desktop layout — mounted only on desktop so a single VideoPreview
+                (and thus a single videoRef) exists at a time. */}
+            {!isMobile && (
+              <div className="flex flex-1 overflow-hidden">
+                <aside className="flex w-[280px] flex-shrink-0 flex-col overflow-hidden border-r border-[#e8e4de] bg-white">
+                  {captionsPanel}
+                </aside>
+                <main className="flex flex-1 flex-col overflow-hidden">
+                  {previewPanel}
+                </main>
+                <aside className="flex w-[300px] flex-shrink-0 flex-col overflow-hidden border-l border-[#e8e4de] bg-white">
+                  {stylePanel}
+                </aside>
+              </div>
+            )}
 
             {/* Mobile layout */}
-            <div className="flex flex-1 flex-col overflow-hidden bg-white p-2 md:hidden">
-              <Tabs defaultValue="preview" className="flex flex-1 flex-col overflow-hidden">
-                <TabsList className="grid w-full grid-cols-3 bg-[#f5f3ee]">
-                  <TabsTrigger value="captions">Captions</TabsTrigger>
-                  <TabsTrigger value="preview">Preview</TabsTrigger>
-                  <TabsTrigger value="style">Style</TabsTrigger>
-                </TabsList>
-                <TabsContent value="captions" className="mt-2 flex-1 overflow-hidden rounded-xl border border-[#e8e4de]">
-                  {captionsPanel}
-                </TabsContent>
-                <TabsContent value="preview" className="mt-2 flex-1 overflow-hidden rounded-xl border border-[#e8e4de]">
-                  {previewPanel}
-                </TabsContent>
-                <TabsContent value="style" className="mt-2 flex-1 overflow-hidden rounded-xl border border-[#e8e4de]">
-                  {stylePanel}
-                </TabsContent>
-              </Tabs>
-            </div>
+            {isMobile && (
+              <div className="flex flex-1 flex-col overflow-hidden bg-white p-2">
+                <Tabs defaultValue="preview" className="flex flex-1 flex-col overflow-hidden">
+                  <TabsList className="grid w-full grid-cols-3 bg-[#f5f3ee]">
+                    <TabsTrigger value="captions">Captions</TabsTrigger>
+                    <TabsTrigger value="preview">Preview</TabsTrigger>
+                    <TabsTrigger value="style">Style</TabsTrigger>
+                  </TabsList>
+                  <TabsContent value="captions" className="mt-2 flex-1 overflow-hidden rounded-xl border border-[#e8e4de]">
+                    {captionsPanel}
+                  </TabsContent>
+                  <TabsContent value="preview" className="mt-2 flex-1 overflow-hidden rounded-xl border border-[#e8e4de]">
+                    {previewPanel}
+                  </TabsContent>
+                  <TabsContent value="style" className="mt-2 flex-1 overflow-hidden rounded-xl border border-[#e8e4de]">
+                    {stylePanel}
+                  </TabsContent>
+                </Tabs>
+              </div>
+            )}
 
             {/* Timeline at bottom */}
             {timelinePanel}
