@@ -94,11 +94,58 @@ export const FONT_OPTIONS = [
   "Press Start 2P",
   "Shrikhand",
   "Abril Fatface",
+  // Handwriting fonts
+  "Dancing Script",
+  "Satisfy",
+  "Kalam",
   // Custom local fonts
   "Balonku",
   "Cookie Monster",
   "Vegan Style",
 ];
+
+/** Rotating sample lines used to preview caption templates. */
+export const PREVIEW_TEXTS = [
+  "Wait... did he just do that?! 😳",
+  "POV: You forgot the mic was on 🎤",
+  "This escalated way too fast 💀",
+  "Nobody was ready for this 🤯",
+  "The ending is illegal 😂",
+  "I'm working... don't check Slack.",
+  "Meeting that could've been an email.",
+  "Promotion loading... 1% complete.",
+  "My boss thinks I'm online.",
+  "Coffee is my project manager ☕",
+  "Mom, I'm famous now!",
+  "This was not in the tutorial.",
+  "Plot twist incoming...",
+  "Certified chaos.",
+  "Task failed successfully.",
+  "Professional overthinker.",
+  "Oops. That wasn't supposed to happen.",
+  "Trust me bro.",
+  "Breaking: Nothing happened.",
+  "Me pretending I know what's happening.",
+  "Everything was fine 3 seconds ago.",
+  "Just one more episode...",
+  "I should be sleeping right now.",
+  "That's tomorrow's problem.",
+  "Current status: surviving.",
+  "I woke up and chose confusion.",
+  "Living proof that mistakes happen.",
+  "Confidence level: unmuted myself by accident.",
+  "Local man discovers consequences.",
+  "Breaking: Nobody knows what's going on.",
+  "Scientists are concerned.",
+  "Experts hate this one trick.",
+  "Witnesses couldn't believe it.",
+  "This changes absolutely nothing.",
+  "Sources: trust me bro.",
+  "Investigation ongoing.",
+  "Internet loses its mind.",
+  "Authorities remain confused.",
+];
+
 
 export const ANIMATION_OPTIONS: { value: CaptionAnimation; label: string }[] = [
   { value: "none", label: "None" },
