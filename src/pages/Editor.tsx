@@ -71,8 +71,10 @@ type ProjectMeta = {
 const Editor = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [searchParams, setSearchParams] = useSearchParams();
   const projectId = searchParams.get("project");
+  const [isPlaying, setIsPlaying] = useState(false);
 
   const [file, setFile] = useState<File | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
