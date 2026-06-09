@@ -89,7 +89,6 @@ export type Database = {
           source_video_name: string | null
           source_video_path: string | null
           style: Json
-          thumbnail_path: string | null
           title: string
           updated_at: string
           user_id: string
@@ -106,7 +105,6 @@ export type Database = {
           source_video_name?: string | null
           source_video_path?: string | null
           style?: Json
-          thumbnail_path?: string | null
           title?: string
           updated_at?: string
           user_id: string
@@ -123,7 +121,6 @@ export type Database = {
           source_video_name?: string | null
           source_video_path?: string | null
           style?: Json
-          thumbnail_path?: string | null
           title?: string
           updated_at?: string
           user_id?: string

@@ -6,7 +6,6 @@ import {
   ChevronDown,
   Cloud,
   Download,
-  ImageIcon,
   FileText,
   Loader2,
   LogOut,
@@ -47,7 +46,6 @@ import { wordsToCaptions } from "@/lib/captions/segment";
 import { burnCaptions, ExportCancelledError } from "@/lib/captions/render";
 import { transcodeWebmToMp4 } from "@/lib/captions/transcode";
 import { extractAudioNative } from "@/lib/captions/audio";
-import { generateVideoThumbnail } from "@/lib/captions/thumbnail";
 import {
   DEFAULT_STYLE,
   type Caption,
@@ -98,10 +96,6 @@ const Editor = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const exportAbortRef = useRef<AbortController | null>(null);
   const srtInputRef = useRef<HTMLInputElement>(null);
-  // Auto-generated thumbnail (JPEG) for the current video, pending upload on save.
-  const thumbnailBlobRef = useRef<Blob | null>(null);
-  const [storedThumbnailPath, setStoredThumbnailPath] = useState<string | null>(null);
-  const [regeneratingThumb, setRegeneratingThumb] = useState(false);
   // Snapshot of the last persisted caption/style/title, used to skip redundant auto-saves.
   const lastSavedRef = useRef<string>("");
 
@@ -144,7 +138,6 @@ const Editor = () => {
         setStoredSourceMime(data.source_video_mime);
         setStoredSourceName(data.source_video_name);
         setStoredExportPath(data.exported_video_path);
-        setStoredThumbnailPath((data as { thumbnail_path?: string | null }).thumbnail_path ?? null);
         setMeta(
           data.width && data.height && data.duration_seconds
             ? {
@@ -200,19 +193,9 @@ const Editor = () => {
     setMeta(null);
     setStoredSourcePath(null);
     setStoredExportPath(null);
-    setStoredThumbnailPath(null);
-    thumbnailBlobRef.current = null;
     if (title === "Untitled project") {
       setTitle(f.name.replace(/\.[^.]+$/, ""));
     }
-    // Auto-generate a thumbnail from the uploaded video for the projects gallery.
-    generateVideoThumbnail(f)
-      .then((blob) => {
-        thumbnailBlobRef.current = blob;
-      })
-      .catch(() => {
-        thumbnailBlobRef.current = null;
-      });
   };
 
   const transcribe = async () => {
@@ -290,21 +273,6 @@ const Editor = () => {
           setStoredExportPath(path);
         }
 
-        let thumbnailPath = storedThumbnailPath;
-        if (thumbnailBlobRef.current && !thumbnailPath) {
-          const path = `${user.id}/${crypto.randomUUID()}.jpg`;
-          const { error } = await supabase.storage
-            .from("project-thumbnails")
-            .upload(path, thumbnailBlobRef.current, {
-              contentType: "image/jpeg",
-              upsert: false,
-            });
-          if (!error) {
-            thumbnailPath = path;
-            setStoredThumbnailPath(path);
-          }
-        }
-
         const payload = {
           user_id: user.id,
           title: title || "Untitled project",
@@ -314,7 +282,6 @@ const Editor = () => {
           source_video_mime: sourceMime,
           source_video_name: sourceName,
           exported_video_path: exportedPath,
-          thumbnail_path: thumbnailPath,
           duration_seconds: meta?.duration ?? null,
           width: meta?.width ?? null,
           height: meta?.height ?? null,
@@ -329,7 +296,7 @@ const Editor = () => {
         if (projectId) {
           const { error } = await supabase
             .from("projects")
-            .update(payload as never)
+            .update(payload)
             .eq("id", projectId);
           if (error) throw error;
           lastSavedRef.current = savedSnapshot;
@@ -338,7 +305,7 @@ const Editor = () => {
 
         const { data, error } = await supabase
           .from("projects")
-          .insert(payload as never)
+          .insert(payload)
           .select("id")
           .single();
         if (error) throw error;
@@ -362,7 +329,6 @@ const Editor = () => {
       storedSourceMime,
       storedSourceName,
       storedSourcePath,
-      storedThumbnailPath,
       style,
       title,
       user,
@@ -377,51 +343,6 @@ const Editor = () => {
     const id = await saveProject();
     if (id) toast.success("Project saved");
   };
-
-  const regenerateThumbnail = async () => {
-    if (!file) {
-      toast.info("Upload a video first.");
-      return;
-    }
-    if (!user) {
-      toast.info("Sign in to save a thumbnail to the cloud.");
-      return;
-    }
-    setRegeneratingThumb(true);
-    try {
-      const blob = await generateVideoThumbnail(file, {
-        // Grab a frame at the current playhead when available.
-        seekRatio:
-          videoRef.current && meta?.duration
-            ? Math.min(0.99, Math.max(0, videoRef.current.currentTime / meta.duration))
-            : 0.1,
-      });
-      if (!blob) {
-        toast.error("Could not capture a frame from this video.");
-        return;
-      }
-      thumbnailBlobRef.current = blob;
-      const path = storedThumbnailPath ?? `${user.id}/${crypto.randomUUID()}.jpg`;
-      const { error } = await supabase.storage
-        .from("project-thumbnails")
-        .upload(path, blob, { contentType: "image/jpeg", upsert: true });
-      if (error) throw error;
-      setStoredThumbnailPath(path);
-      if (projectId) {
-        const { error: updErr } = await supabase
-          .from("projects")
-          .update({ thumbnail_path: path } as never)
-          .eq("id", projectId);
-        if (updErr) throw updErr;
-      }
-      toast.success("Thumbnail regenerated");
-    } catch (err: any) {
-      toast.error(err?.message || "Could not regenerate thumbnail");
-    } finally {
-      setRegeneratingThumb(false);
-    }
-  };
-
 
   // Debounced auto-save (1s) of caption / style / title edits for an existing
   // project. New, never-saved projects are persisted via manual Save or Export
@@ -875,43 +796,23 @@ const Editor = () => {
                   "Loading metadata…"
                 )}
               </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={regenerateThumbnail}
-                  disabled={regeneratingThumb || !file}
-                  title="Capture the current frame as the project thumbnail"
-                  className="inline-flex items-center gap-1.5 rounded-[7px] border border-[#e8e4de] bg-white px-3.5 py-1.5 text-[12.5px] font-medium text-[#1a1a1a] transition hover:border-[#ff5c3a] hover:bg-[#fff5f3] hover:text-[#ff5c3a] disabled:opacity-60"
-                >
-                  {regeneratingThumb ? (
-                    <>
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      Saving…
-                    </>
-                  ) : (
-                    <>
-                      <ImageIcon className="h-3.5 w-3.5" strokeWidth={1.8} />
-                      Regenerate thumbnail
-                    </>
-                  )}
-                </button>
-                <button
-                  onClick={transcribe}
-                  disabled={transcribing}
-                  className="inline-flex items-center gap-1.5 rounded-[7px] border border-[#e8e4de] bg-white px-3.5 py-1.5 text-[12.5px] font-medium text-[#1a1a1a] transition hover:border-[#ff5c3a] hover:bg-[#fff5f3] hover:text-[#ff5c3a] disabled:opacity-60"
-                >
-                  {transcribing ? (
-                    <>
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      Transcribing…
-                    </>
-                  ) : (
-                    <>
-                      <Wand2 className="h-3.5 w-3.5" strokeWidth={1.8} />
-                      {captions.length ? "Re-transcribe" : "Auto-transcribe"}
-                    </>
-                  )}
-                </button>
-              </div>
+              <button
+                onClick={transcribe}
+                disabled={transcribing}
+                className="inline-flex items-center gap-1.5 rounded-[7px] border border-[#e8e4de] bg-white px-3.5 py-1.5 text-[12.5px] font-medium text-[#1a1a1a] transition hover:border-[#ff5c3a] hover:bg-[#fff5f3] hover:text-[#ff5c3a] disabled:opacity-60"
+              >
+                {transcribing ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    Transcribing…
+                  </>
+                ) : (
+                  <>
+                    <Wand2 className="h-3.5 w-3.5" strokeWidth={1.8} />
+                    {captions.length ? "Re-transcribe" : "Auto-transcribe"}
+                  </>
+                )}
+              </button>
             </div>
           </div>
         );
