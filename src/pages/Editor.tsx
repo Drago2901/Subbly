@@ -60,6 +60,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { captionsToSrt, srtToCaptions } from "@/lib/captions/srt";
 import { Seo } from "@/components/Seo";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 type ProjectMeta = {
   width: number;
