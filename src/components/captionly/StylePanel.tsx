@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Type,
   Sparkles,
@@ -13,8 +13,25 @@ import {
   AlignCenterVertical,
   AlignEndVertical,
   Move,
+  Upload,
+  X,
 } from "lucide-react";
-import { FONT_OPTIONS, ANIMATION_OPTIONS, CAPTION_TEMPLATES, type CaptionStyle } from "@/lib/captions/types";
+import {
+  FONT_OPTIONS,
+  ANIMATION_OPTIONS,
+  CAPTION_TEMPLATES,
+  PREVIEW_TEXTS,
+  DEFAULT_STYLE,
+  type CaptionStyle,
+  type CaptionTemplate,
+} from "@/lib/captions/types";
+import {
+  loadGoogleFont,
+  getCustomFonts,
+  saveCustomFonts,
+  getCustomTemplates,
+  saveCustomTemplates,
+} from "@/lib/captions/fontLoader";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -28,6 +45,52 @@ type Props = {
 type Preset = { id: string; name: string; style: CaptionStyle };
 type Tab = "style" | "anim" | "tmpl" | "brand";
 
+function hexToRgba(hex: string, alpha: number) {
+  const h = hex.replace("#", "");
+  const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+  const r = parseInt(full.slice(0, 2), 16) || 0;
+  const g = parseInt(full.slice(2, 4), 16) || 0;
+  const b = parseInt(full.slice(4, 6), 16) || 0;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/** Live animated preview of a caption template. */
+function TemplatePreview({ style, text }: { style: CaptionStyle; text: string }) {
+  const display = style.uppercase ? text.toUpperCase() : text;
+  const size = Math.max(13, Math.min(26, style.fontSize * 0.34));
+  const hasBg = style.bgOpacity > 0;
+  const stroke =
+    style.strokeWidth > 0
+      ? { WebkitTextStroke: `${Math.max(0.5, style.strokeWidth * 0.4)}px ${style.strokeColor}` as const }
+      : {};
+  return (
+    <div
+      className="relative flex h-[88px] items-center justify-center overflow-hidden rounded-t-[9px] px-3 text-center"
+      style={{ background: hasBg && style.bgColor ? "#111" : "#1a1a1a" }}
+    >
+      <span
+        key={text + style.animation}
+        className={`cap-anim cap-anim-${style.animation} max-w-full`}
+        style={{
+          fontFamily: `"${style.fontFamily}", sans-serif`,
+          fontWeight: style.fontWeight,
+          fontSize: `${size}px`,
+          lineHeight: 1.15,
+          color: style.color,
+          background: hasBg ? hexToRgba(style.bgColor, style.bgOpacity) : "transparent",
+          borderRadius: hasBg ? "5px" : 0,
+          padding: hasBg ? "3px 9px" : 0,
+          whiteSpace: style.animation === "typewriter" ? "nowrap" : "normal",
+          ...stroke,
+        }}
+      >
+        {display}
+      </span>
+    </div>
+  );
+}
+
+
 export function StylePanel({ style, onChange }: Props) {
   const { user } = useAuth();
   const [tab, setTab] = useState<Tab>("style");
@@ -35,6 +98,17 @@ export function StylePanel({ style, onChange }: Props) {
   const [presetName, setPresetName] = useState("");
   const [brandKit, setBrandKit] = useState<BrandKit | null>(null);
   const [brandOpen, setBrandOpen] = useState(false);
+
+  // Custom imported fonts + templates (persisted in localStorage)
+  const [customFonts, setCustomFonts] = useState<string[]>([]);
+  const [customTemplates, setCustomTemplates] = useState<CaptionTemplate[]>([]);
+  const [importOpen, setImportOpen] = useState(false);
+  const [fontInput, setFontInput] = useState("");
+  const [templateJson, setTemplateJson] = useState("");
+
+  // Rotating preview text shared across template cards
+  const [previewIdx, setPreviewIdx] = useState(0);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const set = <K extends keyof CaptionStyle>(k: K, v: CaptionStyle[K]) =>
     onChange({ ...style, [k]: v });
@@ -52,12 +126,87 @@ export function StylePanel({ style, onChange }: Props) {
     })();
   }, [user]);
 
-  const applyTemplate = (id: string) => {
-    const t = CAPTION_TEMPLATES.find((x) => x.id === id);
-    if (!t) return;
+  // Load persisted custom fonts/templates and register fonts
+  useEffect(() => {
+    const fonts = getCustomFonts();
+    fonts.forEach(loadGoogleFont);
+    setCustomFonts(fonts);
+    setCustomTemplates(getCustomTemplates() as CaptionTemplate[]);
+  }, []);
+
+  // Cycle preview text every 2.6s while on the templates tab
+  useEffect(() => {
+    if (tab !== "tmpl") return;
+    const id = setInterval(() => {
+      setPreviewIdx((i) => (i + 1) % PREVIEW_TEXTS.length);
+    }, 2600);
+    return () => clearInterval(id);
+  }, [tab]);
+
+  const allTemplates = useMemo(
+    () => [...customTemplates, ...CAPTION_TEMPLATES],
+    [customTemplates],
+  );
+  const previewText = PREVIEW_TEXTS[previewIdx];
+
+  const applyTemplate = (t: CaptionTemplate) => {
     onChange({ ...style, ...t.style });
+    if (t.style.fontFamily) loadGoogleFont(t.style.fontFamily);
     toast.success(`Applied "${t.name}"`);
   };
+
+  const importFont = () => {
+    const name = fontInput.trim();
+    if (!name) return toast.error("Enter a Google Font name");
+    if ([...FONT_OPTIONS, ...customFonts].some((f) => f.toLowerCase() === name.toLowerCase()))
+      return toast.error("That font is already available");
+    loadGoogleFont(name);
+    const next = [...customFonts, name];
+    setCustomFonts(next);
+    saveCustomFonts(next);
+    set("fontFamily", name);
+    setFontInput("");
+    toast.success(`Imported font "${name}"`);
+  };
+
+  const importTemplate = (raw: string) => {
+    try {
+      const parsed = JSON.parse(raw);
+      const list = Array.isArray(parsed) ? parsed : [parsed];
+      const cleaned: CaptionTemplate[] = list.map((t: any, i: number) => {
+        const sty = (t.style ?? t) as Partial<CaptionStyle>;
+        return {
+          id: `custom-${Date.now()}-${i}`,
+          name: t.name || "Imported template",
+          description: t.description || "Custom imported template",
+          style: { ...DEFAULT_STYLE, ...sty },
+        };
+      });
+      cleaned.forEach((t) => t.style.fontFamily && loadGoogleFont(t.style.fontFamily));
+      const next = [...cleaned, ...customTemplates];
+      setCustomTemplates(next);
+      saveCustomTemplates(next);
+      setTemplateJson("");
+      setImportOpen(false);
+      toast.success(`Imported ${cleaned.length} template${cleaned.length > 1 ? "s" : ""}`);
+    } catch {
+      toast.error("Invalid template JSON");
+    }
+  };
+
+  const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    file.text().then(importTemplate);
+    e.target.value = "";
+  };
+
+  const deleteCustomTemplate = (id: string) => {
+    const next = customTemplates.filter((t) => t.id !== id);
+    setCustomTemplates(next);
+    saveCustomTemplates(next);
+  };
+
 
   const savePreset = async () => {
     if (!user) return toast.error("Sign in to save presets");
@@ -130,6 +279,13 @@ export function StylePanel({ style, onChange }: Props) {
                 className="w-full cursor-pointer rounded-[7px] border border-[#e8e4de] bg-white px-3 py-2 text-[13px] text-[#1a1a1a] outline-none transition hover:border-[#ccc] focus:border-[#ff5c3a]"
                 style={{ fontFamily: `"${style.fontFamily}", sans-serif` }}
               >
+                {customFonts.length > 0 && (
+                  <optgroup label="Imported">
+                    {customFonts.map((f) => (
+                      <option key={f} value={f}>{f}</option>
+                    ))}
+                  </optgroup>
+                )}
                 {FONT_OPTIONS.map((f) => (
                   <option key={f} value={f}>{f}</option>
                 ))}
@@ -233,28 +389,50 @@ export function StylePanel({ style, onChange }: Props) {
 
         {tab === "tmpl" && (
           <div>
-            <div className="mb-0.5 text-[13px] font-semibold text-[#1a1a1a]">Caption templates</div>
+            <div className="mb-0.5 flex items-center justify-between">
+              <div className="text-[13px] font-semibold text-[#1a1a1a]">Caption templates</div>
+              <button
+                onClick={() => setImportOpen(true)}
+                className="inline-flex items-center gap-1 rounded-[7px] border border-[#e8e4de] bg-white px-2.5 py-1.5 text-[11.5px] font-medium text-[#555] transition hover:border-[#ff5c3a] hover:text-[#ff5c3a]"
+              >
+                <Upload className="h-3 w-3" strokeWidth={2} />
+                Import
+              </button>
+            </div>
             <div className="mb-4 text-[11.5px] leading-relaxed text-[#aaa]">
-              One-click style presets.
+              Live previews — click any card to apply.
             </div>
 
-            <div className="mb-4 flex flex-col gap-1.5">
-              {CAPTION_TEMPLATES.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => applyTemplate(t.id)}
-                  className="group flex items-center justify-between gap-2.5 rounded-[9px] border border-[#e8e4de] bg-white px-3.5 py-3 text-left transition hover:border-[#ffd5cc] hover:bg-[#fffaf9]"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[12.5px] font-semibold text-[#1a1a1a]">{t.name}</div>
-                    <div className="truncate text-[11px] text-[#aaa]">{t.description}</div>
+            <div className="mb-4 grid grid-cols-2 gap-2">
+              {allTemplates.map((t) => {
+                const previewStyle = { ...DEFAULT_STYLE, ...t.style } as CaptionStyle;
+                const isCustom = t.id.startsWith("custom-");
+                return (
+                  <div
+                    key={t.id}
+                    className="group relative overflow-hidden rounded-[9px] border border-[#e8e4de] bg-white text-left transition hover:border-[#ffd5cc]"
+                  >
+                    {isCustom && (
+                      <button
+                        onClick={() => deleteCustomTemplate(t.id)}
+                        aria-label={`Delete ${t.name}`}
+                        className="absolute right-1.5 top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-black/55 text-white opacity-0 transition group-hover:opacity-100 hover:bg-red-500"
+                      >
+                        <X className="h-3 w-3" strokeWidth={2.5} />
+                      </button>
+                    )}
+                    <button onClick={() => applyTemplate(t)} className="block w-full text-left">
+                      <TemplatePreview style={previewStyle} text={previewText} />
+                      <div className="px-2.5 py-2">
+                        <div className="truncate text-[11.5px] font-semibold text-[#1a1a1a]">{t.name}</div>
+                        <div className="truncate text-[10px] text-[#aaa]">{t.description}</div>
+                      </div>
+                    </button>
                   </div>
-                  <div className="flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#e8e4de] transition group-hover:border-[#ffd5cc]">
-                    <Check className="h-2.5 w-2.5 text-transparent" strokeWidth={2.5} />
-                  </div>
-                </button>
-              ))}
+                );
+              })}
             </div>
+
 
             <div className="mb-2.5 border-t border-[#f0ede8] pt-3.5 text-[10px] font-semibold tracking-wider text-[#bbb]">
               MY PRESETS
@@ -384,6 +562,83 @@ export function StylePanel({ style, onChange }: Props) {
         brandKit={brandKit}
         onSaved={(bk) => setBrandKit(bk)}
       />
+
+      <input
+        ref={fileRef}
+        type="file"
+        accept="application/json,.json"
+        onChange={onFile}
+        className="hidden"
+      />
+
+      {importOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setImportOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-[12px] border border-[#e8e4de] bg-white p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+            style={{ fontFamily: "'Outfit', sans-serif" }}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <div className="text-[14px] font-semibold text-[#1a1a1a]">Import</div>
+              <button
+                onClick={() => setImportOpen(false)}
+                aria-label="Close import dialog"
+                className="text-[#aaa] hover:text-[#555]"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-[0.07em] text-[#aaa]">
+              Import font
+            </div>
+            <div className="mb-4 flex gap-1.5">
+              <input
+                value={fontInput}
+                onChange={(e) => setFontInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && importFont()}
+                placeholder="Google Font name (e.g. Lobster)"
+                className="flex-1 rounded-[7px] border border-[#e8e4de] bg-[#f9f8f5] px-3 py-2 text-[12.5px] text-[#1a1a1a] outline-none transition placeholder:text-[#ccc] focus:border-[#ff5c3a] focus:bg-white"
+              />
+              <button
+                onClick={importFont}
+                className="whitespace-nowrap rounded-[7px] bg-[#ff5c3a] px-3.5 py-2 text-[12.5px] font-medium text-white transition hover:bg-[#e84e2e]"
+              >
+                Add
+              </button>
+            </div>
+
+            <div className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-[0.07em] text-[#aaa]">
+              Import template
+            </div>
+            <textarea
+              value={templateJson}
+              onChange={(e) => setTemplateJson(e.target.value)}
+              placeholder='Paste template JSON, e.g. {"name":"My style","style":{"fontFamily":"Anton","animation":"pop"}}'
+              rows={4}
+              className="mb-2 w-full resize-none rounded-[7px] border border-[#e8e4de] bg-[#f9f8f5] px-3 py-2 font-mono text-[11px] text-[#1a1a1a] outline-none transition placeholder:text-[#ccc] focus:border-[#ff5c3a] focus:bg-white"
+            />
+            <div className="flex gap-1.5">
+              <button
+                onClick={() => importTemplate(templateJson)}
+                className="flex-1 rounded-[7px] bg-[#ff5c3a] px-3.5 py-2 text-[12.5px] font-medium text-white transition hover:bg-[#e84e2e]"
+              >
+                Add template
+              </button>
+              <button
+                onClick={() => fileRef.current?.click()}
+                className="inline-flex items-center gap-1.5 rounded-[7px] border border-[#e8e4de] bg-white px-3.5 py-2 text-[12.5px] font-medium text-[#555] transition hover:border-[#ff5c3a] hover:text-[#ff5c3a]"
+              >
+                <Upload className="h-3 w-3" strokeWidth={2} />
+                File
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
