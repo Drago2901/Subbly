@@ -99,6 +99,17 @@ export function StylePanel({ style, onChange }: Props) {
   const [brandKit, setBrandKit] = useState<BrandKit | null>(null);
   const [brandOpen, setBrandOpen] = useState(false);
 
+  // Custom imported fonts + templates (persisted in localStorage)
+  const [customFonts, setCustomFonts] = useState<string[]>([]);
+  const [customTemplates, setCustomTemplates] = useState<CaptionTemplate[]>([]);
+  const [importOpen, setImportOpen] = useState(false);
+  const [fontInput, setFontInput] = useState("");
+  const [templateJson, setTemplateJson] = useState("");
+
+  // Rotating preview text shared across template cards
+  const [previewIdx, setPreviewIdx] = useState(0);
+  const fileRef = useRef<HTMLInputElement>(null);
+
   const set = <K extends keyof CaptionStyle>(k: K, v: CaptionStyle[K]) =>
     onChange({ ...style, [k]: v });
 
@@ -115,12 +126,87 @@ export function StylePanel({ style, onChange }: Props) {
     })();
   }, [user]);
 
-  const applyTemplate = (id: string) => {
-    const t = CAPTION_TEMPLATES.find((x) => x.id === id);
-    if (!t) return;
+  // Load persisted custom fonts/templates and register fonts
+  useEffect(() => {
+    const fonts = getCustomFonts();
+    fonts.forEach(loadGoogleFont);
+    setCustomFonts(fonts);
+    setCustomTemplates(getCustomTemplates() as CaptionTemplate[]);
+  }, []);
+
+  // Cycle preview text every 2.6s while on the templates tab
+  useEffect(() => {
+    if (tab !== "tmpl") return;
+    const id = setInterval(() => {
+      setPreviewIdx((i) => (i + 1) % PREVIEW_TEXTS.length);
+    }, 2600);
+    return () => clearInterval(id);
+  }, [tab]);
+
+  const allTemplates = useMemo(
+    () => [...customTemplates, ...CAPTION_TEMPLATES],
+    [customTemplates],
+  );
+  const previewText = PREVIEW_TEXTS[previewIdx];
+
+  const applyTemplate = (t: CaptionTemplate) => {
     onChange({ ...style, ...t.style });
+    if (t.style.fontFamily) loadGoogleFont(t.style.fontFamily);
     toast.success(`Applied "${t.name}"`);
   };
+
+  const importFont = () => {
+    const name = fontInput.trim();
+    if (!name) return toast.error("Enter a Google Font name");
+    if ([...FONT_OPTIONS, ...customFonts].some((f) => f.toLowerCase() === name.toLowerCase()))
+      return toast.error("That font is already available");
+    loadGoogleFont(name);
+    const next = [...customFonts, name];
+    setCustomFonts(next);
+    saveCustomFonts(next);
+    set("fontFamily", name);
+    setFontInput("");
+    toast.success(`Imported font "${name}"`);
+  };
+
+  const importTemplate = (raw: string) => {
+    try {
+      const parsed = JSON.parse(raw);
+      const list = Array.isArray(parsed) ? parsed : [parsed];
+      const cleaned: CaptionTemplate[] = list.map((t: any, i: number) => {
+        const sty = (t.style ?? t) as Partial<CaptionStyle>;
+        return {
+          id: `custom-${Date.now()}-${i}`,
+          name: t.name || "Imported template",
+          description: t.description || "Custom imported template",
+          style: { ...DEFAULT_STYLE, ...sty },
+        };
+      });
+      cleaned.forEach((t) => t.style.fontFamily && loadGoogleFont(t.style.fontFamily));
+      const next = [...cleaned, ...customTemplates];
+      setCustomTemplates(next);
+      saveCustomTemplates(next);
+      setTemplateJson("");
+      setImportOpen(false);
+      toast.success(`Imported ${cleaned.length} template${cleaned.length > 1 ? "s" : ""}`);
+    } catch {
+      toast.error("Invalid template JSON");
+    }
+  };
+
+  const onFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    file.text().then(importTemplate);
+    e.target.value = "";
+  };
+
+  const deleteCustomTemplate = (id: string) => {
+    const next = customTemplates.filter((t) => t.id !== id);
+    setCustomTemplates(next);
+    saveCustomTemplates(next);
+  };
+
 
   const savePreset = async () => {
     if (!user) return toast.error("Sign in to save presets");
