@@ -389,28 +389,50 @@ export function StylePanel({ style, onChange }: Props) {
 
         {tab === "tmpl" && (
           <div>
-            <div className="mb-0.5 text-[13px] font-semibold text-[#1a1a1a]">Caption templates</div>
+            <div className="mb-0.5 flex items-center justify-between">
+              <div className="text-[13px] font-semibold text-[#1a1a1a]">Caption templates</div>
+              <button
+                onClick={() => setImportOpen(true)}
+                className="inline-flex items-center gap-1 rounded-[7px] border border-[#e8e4de] bg-white px-2.5 py-1.5 text-[11.5px] font-medium text-[#555] transition hover:border-[#ff5c3a] hover:text-[#ff5c3a]"
+              >
+                <Upload className="h-3 w-3" strokeWidth={2} />
+                Import
+              </button>
+            </div>
             <div className="mb-4 text-[11.5px] leading-relaxed text-[#aaa]">
-              One-click style presets.
+              Live previews — click any card to apply.
             </div>
 
-            <div className="mb-4 flex flex-col gap-1.5">
-              {CAPTION_TEMPLATES.map((t) => (
-                <button
-                  key={t.id}
-                  onClick={() => applyTemplate(t.id)}
-                  className="group flex items-center justify-between gap-2.5 rounded-[9px] border border-[#e8e4de] bg-white px-3.5 py-3 text-left transition hover:border-[#ffd5cc] hover:bg-[#fffaf9]"
-                >
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[12.5px] font-semibold text-[#1a1a1a]">{t.name}</div>
-                    <div className="truncate text-[11px] text-[#aaa]">{t.description}</div>
+            <div className="mb-4 grid grid-cols-2 gap-2">
+              {allTemplates.map((t) => {
+                const previewStyle = { ...DEFAULT_STYLE, ...t.style } as CaptionStyle;
+                const isCustom = t.id.startsWith("custom-");
+                return (
+                  <div
+                    key={t.id}
+                    className="group relative overflow-hidden rounded-[9px] border border-[#e8e4de] bg-white text-left transition hover:border-[#ffd5cc]"
+                  >
+                    {isCustom && (
+                      <button
+                        onClick={() => deleteCustomTemplate(t.id)}
+                        aria-label={`Delete ${t.name}`}
+                        className="absolute right-1.5 top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-black/55 text-white opacity-0 transition group-hover:opacity-100 hover:bg-red-500"
+                      >
+                        <X className="h-3 w-3" strokeWidth={2.5} />
+                      </button>
+                    )}
+                    <button onClick={() => applyTemplate(t)} className="block w-full text-left">
+                      <TemplatePreview style={previewStyle} text={previewText} />
+                      <div className="px-2.5 py-2">
+                        <div className="truncate text-[11.5px] font-semibold text-[#1a1a1a]">{t.name}</div>
+                        <div className="truncate text-[10px] text-[#aaa]">{t.description}</div>
+                      </div>
+                    </button>
                   </div>
-                  <div className="flex h-[18px] w-[18px] flex-shrink-0 items-center justify-center rounded-full border-[1.5px] border-[#e8e4de] transition group-hover:border-[#ffd5cc]">
-                    <Check className="h-2.5 w-2.5 text-transparent" strokeWidth={2.5} />
-                  </div>
-                </button>
-              ))}
+                );
+              })}
             </div>
+
 
             <div className="mb-2.5 border-t border-[#f0ede8] pt-3.5 text-[10px] font-semibold tracking-wider text-[#bbb]">
               MY PRESETS
