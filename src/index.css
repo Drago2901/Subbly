@@ -111,6 +111,52 @@
   .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
 }
 
+/* ===== Caption template live-preview animations ===== */
+.cap-anim {
+  display: inline-block;
+  animation-duration: 2.4s;
+  animation-iteration-count: infinite;
+  animation-timing-function: ease;
+  will-change: transform, opacity;
+}
+.cap-anim-none { animation: none; }
+.cap-anim-fade { animation-name: capFade; }
+.cap-anim-pop { animation-name: capPop; }
+.cap-anim-bounce { animation-name: capBounce; }
+.cap-anim-zoom-in { animation-name: capZoomIn; }
+.cap-anim-zoom-out { animation-name: capZoomOut; }
+.cap-anim-slide-up { animation-name: capSlideUp; }
+.cap-anim-slide-down { animation-name: capSlideDown; }
+.cap-anim-slide-left { animation-name: capSlideLeft; }
+.cap-anim-slide-right { animation-name: capSlideRight; }
+.cap-anim-wave { animation-name: capWave; }
+.cap-anim-shake { animation-name: capShake; }
+.cap-anim-glitch { animation-name: capGlitch; animation-timing-function: steps(2, end); }
+.cap-anim-typewriter {
+  overflow: hidden;
+  white-space: nowrap;
+  border-right: 2px solid currentColor;
+  animation-name: capType, capCaret;
+  animation-duration: 2.4s, 0.7s;
+  animation-timing-function: steps(24, end), step-end;
+}
+
+@keyframes capFade { 0%,100%{opacity:0;transform:translateY(8px)} 30%,80%{opacity:1;transform:translateY(0)} }
+@keyframes capPop { 0%,100%{opacity:0;transform:scale(0.4)} 28%,72%{opacity:1;transform:scale(1)} }
+@keyframes capBounce { 0%{opacity:0;transform:scale(0.3)} 35%{opacity:1;transform:scale(1.1)} 50%{transform:scale(0.95)} 60%{transform:scale(1.03)} 70%,85%{transform:scale(1)} 100%{opacity:1;transform:scale(1)} }
+@keyframes capZoomIn { 0%,100%{opacity:0;transform:scale(0.6)} 30%,78%{opacity:1;transform:scale(1)} }
+@keyframes capZoomOut { 0%,100%{opacity:0;transform:scale(1.5)} 30%,78%{opacity:1;transform:scale(1)} }
+@keyframes capSlideUp { 0%,100%{opacity:0;transform:translateY(24px)} 30%,78%{opacity:1;transform:translateY(0)} }
+@keyframes capSlideDown { 0%,100%{opacity:0;transform:translateY(-24px)} 30%,78%{opacity:1;transform:translateY(0)} }
+@keyframes capSlideLeft { 0%,100%{opacity:0;transform:translateX(-40px)} 30%,78%{opacity:1;transform:translateX(0)} }
+@keyframes capSlideRight { 0%,100%{opacity:0;transform:translateX(40px)} 30%,78%{opacity:1;transform:translateX(0)} }
+@keyframes capWave { 0%,100%{opacity:0;transform:translateY(10px)} 30%,75%{opacity:1;transform:translateY(0)} }
+@keyframes capShake { 0%,100%{opacity:0;transform:translateX(0)} 20%,80%{opacity:1} 30%{transform:translateX(-4px)} 45%{transform:translateX(4px)} 60%{transform:translateX(-2px)} 75%{transform:translateX(0)} }
+@keyframes capGlitch { 0%,88%,100%{opacity:1;transform:none;clip-path:none} 20%,80%{opacity:1} 90%{transform:translateX(-3px);clip-path:inset(20% 0 30% 0)} 94%{transform:translateX(3px);clip-path:inset(55% 0 10% 0)} 97%{transform:none;clip-path:none} 0%{opacity:0} }
+@keyframes capType { 0%,100%{width:0} 45%,85%{width:100%} }
+@keyframes capCaret { 0%,100%{border-color:transparent} 50%{border-color:currentColor} }
+
+
 /* ===== Dark mode override for Subbly light-themed pages =====
    The landing/projects/editor light UI uses hard-coded hex colors.
    Under .dark we remap them via attribute selectors so a single
