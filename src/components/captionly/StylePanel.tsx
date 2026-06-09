@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Type,
   Sparkles,
@@ -13,8 +13,25 @@ import {
   AlignCenterVertical,
   AlignEndVertical,
   Move,
+  Upload,
+  X,
 } from "lucide-react";
-import { FONT_OPTIONS, ANIMATION_OPTIONS, CAPTION_TEMPLATES, type CaptionStyle } from "@/lib/captions/types";
+import {
+  FONT_OPTIONS,
+  ANIMATION_OPTIONS,
+  CAPTION_TEMPLATES,
+  PREVIEW_TEXTS,
+  DEFAULT_STYLE,
+  type CaptionStyle,
+  type CaptionTemplate,
+} from "@/lib/captions/types";
+import {
+  loadGoogleFont,
+  getCustomFonts,
+  saveCustomFonts,
+  getCustomTemplates,
+  saveCustomTemplates,
+} from "@/lib/captions/fontLoader";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -27,6 +44,52 @@ type Props = {
 
 type Preset = { id: string; name: string; style: CaptionStyle };
 type Tab = "style" | "anim" | "tmpl" | "brand";
+
+function hexToRgba(hex: string, alpha: number) {
+  const h = hex.replace("#", "");
+  const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+  const r = parseInt(full.slice(0, 2), 16) || 0;
+  const g = parseInt(full.slice(2, 4), 16) || 0;
+  const b = parseInt(full.slice(4, 6), 16) || 0;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+/** Live animated preview of a caption template. */
+function TemplatePreview({ style, text }: { style: CaptionStyle; text: string }) {
+  const display = style.uppercase ? text.toUpperCase() : text;
+  const size = Math.max(13, Math.min(26, style.fontSize * 0.34));
+  const hasBg = style.bgOpacity > 0;
+  const stroke =
+    style.strokeWidth > 0
+      ? { WebkitTextStroke: `${Math.max(0.5, style.strokeWidth * 0.4)}px ${style.strokeColor}` as const }
+      : {};
+  return (
+    <div
+      className="relative flex h-[88px] items-center justify-center overflow-hidden rounded-t-[9px] px-3 text-center"
+      style={{ background: hasBg && style.bgColor ? "#111" : "#1a1a1a" }}
+    >
+      <span
+        key={text + style.animation}
+        className={`cap-anim cap-anim-${style.animation} max-w-full`}
+        style={{
+          fontFamily: `"${style.fontFamily}", sans-serif`,
+          fontWeight: style.fontWeight,
+          fontSize: `${size}px`,
+          lineHeight: 1.15,
+          color: style.color,
+          background: hasBg ? hexToRgba(style.bgColor, style.bgOpacity) : "transparent",
+          borderRadius: hasBg ? "5px" : 0,
+          padding: hasBg ? "3px 9px" : 0,
+          whiteSpace: style.animation === "typewriter" ? "nowrap" : "normal",
+          ...stroke,
+        }}
+      >
+        {display}
+      </span>
+    </div>
+  );
+}
+
 
 export function StylePanel({ style, onChange }: Props) {
   const { user } = useAuth();
