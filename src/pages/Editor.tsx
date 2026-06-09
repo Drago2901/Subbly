@@ -188,6 +188,24 @@ const Editor = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Keep play/pause state reactive so the timeline transport stays in sync
+  // with the preview (and vice versa), regardless of which control is used.
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    const onPlay = () => setIsPlaying(true);
+    const onPause = () => setIsPlaying(false);
+    setIsPlaying(!v.paused);
+    v.addEventListener("play", onPlay);
+    v.addEventListener("pause", onPause);
+    v.addEventListener("ended", onPause);
+    return () => {
+      v.removeEventListener("play", onPlay);
+      v.removeEventListener("pause", onPause);
+      v.removeEventListener("ended", onPause);
+    };
+  }, [videoUrl, isMobile]);
+
   const handleFile = (f: File) => {
     if (videoUrl) URL.revokeObjectURL(videoUrl);
     setFile(f);
