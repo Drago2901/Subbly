@@ -850,7 +850,7 @@ const Editor = () => {
               setCurrentTime(t);
               if (videoRef.current) videoRef.current.currentTime = t;
             }}
-            playing={!!videoRef.current && !videoRef.current.paused}
+            playing={isPlaying}
             onTogglePlay={() => {
               const v = videoRef.current;
               if (!v) return;
