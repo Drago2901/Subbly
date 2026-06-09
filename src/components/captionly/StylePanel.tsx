@@ -562,6 +562,83 @@ export function StylePanel({ style, onChange }: Props) {
         brandKit={brandKit}
         onSaved={(bk) => setBrandKit(bk)}
       />
+
+      <input
+        ref={fileRef}
+        type="file"
+        accept="application/json,.json"
+        onChange={onFile}
+        className="hidden"
+      />
+
+      {importOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+          onClick={() => setImportOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-[12px] border border-[#e8e4de] bg-white p-5 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+            style={{ fontFamily: "'Outfit', sans-serif" }}
+          >
+            <div className="mb-3 flex items-center justify-between">
+              <div className="text-[14px] font-semibold text-[#1a1a1a]">Import</div>
+              <button
+                onClick={() => setImportOpen(false)}
+                aria-label="Close import dialog"
+                className="text-[#aaa] hover:text-[#555]"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <div className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-[0.07em] text-[#aaa]">
+              Import font
+            </div>
+            <div className="mb-4 flex gap-1.5">
+              <input
+                value={fontInput}
+                onChange={(e) => setFontInput(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && importFont()}
+                placeholder="Google Font name (e.g. Lobster)"
+                className="flex-1 rounded-[7px] border border-[#e8e4de] bg-[#f9f8f5] px-3 py-2 text-[12.5px] text-[#1a1a1a] outline-none transition placeholder:text-[#ccc] focus:border-[#ff5c3a] focus:bg-white"
+              />
+              <button
+                onClick={importFont}
+                className="whitespace-nowrap rounded-[7px] bg-[#ff5c3a] px-3.5 py-2 text-[12.5px] font-medium text-white transition hover:bg-[#e84e2e]"
+              >
+                Add
+              </button>
+            </div>
+
+            <div className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-[0.07em] text-[#aaa]">
+              Import template
+            </div>
+            <textarea
+              value={templateJson}
+              onChange={(e) => setTemplateJson(e.target.value)}
+              placeholder='Paste template JSON, e.g. {"name":"My style","style":{"fontFamily":"Anton","animation":"pop"}}'
+              rows={4}
+              className="mb-2 w-full resize-none rounded-[7px] border border-[#e8e4de] bg-[#f9f8f5] px-3 py-2 font-mono text-[11px] text-[#1a1a1a] outline-none transition placeholder:text-[#ccc] focus:border-[#ff5c3a] focus:bg-white"
+            />
+            <div className="flex gap-1.5">
+              <button
+                onClick={() => importTemplate(templateJson)}
+                className="flex-1 rounded-[7px] bg-[#ff5c3a] px-3.5 py-2 text-[12.5px] font-medium text-white transition hover:bg-[#e84e2e]"
+              >
+                Add template
+              </button>
+              <button
+                onClick={() => fileRef.current?.click()}
+                className="inline-flex items-center gap-1.5 rounded-[7px] border border-[#e8e4de] bg-white px-3.5 py-2 text-[12.5px] font-medium text-[#555] transition hover:border-[#ff5c3a] hover:text-[#ff5c3a]"
+              >
+                <Upload className="h-3 w-3" strokeWidth={2} />
+                File
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
