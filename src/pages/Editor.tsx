@@ -6,6 +6,7 @@ import {
   ChevronDown,
   Cloud,
   Download,
+  Globe,
   FileText,
   Loader2,
   LogOut,
@@ -68,6 +69,26 @@ type ProjectMeta = {
   duration: number;
 };
 
+const LANGUAGES: { code: string; label: string }[] = [
+  { code: "auto", label: "Auto-detect" },
+  { code: "en", label: "English" },
+  { code: "es", label: "Spanish" },
+  { code: "fr", label: "French" },
+  { code: "de", label: "German" },
+  { code: "it", label: "Italian" },
+  { code: "pt", label: "Portuguese" },
+  { code: "nl", label: "Dutch" },
+  { code: "ru", label: "Russian" },
+  { code: "hi", label: "Hindi" },
+  { code: "ja", label: "Japanese" },
+  { code: "ko", label: "Korean" },
+  { code: "zh", label: "Chinese" },
+  { code: "ar", label: "Arabic" },
+  { code: "tr", label: "Turkish" },
+  { code: "pl", label: "Polish" },
+  { code: "id", label: "Indonesian" },
+];
+
 const Editor = () => {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
@@ -93,6 +114,7 @@ const Editor = () => {
   const [storedSourceName, setStoredSourceName] = useState<string | null>(null);
   const [storedExportPath, setStoredExportPath] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
+  const [language, setLanguage] = useState<string>("auto");
   const [exportFormat, setExportFormat] = useState<"webm" | "mp4">("webm");
   const [exportPresetId, setExportPresetId] = useState<string>(SOURCE_PRESET_ID);
   const [exportStage, setExportStage] = useState<"render" | "transcode">("render");
@@ -228,6 +250,7 @@ const Editor = () => {
 
       const fd = new FormData();
       fd.append("file", new File([audioBlob], "audio.wav", { type: "audio/wav" }));
+      if (language && language !== "auto") fd.append("language", language);
 
       const { data, error } = await supabase.functions.invoke("transcribe-video", {
         body: fd,
@@ -900,7 +923,25 @@ const Editor = () => {
               </div>
             )}
 
-            {/* Timeline at bottom */}
+            {/* Caption language selector + timeline at bottom */}
+            {meta && (
+              <div className="flex flex-shrink-0 items-center gap-2 border-t border-[#e8e4de] bg-white px-2.5 py-1.5">
+                <Globe className="h-3.5 w-3.5 text-[#888]" strokeWidth={1.8} />
+                <span className="hidden text-[11px] text-[#aaa] sm:inline">Caption language</span>
+                <Select value={language} onValueChange={setLanguage}>
+                  <SelectTrigger className="h-7 w-[160px] rounded-[6px] border-[#e8e4de] bg-[#f5f3ee] px-3 text-[12px] text-[#1a1a1a] focus:ring-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LANGUAGES.map((l) => (
+                      <SelectItem key={l.code} value={l.code} className="text-[13px]">
+                        {l.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             {timelinePanel}
           </div>
         );
