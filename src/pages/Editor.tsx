@@ -249,6 +249,7 @@ const Editor = () => {
 
       const fd = new FormData();
       fd.append("file", new File([audioBlob], "audio.wav", { type: "audio/wav" }));
+      if (language && language !== "auto") fd.append("language", language);
 
       const { data, error } = await supabase.functions.invoke("transcribe-video", {
         body: fd,
