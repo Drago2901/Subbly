@@ -923,7 +923,25 @@ const Editor = () => {
               </div>
             )}
 
-            {/* Timeline at bottom */}
+            {/* Caption language selector + timeline at bottom */}
+            {meta && (
+              <div className="flex flex-shrink-0 items-center gap-2 border-t border-[#e8e4de] bg-white px-2.5 py-1.5">
+                <Globe className="h-3.5 w-3.5 text-[#888]" strokeWidth={1.8} />
+                <span className="hidden text-[11px] text-[#aaa] sm:inline">Caption language</span>
+                <Select value={language} onValueChange={setLanguage}>
+                  <SelectTrigger className="h-7 w-[160px] rounded-[6px] border-[#e8e4de] bg-[#f5f3ee] px-3 text-[12px] text-[#1a1a1a] focus:ring-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {LANGUAGES.map((l) => (
+                      <SelectItem key={l.code} value={l.code} className="text-[13px]">
+                        {l.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             {timelinePanel}
           </div>
         );
