@@ -115,6 +115,7 @@ const Editor = () => {
   const [storedExportPath, setStoredExportPath] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [language, setLanguage] = useState<string>("auto");
+  const [translating, setTranslating] = useState(false);
   const [exportFormat, setExportFormat] = useState<"webm" | "mp4">("webm");
   const [exportPresetId, setExportPresetId] = useState<string>(SOURCE_PRESET_ID);
   const [exportStage, setExportStage] = useState<"render" | "transcode">("render");
@@ -270,6 +271,35 @@ const Editor = () => {
       setTranscribing(false);
     }
   };
+
+  const handleLanguageChange = async (next: string) => {
+    const prev = language;
+    setLanguage(next);
+    // Only translate existing captions when switching to a concrete language.
+    if (next === "auto" || next === prev || captions.length === 0) return;
+
+    setTranslating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("translate-captions", {
+        body: { texts: captions.map((c) => c.text), language: next },
+      });
+      if (error) throw error;
+      const translations: string[] = data?.translations ?? [];
+      if (translations.length !== captions.length) {
+        throw new Error("Translation response did not match captions");
+      }
+      setCaptions((cur) => cur.map((c, i) => ({ ...c, text: translations[i] ?? c.text })));
+      toast.success("Captions translated");
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Translation failed");
+      setLanguage(prev);
+    } finally {
+      setTranslating(false);
+    }
+  };
+
+
 
   const seek = (t: number) => {
     if (videoRef.current) {
@@ -928,7 +958,7 @@ const Editor = () => {
               <div className="flex flex-shrink-0 items-center gap-2 border-t border-[#e8e4de] bg-white px-2.5 py-1.5">
                 <Globe className="h-3.5 w-3.5 text-[#888]" strokeWidth={1.8} />
                 <span className="hidden text-[11px] text-[#aaa] sm:inline">Caption language</span>
-                <Select value={language} onValueChange={setLanguage}>
+                <Select value={language} onValueChange={handleLanguageChange} disabled={translating}>
                   <SelectTrigger className="h-7 w-[160px] rounded-[6px] border-[#e8e4de] bg-[#f5f3ee] px-3 text-[12px] text-[#1a1a1a] focus:ring-0">
                     <SelectValue />
                   </SelectTrigger>
@@ -940,6 +970,12 @@ const Editor = () => {
                     ))}
                   </SelectContent>
                 </Select>
+                {translating && (
+                  <span className="inline-flex items-center gap-1 text-[11px] text-[#aaa]">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Translating…
+                  </span>
+                )}
               </div>
             )}
             {timelinePanel}
