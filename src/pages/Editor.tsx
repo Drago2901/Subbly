@@ -272,6 +272,35 @@ const Editor = () => {
     }
   };
 
+  const handleLanguageChange = async (next: string) => {
+    const prev = language;
+    setLanguage(next);
+    // Only translate existing captions when switching to a concrete language.
+    if (next === "auto" || next === prev || captions.length === 0) return;
+
+    setTranslating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("translate-captions", {
+        body: { texts: captions.map((c) => c.text), language: next },
+      });
+      if (error) throw error;
+      const translations: string[] = data?.translations ?? [];
+      if (translations.length !== captions.length) {
+        throw new Error("Translation response did not match captions");
+      }
+      setCaptions((cur) => cur.map((c, i) => ({ ...c, text: translations[i] ?? c.text })));
+      toast.success("Captions translated");
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e?.message || "Translation failed");
+      setLanguage(prev);
+    } finally {
+      setTranslating(false);
+    }
+  };
+
+
+
   const seek = (t: number) => {
     if (videoRef.current) {
       videoRef.current.currentTime = t;
