@@ -143,9 +143,19 @@ export function StylePanel({ style, onChange }: Props) {
     return () => clearInterval(id);
   }, [tab]);
 
+  const NONE_TEMPLATE: CaptionTemplate = useMemo(
+    () => ({
+      id: "none",
+      name: "None",
+      description: "Plain default — 20px, weight 300",
+      style: { ...DEFAULT_STYLE },
+    }),
+    [],
+  );
+
   const allTemplates = useMemo(
-    () => [...customTemplates, ...CAPTION_TEMPLATES],
-    [customTemplates],
+    () => [NONE_TEMPLATE, ...customTemplates, ...CAPTION_TEMPLATES],
+    [NONE_TEMPLATE, customTemplates],
   );
   const previewText = PREVIEW_TEXTS[previewIdx];
 
