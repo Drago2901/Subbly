@@ -958,7 +958,7 @@ const Editor = () => {
               <div className="flex flex-shrink-0 items-center gap-2 border-t border-[#e8e4de] bg-white px-2.5 py-1.5">
                 <Globe className="h-3.5 w-3.5 text-[#888]" strokeWidth={1.8} />
                 <span className="hidden text-[11px] text-[#aaa] sm:inline">Caption language</span>
-                <Select value={language} onValueChange={setLanguage}>
+                <Select value={language} onValueChange={handleLanguageChange} disabled={translating}>
                   <SelectTrigger className="h-7 w-[160px] rounded-[6px] border-[#e8e4de] bg-[#f5f3ee] px-3 text-[12px] text-[#1a1a1a] focus:ring-0">
                     <SelectValue />
                   </SelectTrigger>
@@ -970,6 +970,12 @@ const Editor = () => {
                     ))}
                   </SelectContent>
                 </Select>
+                {translating && (
+                  <span className="inline-flex items-center gap-1 text-[11px] text-[#aaa]">
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Translating…
+                  </span>
+                )}
               </div>
             )}
             {timelinePanel}
