@@ -1,4 +1,6 @@
 // Translate an array of caption texts into a target language via Lovable AI Gateway.
+import { createClient } from "npm:@supabase/supabase-js@2";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -31,22 +33,53 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Require an authenticated user — prevents anonymous callers from draining AI credits.
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+    );
+    const { data: { user }, error: authError } = await supabase.auth.getUser(
+      authHeader.replace("Bearer ", ""),
+    );
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const apiKey = Deno.env.get("LOVABLE_API_KEY");
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: "LOVABLE_API_KEY not configured" }), {
+      console.error("LOVABLE_API_KEY not configured");
+      return new Response(JSON.stringify({ error: "Service unavailable. Please try again later." }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    const { texts, language } = await req.json();
-    if (!Array.isArray(texts) || texts.length === 0) {
-      return new Response(JSON.stringify({ error: "Missing 'texts' array" }), {
+    const body = await req.json();
+    const texts = body?.texts;
+    const language = body?.language;
+    if (!Array.isArray(texts) || texts.length === 0 || texts.length > 2000) {
+      return new Response(JSON.stringify({ error: "Invalid 'texts' array" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-    const targetName = LANGUAGE_NAMES[language] || language;
+    if (!texts.every((t) => typeof t === "string" && t.length <= 5000)) {
+      return new Response(JSON.stringify({ error: "Invalid caption text" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const targetName = typeof language === "string" ? (LANGUAGE_NAMES[language] || language) : "";
     if (!targetName) {
       return new Response(JSON.stringify({ error: "Missing 'language'" }), {
         status: 400,
@@ -93,8 +126,8 @@ Deno.serve(async (req) => {
     if (!res.ok) {
       const errText = await res.text();
       console.error("AI gateway error:", res.status, errText);
-      return new Response(JSON.stringify({ error: `AI gateway ${res.status}` }), {
-        status: res.status,
+      return new Response(JSON.stringify({ error: "Translation failed. Please try again." }), {
+        status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -120,7 +153,7 @@ Deno.serve(async (req) => {
     });
   } catch (err) {
     console.error("translate-captions error:", err);
-    return new Response(JSON.stringify({ error: String(err) }), {
+    return new Response(JSON.stringify({ error: "Translation failed. Please try again." }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
