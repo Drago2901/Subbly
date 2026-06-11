@@ -289,7 +289,9 @@ const Editor = () => {
       if (translations.length !== captions.length) {
         throw new Error("Translation response did not match captions");
       }
-      setCaptions((cur) => cur.map((c, i) => ({ ...c, text: translations[i] ?? c.text })));
+      setCaptions((cur) =>
+        cur.map((c, i) => ({ ...c, text: translations[i] ?? c.text, words: undefined })),
+      );
       toast.success("Captions translated");
     } catch (e: any) {
       console.error(e);
