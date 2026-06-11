@@ -158,7 +158,7 @@ export function StylePanel({ style, onChange }: Props) {
     () => [NONE_TEMPLATE, ...customTemplates, ...CAPTION_TEMPLATES],
     [NONE_TEMPLATE, customTemplates],
   );
-  const previewText = PREVIEW_TEXTS[previewIdx];
+  
 
   const applyTemplate = (t: CaptionTemplate) => {
     onChange({ ...style, ...t.style });
