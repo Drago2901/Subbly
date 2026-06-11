@@ -80,6 +80,7 @@ const LANGUAGES: { code: string; label: string }[] = [
   { code: "nl", label: "Dutch" },
   { code: "ru", label: "Russian" },
   { code: "hi", label: "Hindi" },
+  { code: "hinglish", label: "Hinglish" },
   { code: "ja", label: "Japanese" },
   { code: "ko", label: "Korean" },
   { code: "zh", label: "Chinese" },
