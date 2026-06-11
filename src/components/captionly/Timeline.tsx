@@ -68,6 +68,7 @@ export function Timeline({
   const trackRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const cap1Ref = useRef<HTMLDivElement>(null);
+  const editRef = useRef<HTMLInputElement>(null);
 
   // Map zoomPct (5–100) → pxPerSec (12 → 240)
   const pxPerSec = useMemo(() => {
