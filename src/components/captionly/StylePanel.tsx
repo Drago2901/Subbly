@@ -54,10 +54,10 @@ function hexToRgba(hex: string, alpha: number) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-/** Live animated preview of a caption template. */
-function TemplatePreview({ style, text }: { style: CaptionStyle; text: string }) {
+/** Live animated preview of a caption template, showing the template name in its own effect. */
+function TemplatePreview({ style, text, cycle }: { style: CaptionStyle; text: string; cycle: number }) {
   const display = style.uppercase ? text.toUpperCase() : text;
-  const size = Math.max(13, Math.min(26, style.fontSize * 0.34));
+  const size = Math.max(14, Math.min(30, style.fontSize * 0.4));
   const hasBg = style.bgOpacity > 0;
   const stroke =
     style.strokeWidth > 0
@@ -65,11 +65,11 @@ function TemplatePreview({ style, text }: { style: CaptionStyle; text: string })
       : {};
   return (
     <div
-      className="relative flex h-[88px] items-center justify-center overflow-hidden rounded-t-[9px] px-3 text-center"
+      className="relative flex h-[96px] items-center justify-center overflow-hidden rounded-t-[9px] px-4 text-center"
       style={{ background: hasBg && style.bgColor ? "#111" : "#1a1a1a" }}
     >
       <span
-        key={text + style.animation}
+        key={`${text}-${style.animation}-${cycle}`}
         className={`cap-anim cap-anim-${style.animation} max-w-full`}
         style={{
           fontFamily: `"${style.fontFamily}", sans-serif`,
@@ -89,6 +89,7 @@ function TemplatePreview({ style, text }: { style: CaptionStyle; text: string })
     </div>
   );
 }
+
 
 
 export function StylePanel({ style, onChange }: Props) {
