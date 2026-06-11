@@ -5,6 +5,7 @@ import {
   ChevronsRight,
   Lock,
   Pause,
+  Pencil,
   Play,
   Plus,
   Redo2,
