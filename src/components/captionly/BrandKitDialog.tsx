@@ -133,7 +133,7 @@ export function BrandKitDialog({ open, onOpenChange, brandKit, onSaved }: Props)
               <label className="flex cursor-pointer items-center gap-2 rounded-md border border-border bg-surface px-3 py-1.5 text-xs hover:border-primary">
                 {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
                 {draft.logo_url ? "Replace" : "Upload"}
-                <input type="file" accept="image/*" className="hidden"
+                <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" className="hidden"
                   onChange={(e) => e.target.files?.[0] && uploadLogo(e.target.files[0])} />
               </label>
               {draft.logo_url && (
