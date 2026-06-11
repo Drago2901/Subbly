@@ -49,9 +49,21 @@ export function BrandKitDialog({ open, onOpenChange, brandKit, onSaved }: Props)
 
   const uploadLogo = async (file: File) => {
     if (!user) return;
+    // Allow-list raster image types only. SVG is excluded because it can embed
+    // scripts and the brand-logos bucket is publicly served.
+    const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
+    const ALLOWED_EXTS = ["png", "jpg", "jpeg", "gif", "webp"];
+    const ext = (file.name.split(".").pop() || "png").toLowerCase();
+    if (!ALLOWED_TYPES.includes(file.type) || !ALLOWED_EXTS.includes(ext)) {
+      toast.error("Please upload a PNG, JPG, GIF, or WEBP image.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Logo must be under 5MB.");
+      return;
+    }
     setUploading(true);
     try {
-      const ext = (file.name.split(".").pop() || "png").toLowerCase();
       const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
       const { error } = await supabase.storage
         .from("brand-logos")
@@ -121,7 +133,7 @@ export function BrandKitDialog({ open, onOpenChange, brandKit, onSaved }: Props)
               <label className="flex cursor-pointer items-center gap-2 rounded-md border border-border bg-surface px-3 py-1.5 text-xs hover:border-primary">
                 {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
                 {draft.logo_url ? "Replace" : "Upload"}
-                <input type="file" accept="image/*" className="hidden"
+                <input type="file" accept="image/png,image/jpeg,image/gif,image/webp" className="hidden"
                   onChange={(e) => e.target.files?.[0] && uploadLogo(e.target.files[0])} />
               </label>
               {draft.logo_url && (
