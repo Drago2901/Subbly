@@ -544,7 +544,9 @@ export function Timeline({
       {/* Inline editor for selected caption */}
       {selectedCaption && (
         <div className="flex items-center gap-2 border-t border-[#e8e4de] bg-white px-3 py-2">
+          <Pencil className="h-3.5 w-3.5 flex-shrink-0 text-[#ff5c3a]" strokeWidth={1.8} />
           <input
+            ref={editRef}
             aria-label="Selected caption text"
             value={selectedCaption.text}
             onChange={(e) =>
