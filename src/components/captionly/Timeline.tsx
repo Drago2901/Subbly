@@ -195,6 +195,13 @@ export function Timeline({
         </ToolGroup>
         <ToolGroup>
           <ToolBtn
+            title="Edit selected caption text"
+            disabled={!selectedCaption}
+            onClick={() => editRef.current?.focus()}
+          >
+            <Pencil className="h-3 w-3" />
+          </ToolBtn>
+          <ToolBtn
             title="Delete selected"
             disabled={!selectedCaption}
             onClick={() => selectedCaption && remove(selectedCaption.id)}
@@ -202,6 +209,7 @@ export function Timeline({
             <Trash2 className="h-3 w-3" />
           </ToolBtn>
         </ToolGroup>
+
         <ToolGroup>
           <ToolBtn title="Auto-transcribe" tone="violet">
             <Sparkles className="h-3 w-3" />
