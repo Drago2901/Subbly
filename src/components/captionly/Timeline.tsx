@@ -5,6 +5,7 @@ import {
   ChevronsRight,
   Lock,
   Pause,
+  Pencil,
   Play,
   Plus,
   Redo2,
@@ -67,6 +68,7 @@ export function Timeline({
   const trackRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const cap1Ref = useRef<HTMLDivElement>(null);
+  const editRef = useRef<HTMLInputElement>(null);
 
   // Map zoomPct (5–100) → pxPerSec (12 → 240)
   const pxPerSec = useMemo(() => {
@@ -195,6 +197,13 @@ export function Timeline({
         </ToolGroup>
         <ToolGroup>
           <ToolBtn
+            title="Edit selected caption text"
+            disabled={!selectedCaption}
+            onClick={() => editRef.current?.focus()}
+          >
+            <Pencil className="h-3 w-3" />
+          </ToolBtn>
+          <ToolBtn
             title="Delete selected"
             disabled={!selectedCaption}
             onClick={() => selectedCaption && remove(selectedCaption.id)}
@@ -202,6 +211,7 @@ export function Timeline({
             <Trash2 className="h-3 w-3" />
           </ToolBtn>
         </ToolGroup>
+
         <ToolGroup>
           <ToolBtn title="Auto-transcribe" tone="violet">
             <Sparkles className="h-3 w-3" />
@@ -534,7 +544,9 @@ export function Timeline({
       {/* Inline editor for selected caption */}
       {selectedCaption && (
         <div className="flex items-center gap-2 border-t border-[#e8e4de] bg-white px-3 py-2">
+          <Pencil className="h-3.5 w-3.5 flex-shrink-0 text-[#ff5c3a]" strokeWidth={1.8} />
           <input
+            ref={editRef}
             aria-label="Selected caption text"
             value={selectedCaption.text}
             onChange={(e) =>

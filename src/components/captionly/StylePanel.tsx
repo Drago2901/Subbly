@@ -54,10 +54,10 @@ function hexToRgba(hex: string, alpha: number) {
   return `rgba(${r}, ${g}, ${b}, ${alpha})`;
 }
 
-/** Live animated preview of a caption template. */
-function TemplatePreview({ style, text }: { style: CaptionStyle; text: string }) {
+/** Live animated preview of a caption template, showing the template name in its own effect. */
+function TemplatePreview({ style, text, cycle }: { style: CaptionStyle; text: string; cycle: number }) {
   const display = style.uppercase ? text.toUpperCase() : text;
-  const size = Math.max(13, Math.min(26, style.fontSize * 0.34));
+  const size = Math.max(14, Math.min(30, style.fontSize * 0.4));
   const hasBg = style.bgOpacity > 0;
   const stroke =
     style.strokeWidth > 0
@@ -65,11 +65,11 @@ function TemplatePreview({ style, text }: { style: CaptionStyle; text: string })
       : {};
   return (
     <div
-      className="relative flex h-[88px] items-center justify-center overflow-hidden rounded-t-[9px] px-3 text-center"
+      className="relative flex h-[96px] items-center justify-center overflow-hidden rounded-t-[9px] px-4 text-center"
       style={{ background: hasBg && style.bgColor ? "#111" : "#1a1a1a" }}
     >
       <span
-        key={text + style.animation}
+        key={`${text}-${style.animation}-${cycle}`}
         className={`cap-anim cap-anim-${style.animation} max-w-full`}
         style={{
           fontFamily: `"${style.fontFamily}", sans-serif`,
@@ -89,6 +89,7 @@ function TemplatePreview({ style, text }: { style: CaptionStyle; text: string })
     </div>
   );
 }
+
 
 
 export function StylePanel({ style, onChange }: Props) {
@@ -157,7 +158,7 @@ export function StylePanel({ style, onChange }: Props) {
     () => [NONE_TEMPLATE, ...customTemplates, ...CAPTION_TEMPLATES],
     [NONE_TEMPLATE, customTemplates],
   );
-  const previewText = PREVIEW_TEXTS[previewIdx];
+  
 
   const applyTemplate = (t: CaptionTemplate) => {
     onChange({ ...style, ...t.style });
@@ -410,10 +411,10 @@ export function StylePanel({ style, onChange }: Props) {
               </button>
             </div>
             <div className="mb-4 text-[11.5px] leading-relaxed text-[#aaa]">
-              Live previews — click any card to apply.
+              Each template shows its name in its own effect — click to apply.
             </div>
 
-            <div className="mb-4 grid grid-cols-2 gap-2">
+            <div className="mb-4 grid grid-cols-1 gap-2.5">
               {allTemplates.map((t) => {
                 const previewStyle = { ...DEFAULT_STYLE, ...t.style } as CaptionStyle;
                 const isCustom = t.id.startsWith("custom-");
@@ -432,16 +433,16 @@ export function StylePanel({ style, onChange }: Props) {
                       </button>
                     )}
                     <button onClick={() => applyTemplate(t)} className="block w-full text-left">
-                      <TemplatePreview style={previewStyle} text={previewText} />
-                      <div className="px-2.5 py-2">
-                        <div className="truncate text-[11.5px] font-semibold text-[#1a1a1a]">{t.name}</div>
-                        <div className="truncate text-[10px] text-[#aaa]">{t.description}</div>
+                      <TemplatePreview style={previewStyle} text={t.name} cycle={previewIdx} />
+                      <div className="px-3 py-2 text-center">
+                        <div className="truncate text-[12px] font-semibold text-[#1a1a1a]">{t.name}</div>
                       </div>
                     </button>
                   </div>
                 );
               })}
             </div>
+
 
 
             <div className="mb-2.5 border-t border-[#f0ede8] pt-3.5 text-[10px] font-semibold tracking-wider text-[#bbb]">
