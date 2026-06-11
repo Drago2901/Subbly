@@ -49,9 +49,21 @@ export function BrandKitDialog({ open, onOpenChange, brandKit, onSaved }: Props)
 
   const uploadLogo = async (file: File) => {
     if (!user) return;
+    // Allow-list raster image types only. SVG is excluded because it can embed
+    // scripts and the brand-logos bucket is publicly served.
+    const ALLOWED_TYPES = ["image/png", "image/jpeg", "image/gif", "image/webp"];
+    const ALLOWED_EXTS = ["png", "jpg", "jpeg", "gif", "webp"];
+    const ext = (file.name.split(".").pop() || "png").toLowerCase();
+    if (!ALLOWED_TYPES.includes(file.type) || !ALLOWED_EXTS.includes(ext)) {
+      toast.error("Please upload a PNG, JPG, GIF, or WEBP image.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Logo must be under 5MB.");
+      return;
+    }
     setUploading(true);
     try {
-      const ext = (file.name.split(".").pop() || "png").toLowerCase();
       const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
       const { error } = await supabase.storage
         .from("brand-logos")
