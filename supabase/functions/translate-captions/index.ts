@@ -15,6 +15,7 @@ const LANGUAGE_NAMES: Record<string, string> = {
   nl: "Dutch",
   ru: "Russian",
   hi: "Hindi",
+  hinglish: "Hinglish (Hindi written in Roman/Latin script, mixed casually with English the way young Indians text — NOT Devanagari)",
   ja: "Japanese",
   ko: "Korean",
   zh: "Chinese",
