@@ -28,7 +28,15 @@ Deno.serve(async (req) => {
       });
     }
 
-    const language = (incoming.get("language") as string) || "";
+    const rawLanguage = (incoming.get("language") as string) || "";
+    // Map UI language codes to ElevenLabs ISO 639-3 codes. "hinglish" is not a
+    // transcription language, so transcribe it as Hindi (translation happens later).
+    const LANG_MAP: Record<string, string> = {
+      en: "eng", es: "spa", fr: "fra", de: "deu", it: "ita", pt: "por",
+      nl: "nld", ru: "rus", hi: "hin", hinglish: "hin", ja: "jpn", ko: "kor",
+      zh: "zho", ar: "ara", tr: "tur", pl: "pol", id: "ind",
+    };
+    const language = LANG_MAP[rawLanguage] ?? rawLanguage;
 
     const apiForm = new FormData();
     apiForm.append("file", file);
