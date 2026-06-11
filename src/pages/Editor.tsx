@@ -853,6 +853,11 @@ const Editor = () => {
                   onPositionChange={({ posX, posY }) =>
                     setStyle((s) => ({ ...s, position: "free", posX, posY }))
                   }
+                  onCaptionChange={(id, text) =>
+                    setCaptions((cur) =>
+                      cur.map((c) => (c.id === id ? { ...c, text, words: undefined } : c)),
+                    )
+                  }
                   frame={
                     exportPresetId === SOURCE_PRESET_ID
                       ? null
