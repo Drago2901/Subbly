@@ -1,4 +1,6 @@
 // Transcribe an uploaded audio/video file via ElevenLabs Scribe v2
+import { createClient } from "npm:@supabase/supabase-js@2";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -11,9 +13,32 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Require an authenticated user — prevents anonymous callers from draining API credits.
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+    );
+    const { data: { user }, error: authError } = await supabase.auth.getUser(
+      authHeader.replace("Bearer ", ""),
+    );
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const apiKey = Deno.env.get("ELEVENLABS_API_KEY");
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: "ELEVENLABS_API_KEY not configured" }), {
+      console.error("ELEVENLABS_API_KEY not configured");
+      return new Response(JSON.stringify({ error: "Service unavailable. Please try again later." }), {
         status: 500,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
@@ -54,8 +79,8 @@ Deno.serve(async (req) => {
     if (!res.ok) {
       const errText = await res.text();
       console.error("ElevenLabs error:", res.status, errText);
-      return new Response(JSON.stringify({ error: `ElevenLabs ${res.status}: ${errText}` }), {
-        status: res.status,
+      return new Response(JSON.stringify({ error: "Transcription failed. Please try again." }), {
+        status: 502,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -66,7 +91,7 @@ Deno.serve(async (req) => {
     });
   } catch (err) {
     console.error("transcribe-video error:", err);
-    return new Response(JSON.stringify({ error: String(err) }), {
+    return new Response(JSON.stringify({ error: "Transcription failed. Please try again." }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
