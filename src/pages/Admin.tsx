@@ -18,7 +18,7 @@ import {
   BarChart3,
   Server,
   AlertTriangle,
-  Coin,
+  Coins,
   Mic,
   Search,
   FileDown,
