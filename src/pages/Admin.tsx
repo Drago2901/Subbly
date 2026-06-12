@@ -666,13 +666,20 @@ function ApiSection({
   const exportCalls = Math.round(totalCalls * 0.19);
   const totalCost = useMemo(() => userRows.reduce((a, u) => a + u.cost, 0), [userRows]);
 
-  const apiStats = [
+  const apiStats: {
+    icon: React.ComponentType<{ className?: string }>;
+    tone: "orange" | "red" | "green" | "grey";
+    val: string;
+    label: string;
+    delta: string;
+    up: boolean;
+  }[] = [
     { icon: Server, tone: "orange", val: totalCalls.toLocaleString(), label: "Total API calls", delta: "14%", up: true },
     { icon: Mic, tone: "orange", val: captionCalls.toLocaleString(), label: "Caption gen calls", delta: "18%", up: true },
     { icon: Download, tone: "orange", val: exportCalls.toLocaleString(), label: "Export API calls", delta: "9%", up: true },
     { icon: AlertTriangle, tone: "red", val: "284", label: "API errors", delta: "3%", up: false },
     { icon: Clock, tone: "grey", val: "1.24s", label: "Avg response time", delta: "8% faster", up: true },
-    { icon: Coin, tone: "green", val: `$${Math.round(totalCost).toLocaleString()}`, label: "Est. API cost", delta: "11%", up: false },
+    { icon: Coins, tone: "green", val: `$${Math.round(totalCost).toLocaleString()}`, label: "Est. API cost", delta: "11%", up: false },
   ];
 
   const endpoints = [
