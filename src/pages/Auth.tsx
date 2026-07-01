@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
-import { Loader2, Sun, Moon } from "lucide-react";
+import { Loader2, Sun, Moon, Eye, EyeOff, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
@@ -21,6 +21,7 @@ const Auth = () => {
   const [name, setName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
 
 
@@ -187,7 +188,7 @@ const Auth = () => {
                 );
                 toast.success(`Welcome back, ${matchedUser.name}!`);
                 setTimeout(() => {
-                  const isStaff = activeRole !== "customer" && activeRole !== "guest";
+                  const isStaff = activeRole === "super_admin" || activeRole === "admin";
                   window.location.href = isStaff ? "/admin" : "/projects";
                 }, 800);
                 return;
@@ -252,6 +253,15 @@ const Auth = () => {
     } finally {
       setGoogleLoading(false);
     }
+  };
+
+  const handleCopyPassword = () => {
+    if (!password) {
+      toast.error("Password is empty");
+      return;
+    }
+    navigator.clipboard.writeText(password);
+    toast.success("Password copied to clipboard!");
   };
 
   const inputCls =
@@ -368,17 +378,41 @@ const Auth = () => {
             </div>
             <div className="mb-[18px]">
               <label htmlFor="password" className={labelCls}>Password</label>
-              <input
-                id="password"
-                type="password"
-                autoComplete={tab === "signin" ? "current-password" : "new-password"}
-                minLength={tab === "signup" ? 6 : undefined}
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className={inputCls}
-                placeholder="••••••••"
-              />
+              <div className="relative w-full">
+                <input
+                  id="password"
+                  type={showPassword ? "text" : "password"}
+                  autoComplete={tab === "signin" ? "current-password" : "new-password"}
+                  minLength={tab === "signup" ? 6 : undefined}
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className={`${inputCls} pr-24`}
+                  placeholder="••••••••"
+                />
+                <div className="absolute right-2 top-1/2 z-10 -translate-y-1/2 flex items-center gap-0.5">
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="text-neutral-400 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors focus:outline-none flex items-center justify-center p-2 cursor-pointer"
+                    aria-label={showPassword ? "Hide password" : "Show password"}
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-5 w-5" />
+                    ) : (
+                      <Eye className="h-5 w-5" />
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCopyPassword}
+                    className="text-neutral-400 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors focus:outline-none flex items-center justify-center p-2 cursor-pointer"
+                    aria-label="Copy password"
+                  >
+                    <Copy className="h-5 w-5" />
+                  </button>
+                </div>
+              </div>
             </div>
             <button
               type="submit"
