@@ -4,6 +4,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
+import { AvatarProvider } from "@/hooks/useAvatar";
 import { ThemeProvider } from "@/hooks/useTheme";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { RequireAdmin } from "@/components/auth/RequireAdmin";
@@ -14,7 +15,9 @@ import Subscription from "./pages/Subscription.tsx";
 import Projects from "./pages/Projects.tsx";
 import Editor from "./pages/Editor.tsx";
 import Admin from "./pages/Admin.tsx";
+import Profile from "./pages/Profile.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import TypewriterDemo from "./pages/TypewriterDemo.tsx";
 
 const queryClient = new QueryClient();
 
@@ -26,38 +29,49 @@ const App = () => (
       <BrowserRouter>
         <ThemeProvider>
         <AuthProvider>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/pricing" element={<Pricing />} />
-            <Route
-              path="/subscription"
-              element={
-                <RequireAuth>
-                  <Subscription />
-                </RequireAuth>
-              }
-            />
-            <Route
-              path="/projects"
-              element={
-                <RequireAuth>
-                  <Projects />
-                </RequireAuth>
-              }
-            />
-            <Route path="/editor" element={<Editor />} />
-            <Route
-              path="/admin"
-              element={
-                <RequireAdmin>
-                  <Admin />
-                </RequireAdmin>
-              }
-            />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <AvatarProvider>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/pricing" element={<Pricing />} />
+              <Route
+                path="/subscription"
+                element={
+                  <RequireAuth>
+                    <Subscription />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/projects"
+                element={
+                  <RequireAuth>
+                    <Projects />
+                  </RequireAuth>
+                }
+              />
+              <Route path="/editor" element={<Editor />} />
+              <Route
+                path="/profile"
+                element={
+                  <RequireAuth>
+                    <Profile />
+                  </RequireAuth>
+                }
+              />
+              <Route
+                path="/admin"
+                element={
+                  <RequireAdmin>
+                    <Admin />
+                  </RequireAdmin>
+                }
+              />
+              <Route path="/typewriter-demo" element={<TypewriterDemo />} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </AvatarProvider>
         </AuthProvider>
         </ThemeProvider>
       </BrowserRouter>

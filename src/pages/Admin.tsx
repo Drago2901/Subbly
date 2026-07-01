@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import {
   Loader2,
   LogOut,
   Shield,
-  Type,
   Upload,
   Captions,
   Download,
@@ -23,7 +22,12 @@ import {
   Search,
   FileDown,
   CircleUser,
+  ShieldAlert,
+  Sun,
+  Moon,
+  ArrowLeft,
 } from "lucide-react";
+import { useTheme } from "@/hooks/useTheme";
 import { toast } from "sonner";
 import {
   Area,
@@ -41,6 +45,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
+import RbacSection from "@/components/admin/RbacSection";
 
 type ProfileRow = {
   id: string;
@@ -61,6 +66,13 @@ type ProjectRow = {
   duration_seconds: number | null;
 };
 
+type CustomUser = {
+  name: string;
+  email: string;
+  role: string;
+  created_at: string;
+};
+
 const ORANGE = "#E8502A";
 const INK = "#2C2C2A";
 const STONE = "#888780";
@@ -68,14 +80,17 @@ const STONE = "#888780";
 type RangeKey = 7 | 30 | 90;
 
 const Admin = () => {
-  const { user, signOut } = useAuth();
+  const { user, signOut, userRole, hasPermission } = useAuth();
+  const { theme, toggle } = useTheme();
+  const navigate = useNavigate();
   const [profiles, setProfiles] = useState<ProfileRow[]>([]);
   const [projects, setProjects] = useState<ProjectRow[]>([]);
   const [admins, setAdmins] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState<RangeKey>(30);
-  const [tab, setTab] = useState<"usage" | "api">("usage");
+  const [tab, setTab] = useState<"usage" | "api" | "rbac">("usage");
   const [search, setSearch] = useState("");
+  const [triggerRefresh, setTriggerRefresh] = useState(0);
 
   useEffect(() => {
     document.title = "Admin dashboard — Subbly";
@@ -84,6 +99,21 @@ const Admin = () => {
   useEffect(() => {
     void loadAll();
   }, []);
+
+  // Restrict default selected tab if user lacks view_analytics permission
+  useEffect(() => {
+    if (!loading && hasPermission) {
+      if (!hasPermission("view_analytics")) {
+        if (userRole === "super_admin" || userRole === "admin") {
+          setTab("rbac");
+        } else if (hasPermission("manage_users")) {
+          setTab("api");
+        } else {
+          setTab("api");
+        }
+      }
+    }
+  }, [loading, hasPermission, userRole]);
 
   async function loadAll() {
     setLoading(true);
@@ -201,20 +231,38 @@ const Admin = () => {
     });
   }, [projects, profiles]);
 
-  // User API-style rows from real users + their project counts.
+  // User API-style rows from real users + their project counts + custom RBAC users
   const userRows = useMemo(() => {
+    const overrides = JSON.parse(localStorage.getItem("rbac_user_roles") || "{}");
+    const customUsers = JSON.parse(localStorage.getItem("rbac_users") || "[]");
+
     const rows = profiles.map((pr) => {
       const count = projectCountByUser.get(pr.user_id) ?? 0;
+      const roleId = overrides[pr.user_id] || (admins.has(pr.user_id) ? "admin" : "customer");
       return {
         name: pr.display_name || pr.user_id.slice(0, 8),
         email: pr.user_id,
-        admin: admins.has(pr.user_id),
+        role: roleId,
         videos: count,
         calls: count * 13,
         cost: count * 1.04,
         last: new Date(pr.created_at).toLocaleDateString(),
       };
     });
+
+    customUsers.forEach((cu: CustomUser) => {
+      const roleId = overrides[cu.email] || cu.role;
+      rows.push({
+        name: cu.name,
+        email: cu.email,
+        role: roleId,
+        videos: 0,
+        calls: 0,
+        cost: 0,
+        last: cu.created_at,
+      });
+    });
+
     rows.sort((a, b) => b.calls - a.calls);
     const q = search.trim().toLowerCase();
     return q
@@ -222,14 +270,25 @@ const Admin = () => {
           (r) => r.name.toLowerCase().includes(q) || r.email.toLowerCase().includes(q),
         )
       : rows;
-  }, [profiles, projectCountByUser, admins, search]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [profiles, projectCountByUser, admins, search, triggerRefresh]);
+
+  const customUsersCount = useMemo(() => {
+    const customUsers = JSON.parse(localStorage.getItem("rbac_users") || "[]") as CustomUser[];
+    return customUsers.length;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [triggerRefresh]);
 
   const exportCSV = () => {
-    const rows = [["User", "Plan", "API calls", "Videos", "Est. cost", "Joined"]];
+    if (!hasPermission("export_reports")) {
+      toast.error("Access Denied: You do not have permission to export reports.");
+      return;
+    }
+    const rows = [["User", "Role", "API calls", "Videos", "Est. cost", "Joined"]];
     userRows.forEach((u) =>
       rows.push([
         u.name,
-        u.admin ? "admin" : "user",
+        u.role,
         String(u.calls),
         String(u.videos),
         `$${u.cost.toFixed(2)}`,
@@ -272,29 +331,53 @@ const Admin = () => {
   ];
 
   return (
-    <div className="min-h-screen bg-[#f5f3ee] text-[#1a1a1a]">
-      <nav className="flex items-center justify-between border-b border-[#e8e4de] bg-white px-6 py-4 md:px-10">
-        <Link to="/admin" className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#E8502A]">
-            <Type className="h-4 w-4 text-white" strokeWidth={2} />
-          </div>
-          <div>
-            <h1 className="flex items-center gap-1.5 text-[15px] font-medium leading-none">
-              Subbly <Shield className="h-3.5 w-3.5 text-[#E8502A]" />
-            </h1>
-            <p className="mt-0.5 text-[11px] text-[#aaa]">Admin · {user?.email}</p>
-          </div>
-        </Link>
+    <div className="min-h-screen bg-[#f5f3ee] dark:bg-zinc-950 text-[#1a1a1a] dark:text-zinc-50 transition-colors duration-300" style={{ fontFamily: "'Outfit', sans-serif" }}>
+      <nav className="flex items-center justify-between border-b border-[#e8e4de] dark:border-zinc-800 bg-white dark:bg-zinc-900 px-6 py-4 md:px-10">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              if (window.history.length > 1) {
+                navigate(-1);
+              } else {
+                navigate("/projects");
+              }
+            }}
+            aria-label="Go back"
+            className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#e8e4de] dark:border-zinc-800 bg-white dark:bg-zinc-900 text-[#666] dark:text-zinc-400 transition hover:text-[#1a1a1a] dark:hover:text-zinc-100"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </button>
+          <Link to="/admin" className="flex items-center gap-2.5">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#E8502A]">
+              <span className="font-serif-display text-[22px] font-bold text-white leading-none select-none">S</span>
+            </div>
+            <div>
+              <h1 className="flex items-center gap-1.5 text-[15px] font-medium leading-none text-zinc-900 dark:text-zinc-100">
+                Subbly <Shield className="h-3.5 w-3.5 text-[#E8502A]" />
+              </h1>
+              <p className="mt-0.5 text-[11px] text-[#aaa] dark:text-zinc-500">
+                Role: <span className="font-bold text-[#E8502A] uppercase">{userRole}</span> · {user?.email}
+              </p>
+            </div>
+          </Link>
+        </div>
         <div className="flex items-center gap-2">
+          <button
+            onClick={toggle}
+            aria-label="Toggle dark mode"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#e8e4de] dark:border-zinc-800 bg-white dark:bg-zinc-900 text-[#666] dark:text-zinc-400 transition hover:text-[#1a1a1a] dark:hover:text-zinc-100"
+          >
+            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
           <Link
             to="/projects"
-            className="rounded-md border border-[#ddd] bg-white px-4 py-1.5 text-[13px] text-[#555] hover:bg-[#faf9f7]"
+            className="rounded-md border border-[#ddd] dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-1.5 text-[13px] text-[#555] dark:text-zinc-400 hover:bg-[#faf9f7] dark:hover:bg-zinc-800 hover:text-[#1a1a1a] dark:hover:text-zinc-100"
           >
             My projects
           </Link>
           <button
             onClick={() => signOut()}
-            className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] text-[#888] hover:bg-[#faf9f7] hover:text-[#1a1a1a]"
+            className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[13px] text-[#888] dark:text-zinc-400 hover:bg-[#faf9f7] dark:hover:bg-zinc-800 hover:text-[#1a1a1a] dark:hover:text-zinc-100"
           >
             <LogOut className="h-3.5 w-3.5" /> Sign out
           </button>
@@ -308,13 +391,13 @@ const Admin = () => {
             <span className="inline-block h-[7px] w-[7px] animate-pulse rounded-full bg-[#639922]" />
             Live
           </div>
-          <div className="flex gap-0.5 rounded-lg border border-[#e8e4de] bg-white p-0.5">
+          <div className="flex gap-0.5 rounded-lg border border-[#e8e4de] dark:border-zinc-800 bg-white dark:bg-zinc-900 p-0.5">
             {([7, 30, 90] as RangeKey[]).map((r) => (
               <button
                 key={r}
                 onClick={() => setRange(r)}
                 className={`rounded-md px-3 py-1.5 text-[12px] font-medium transition-colors ${
-                  range === r ? "bg-[#E8502A] text-white" : "text-[#888] hover:text-[#1a1a1a]"
+                  range === r ? "bg-[#E8502A] text-white" : "text-[#888] dark:text-zinc-400 hover:text-[#1a1a1a] dark:hover:text-zinc-100"
                 }`}
               >
                 {r}d
@@ -324,20 +407,29 @@ const Admin = () => {
         </div>
 
         {/* Tab nav */}
-        <div className="mb-6 flex gap-0.5 rounded-xl border border-[#e8e4de] bg-white p-0.5">
-          <TabBtn active={tab === "usage"} onClick={() => setTab("usage")} icon={BarChart3}>
-            Usage overview
-          </TabBtn>
-          <TabBtn active={tab === "api"} onClick={() => setTab("api")} icon={Server}>
-            API usage &amp; user data
-          </TabBtn>
+        <div className="mb-6 flex gap-0.5 rounded-xl border border-[#e8e4de] dark:border-zinc-800 bg-white dark:bg-zinc-900 p-0.5">
+          {hasPermission("view_analytics") && (
+            <TabBtn active={tab === "usage"} onClick={() => setTab("usage")} icon={BarChart3}>
+              Usage overview
+            </TabBtn>
+          )}
+          {(hasPermission("manage_users") || userRole === "super_admin") && (
+            <TabBtn active={tab === "api"} onClick={() => setTab("api")} icon={Server}>
+              API usage &amp; user data
+            </TabBtn>
+          )}
+          {(userRole === "super_admin" || userRole === "admin") && (
+            <TabBtn active={tab === "rbac"} onClick={() => setTab("rbac")} icon={Shield}>
+              Roles &amp; Permissions
+            </TabBtn>
+          )}
         </div>
 
         {loading ? (
           <div className="flex justify-center py-20">
             <Loader2 className="h-6 w-6 animate-spin text-[#E8502A]" />
           </div>
-        ) : tab === "usage" ? (
+        ) : tab === "usage" && hasPermission("view_analytics") ? (
           <UsageSection
             range={range}
             uploads={uploads}
@@ -352,16 +444,32 @@ const Admin = () => {
             sessions={sessions}
             exportFormats={exportFormats}
           />
-        ) : (
+        ) : tab === "api" && (hasPermission("manage_users") || userRole === "super_admin") ? (
           <ApiSection
             range={range}
             series={series}
             userRows={userRows}
-            totalUsers={profiles.length}
+            totalUsers={profiles.length + customUsersCount}
             search={search}
             setSearch={setSearch}
             exportCSV={exportCSV}
+            hasExportPermission={hasPermission("export_reports")}
           />
+        ) : tab === "rbac" && (userRole === "super_admin" || userRole === "admin") ? (
+          <RbacSection
+            profiles={profiles}
+            currentUserEmail={user?.email}
+            onRefresh={() => {
+              setTriggerRefresh((prev) => prev + 1);
+              loadAll();
+            }}
+          />
+        ) : (
+          <div className="rounded-xl border border-[#e8e4de] bg-white p-12 text-center text-[#888]">
+            <ShieldAlert className="mx-auto mb-3 h-8 w-8 text-[#E8502A]" />
+            <div className="text-[14px] font-semibold text-[#1a1a1a]">Access Denied</div>
+            <div className="text-[12px] mt-1">You do not have permission to view this section.</div>
+          </div>
         )}
       </main>
     </div>
@@ -387,7 +495,7 @@ function TabBtn({
       className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-medium transition-all ${
         active
           ? "bg-[#E8502A] text-white shadow-sm"
-          : "text-[#888] hover:bg-[#faf9f7] hover:text-[#1a1a1a]"
+          : "text-[#888] dark:text-zinc-400 hover:bg-[#faf9f7] dark:hover:bg-zinc-800 hover:text-[#1a1a1a] dark:hover:text-zinc-100"
       }`}
     >
       <Icon className="h-3.5 w-3.5" /> {children}
@@ -409,11 +517,11 @@ function Card({
   right?: React.ReactNode;
 }) {
   return (
-    <div className={`rounded-xl border border-[#e8e4de] bg-white p-5 ${className}`}>
+    <div className={`rounded-xl border border-[#e8e4de] dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5 ${className}`}>
       <div className="mb-3.5 flex items-start justify-between">
         <div>
-          <div className="text-[13px] font-medium text-[#1a1a1a]">{title}</div>
-          {sub && <div className="text-[11px] text-[#888]">{sub}</div>}
+          <div className="text-[13px] font-medium text-[#1a1a1a] dark:text-zinc-100">{title}</div>
+          {sub && <div className="text-[11px] text-[#888] dark:text-zinc-400">{sub}</div>}
         </div>
         {right}
       </div>
@@ -428,7 +536,7 @@ function SectionHeader({ label, title }: { label: string; title: string }) {
       <div className="text-[10px] font-medium uppercase tracking-[0.1em] text-[#E8502A]">
         {label}
       </div>
-      <div className="text-[22px] font-medium">{title}</div>
+      <div className="text-[22px] font-medium text-zinc-900 dark:text-zinc-100">{title}</div>
     </div>
   );
 }
@@ -652,14 +760,16 @@ function ApiSection({
   search,
   setSearch,
   exportCSV,
+  hasExportPermission,
 }: {
   range: number;
   series: { label: string; captions: number; exports: number }[];
-  userRows: { name: string; email: string; admin: boolean; videos: number; calls: number; cost: number; last: string }[];
+  userRows: { name: string; email: string; role: string; videos: number; calls: number; cost: number; last: string }[];
   totalUsers: number;
   search: string;
   setSearch: (v: string) => void;
   exportCSV: () => void;
+  hasExportPermission: boolean;
 }) {
   const totalCalls = useMemo(() => userRows.reduce((a, u) => a + u.calls, 0), [userRows]);
   const captionCalls = Math.round(totalCalls * 0.66);
@@ -822,12 +932,22 @@ function ApiSection({
         title="User API data"
         sub="All users hitting the API"
         right={
-          <button
-            onClick={exportCSV}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[#E8502A] px-3 py-1.5 text-[12px] text-[#E8502A] hover:bg-[#FAECE7]"
-          >
-            <FileDown className="h-3.5 w-3.5" /> Export CSV
-          </button>
+          hasExportPermission ? (
+            <button
+              onClick={exportCSV}
+              className="inline-flex items-center gap-1.5 rounded-lg border border-[#E8502A] px-3 py-1.5 text-[12px] text-[#E8502A] hover:bg-[#FAECE7]"
+            >
+              <FileDown className="h-3.5 w-3.5" /> Export CSV
+            </button>
+          ) : (
+            <button
+              disabled
+              title="You do not have permission to export reports"
+              className="inline-flex items-center gap-1.5 rounded-lg border border-neutral-200 px-3 py-1.5 text-[12px] text-neutral-400 bg-neutral-50 cursor-not-allowed"
+            >
+              <FileDown className="h-3.5 w-3.5 text-neutral-300" /> Export CSV
+            </button>
+          )
         }
       >
         <div className="mb-3 flex items-center gap-2 rounded-lg border border-[#e8e4de] bg-[#f5f3ee] px-2.5">
@@ -843,7 +963,7 @@ function ApiSection({
           <thead>
             <tr className="border-b border-[#eeeae4] text-left text-[11px] text-[#888]">
               <th className="pb-2.5 pr-2 font-medium">User</th>
-              <th className="pb-2.5 pr-2 font-medium">Plan</th>
+              <th className="pb-2.5 pr-2 font-medium">Role</th>
               <th className="pb-2.5 pr-2 text-right font-medium">API calls</th>
               <th className="pb-2.5 pr-2 text-right font-medium">Videos</th>
               <th className="pb-2.5 pr-2 text-right font-medium">Est. cost</th>
@@ -856,13 +976,15 @@ function ApiSection({
                 <tr key={i} className="border-b border-[#eeeae4] last:border-none">
                   <td className="py-2 pr-2">
                     <div className="text-[12px] font-medium">{u.name}</div>
-                    <div className="font-mono text-[10px] text-[#888]">{u.email.slice(0, 12)}…</div>
+                    <div className="font-mono text-[10px] text-[#888]">{u.email.slice(0, 16)}…</div>
                   </td>
                   <td className="py-2 pr-2">
-                    {u.admin ? (
-                      <span className="rounded-full bg-[#F0EAF9] px-2 py-0.5 text-[10px] font-medium text-[#6B3FA0]">admin</span>
+                    {u.role === "super_admin" ? (
+                      <span className="rounded-full bg-[#FAECE7] px-2 py-0.5 text-[10px] font-semibold text-[#ff5c3a]">super admin</span>
+                    ) : u.role !== "customer" && u.role !== "guest" ? (
+                      <span className="rounded-full bg-[#F0EAF9] px-2 py-0.5 text-[10px] font-medium text-[#6B3FA0]">{u.role}</span>
                     ) : (
-                      <span className="rounded-full bg-[#F1EFE8] px-2 py-0.5 text-[10px] font-medium text-[#5F5E5A]">user</span>
+                      <span className="rounded-full bg-[#F1EFE8] px-2 py-0.5 text-[10px] font-medium text-[#5F5E5A]">{u.role}</span>
                     )}
                   </td>
                   <td className="py-2 pr-2 text-right font-medium">{u.calls.toLocaleString()}</td>

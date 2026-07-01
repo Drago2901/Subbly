@@ -181,3 +181,14 @@
 .dark .bg-\[\#e8e4de\] { background-color: #2a2622 !important; }
 
 .dark .from-\[\#ff5c3a\].to-\[\#ffd5cc\] { --tw-gradient-to: #5a2820 !important; }
+
+/* ===== Blinking Cursor Animation for Typewriter ===== */
+@keyframes cursorBlinkSmooth {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.animate-cursor-blink {
+  animation: cursorBlinkSmooth 1s ease-in-out infinite;
+}
+

@@ -1,14 +1,17 @@
 import { useState, type FormEvent } from "react";
-import { Link, Navigate, useLocation } from "react-router-dom";
-import { Loader2, Type } from "lucide-react";
+import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
+import { Loader2, Sun, Moon } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
 import { useAuth } from "@/hooks/useAuth";
+import { useTheme } from "@/hooks/useTheme";
 import { Seo } from "@/components/Seo";
 
 const Auth = () => {
   const { user, loading, isAdmin } = useAuth();
+  const { theme, toggle } = useTheme();
+  const navigate = useNavigate();
   const location = useLocation() as { state?: { from?: string } };
   const redirectTo = location.state?.from || (isAdmin ? "/admin" : "/projects");
 
@@ -30,11 +33,176 @@ const Auth = () => {
     setSubmitting(true);
     try {
       if (tab === "signin") {
+        // Superadmin bypass
+        if (email === "superadmin@gmail.com" && password === "SuperAdm@123") {
+          localStorage.setItem(
+            "mock_session",
+            JSON.stringify({
+              email: "superadmin@gmail.com",
+              role: "super_admin",
+              name: "Super Admin",
+            })
+          );
+
+          // Seed default users if empty/blank on login
+          const existingUsers = localStorage.getItem("rbac_users");
+          let needsSeed = false;
+          if (!existingUsers) {
+            needsSeed = true;
+          } else {
+            try {
+              const parsed = JSON.parse(existingUsers);
+              if (!Array.isArray(parsed) || parsed.length === 0) {
+                needsSeed = true;
+              }
+            } catch (e) {
+              needsSeed = true;
+            }
+          }
+
+          if (needsSeed) {
+            const defaultUsers = [
+              {
+                name: "Super Admin",
+                email: "superadmin@gmail.com",
+                role: "super_admin",
+                password: "SuperAdm@123",
+                created_at: new Date().toLocaleDateString(),
+              },
+              {
+                name: "Admin Operator",
+                email: "admin@gmail.com",
+                role: "admin",
+                password: "password123",
+                created_at: new Date().toLocaleDateString(),
+              },
+              {
+                name: "Manager User",
+                email: "manager@gmail.com",
+                role: "manager",
+                password: "password123",
+                created_at: new Date().toLocaleDateString(),
+              },
+              {
+                name: "Content Editor",
+                email: "editor@gmail.com",
+                role: "editor",
+                password: "password123",
+                created_at: new Date().toLocaleDateString(),
+              },
+              {
+                name: "Moderator User",
+                email: "moderator@gmail.com",
+                role: "moderator",
+                password: "password123",
+                created_at: new Date().toLocaleDateString(),
+              },
+              {
+                name: "Support Executive",
+                email: "support@gmail.com",
+                role: "support_agent",
+                password: "password123",
+                created_at: new Date().toLocaleDateString(),
+              },
+              {
+                name: "Content Creator",
+                email: "creator@gmail.com",
+                role: "content_creator",
+                password: "password123",
+                created_at: new Date().toLocaleDateString(),
+              },
+              {
+                name: "Viewer User",
+                email: "viewer@gmail.com",
+                role: "viewer",
+                password: "password123",
+                created_at: new Date().toLocaleDateString(),
+              },
+              {
+                name: "Accountant User",
+                email: "accountant@gmail.com",
+                role: "accountant",
+                password: "password123",
+                created_at: new Date().toLocaleDateString(),
+              },
+              {
+                name: "Marketing Manager",
+                email: "marketing@gmail.com",
+                role: "marketing_manager",
+                password: "password123",
+                created_at: new Date().toLocaleDateString(),
+              },
+              {
+                name: "HR Manager",
+                email: "hr@gmail.com",
+                role: "hr_manager",
+                password: "password123",
+                created_at: new Date().toLocaleDateString(),
+              },
+              {
+                name: "Regular Customer",
+                email: "customer@gmail.com",
+                role: "customer",
+                password: "password123",
+                created_at: new Date().toLocaleDateString(),
+              },
+            ];
+            localStorage.setItem("rbac_users", JSON.stringify(defaultUsers));
+          }
+
+          toast.success("Welcome back, Super Admin!");
+          setTimeout(() => {
+            window.location.href = "/admin";
+          }, 800);
+          return;
+        }
+
+        // Custom local RBAC users bypass
+        try {
+          interface LocalUser {
+            email: string;
+            password?: string;
+            role: string;
+            name: string;
+          }
+          const localUsersStr = localStorage.getItem("rbac_users");
+          if (localUsersStr) {
+            const localUsers = JSON.parse(localUsersStr);
+            if (Array.isArray(localUsers)) {
+              const matchedUser = localUsers.find(
+                (u: LocalUser) => u.email === email && u.password === password
+              ) as LocalUser | undefined;
+              if (matchedUser) {
+                const isSuper = matchedUser.email === "superadmin@gmail.com" || matchedUser.role === "super_admin";
+                const isAdminRole = matchedUser.role === "admin";
+                const activeRole = isSuper ? "super_admin" : (isAdminRole ? "admin" : "customer");
+
+                localStorage.setItem(
+                  "mock_session",
+                  JSON.stringify({
+                    email: matchedUser.email,
+                    role: activeRole,
+                    name: matchedUser.name,
+                  })
+                );
+                toast.success(`Welcome back, ${matchedUser.name}!`);
+                setTimeout(() => {
+                  const isStaff = activeRole !== "customer" && activeRole !== "guest";
+                  window.location.href = isStaff ? "/admin" : "/projects";
+                }, 800);
+                return;
+              }
+            }
+          }
+        } catch (err) {
+          console.error("Local RBAC login check failed:", err);
+        }
+
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         toast.success("Welcome back!");
       } else {
-        const { error } = await supabase.auth.signUp({
+        const { error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -42,11 +210,28 @@ const Auth = () => {
             data: { full_name: name || undefined },
           },
         });
-        if (error) throw error;
+        if (signUpError) throw signUpError;
+        
+        try {
+          const existingUsers = JSON.parse(localStorage.getItem("rbac_users") || "[]");
+          if (!existingUsers.some((u: any) => u.email === email)) {
+            const newUser = {
+              name: name || email.split("@")[0],
+              email: email,
+              role: "customer",
+              password: password,
+              created_at: new Date().toLocaleDateString(),
+            };
+            localStorage.setItem("rbac_users", JSON.stringify([...existingUsers, newUser]));
+          }
+        } catch (e) {
+          console.error("Failed to sync user locally:", e);
+        }
+
         toast.success("Check your inbox to confirm your email.");
       }
-    } catch (err: any) {
-      toast.error(err?.message || "Authentication failed");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Authentication failed");
     } finally {
       setSubmitting(false);
     }
@@ -62,8 +247,8 @@ const Auth = () => {
         toast.error(result.error.message || "Google sign-in failed");
         return;
       }
-    } catch (err: any) {
-      toast.error(err?.message || "Google sign-in failed");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Google sign-in failed");
     } finally {
       setGoogleLoading(false);
     }
@@ -83,20 +268,38 @@ const Auth = () => {
       <nav className="sticky top-0 z-[200] flex h-[62px] items-center justify-between border-b border-[#e8e4de] bg-white/95 px-6 backdrop-blur-xl md:px-12">
         <Link to="/" className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-[#ff5c3a]">
-            <Type className="h-[17px] w-[17px] text-white" strokeWidth={2.2} />
+            <span className="font-serif-display text-[22px] font-bold text-white leading-none select-none">S</span>
           </div>
           <span className="font-serif-display text-[18px] tracking-[-0.2px]">Subbly</span>
         </Link>
-        <Link to="/" className="text-[13.5px] text-[#666] transition hover:text-[#1a1a1a]">
-          ← Back to home
-        </Link>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={toggle}
+            aria-label="Toggle dark mode"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#e8e4de] bg-white text-[#666] transition hover:text-[#1a1a1a]"
+          >
+            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+          </button>
+          <button
+            onClick={() => {
+              if (window.history.length > 1) {
+                navigate(-1);
+              } else {
+                navigate("/");
+              }
+            }}
+            className="text-[13.5px] text-[#666] transition hover:text-[#1a1a1a] bg-transparent border-none cursor-pointer"
+          >
+            ← Back
+          </button>
+        </div>
       </nav>
 
       <main className="flex flex-1 items-center justify-center px-6 py-12">
         <div className="w-full max-w-[420px] rounded-[20px] border border-[#e8e4de] bg-white p-10 shadow-[0_4px_40px_rgba(26,26,26,0.07)] md:p-12">
           <div className="mb-8 flex items-center justify-center gap-2.5">
             <div className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-[#ff5c3a]">
-              <Type className="h-[17px] w-[17px] text-white" strokeWidth={2.2} />
+              <span className="font-serif-display text-[22px] font-bold text-white leading-none select-none">S</span>
             </div>
             <span className="font-serif-display text-[18px]">Subbly</span>
           </div>

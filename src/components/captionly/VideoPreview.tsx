@@ -1,36 +1,101 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { Maximize, Minimize, Pencil } from "lucide-react";
+import { Pencil, Play, Pause, Volume2, VolumeX, Maximize, Minimize } from "lucide-react";
 import type { Caption, CaptionStyle, CaptionAnimation } from "@/lib/captions/types";
 
 type Props = {
   src: string;
   captions: Caption[];
   style: CaptionStyle;
+  selectedCaptionId?: string | null;
+  onSelect?: (id: string | null) => void;
   onTimeUpdate?: (t: number) => void;
   onLoaded?: (info: { width: number; height: number; duration: number }) => void;
-  onPositionChange?: (pos: { posX: number; posY: number }) => void;
-  /** Edit the active caption's text inline from the preview. */
+  onCaptionStyleChange?: (id: string, style: Partial<CaptionStyle>) => void;
   onCaptionChange?: (id: string, text: string) => void;
-  /** Optional target frame (e.g. export preset) — preview will be letterboxed/cropped to match. */
+  onCaptionPositionChange?: (id: string, patch: Partial<Caption>) => void;
   frame?: { width: number; height: number; fit: "cover" | "contain" } | null;
+  lockedTracks?: number[];
 };
 
 export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPreview(
-  { src, captions, style, onTimeUpdate, onLoaded, onPositionChange, onCaptionChange, frame },
+  {
+    src,
+    captions,
+    style,
+    selectedCaptionId,
+    onSelect,
+    onTimeUpdate,
+    onLoaded,
+    onCaptionStyleChange,
+    onCaptionChange,
+    onCaptionPositionChange,
+    frame,
+    lockedTracks,
+  },
   ref,
 ) {
   const innerRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const canvasRef = useRef<HTMLDivElement>(null);
   useImperativeHandle(ref, () => innerRef.current as HTMLVideoElement, []);
   const [time, setTime] = useState(0);
-  const [dragging, setDragging] = useState(false);
+  const [draggingCaptionId, setDraggingCaptionId] = useState<string | null>(null);
+  const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
+  const [resizing, setResizing] = useState<{
+    id: string;
+    edge: "top" | "bottom" | "left" | "right";
+    startPosX: number;
+    startPosY: number;
+    startWidth: number;
+    startHeight: number;
+  } | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const [editing, setEditing] = useState(false);
+  const [editingCaptionId, setEditingCaptionId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
-  const active = captions.find((c) => time >= c.start && time <= c.end);
+  const [videoRatio, setVideoRatio] = useState<number | null>(null);
+  const activeCaptions = captions.filter((c) => time >= c.start && time <= c.end);
+
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [volume, setVolume] = useState(1);
+  const [isMuted, setIsMuted] = useState(false);
+  const [duration, setDuration] = useState(0);
+
+  // Sync state with HTML5 video element events
+  useEffect(() => {
+    const v = innerRef.current;
+    if (!v) return;
+
+    const onPlay = () => setIsPlaying(true);
+    const onPause = () => setIsPlaying(false);
+    const onVolumeChange = () => {
+      setVolume(v.volume);
+      setIsMuted(v.muted);
+    };
+    const onLoadedMetadata = () => {
+      setDuration(v.duration || 0);
+    };
+
+    setIsPlaying(!v.paused);
+    setVolume(v.volume);
+    setIsMuted(v.muted);
+    setDuration(v.duration || 0);
+
+    v.addEventListener("play", onPlay);
+    v.addEventListener("pause", onPause);
+    v.addEventListener("volumechange", onVolumeChange);
+    v.addEventListener("loadedmetadata", onLoadedMetadata);
+
+    return () => {
+      v.removeEventListener("play", onPlay);
+      v.removeEventListener("pause", onPause);
+      v.removeEventListener("volumechange", onVolumeChange);
+      v.removeEventListener("loadedmetadata", onLoadedMetadata);
+    };
+  }, [src]);
 
   useEffect(() => {
     setTime(0);
+    setVideoRatio(null);
   }, [src]);
 
   useEffect(() => {
@@ -55,6 +120,84 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
     return () => document.removeEventListener("fullscreenchange", onFsChange);
   }, []);
 
+  const [dimensions, setDimensions] = useState({ width: 640, height: 360 });
+
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    setDimensions({
+      width: container.clientWidth || 640,
+      height: container.clientHeight || 360,
+    });
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) {
+          setDimensions({ width, height });
+        }
+      }
+    });
+
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [src, isFullscreen]);
+
+  // Controls visibility and auto-hide timer
+  const [showControls, setShowControls] = useState(true);
+  const controlsTimeoutRef = useRef<number | null>(null);
+
+  const triggerControlsShow = () => {
+    setShowControls(true);
+    if (controlsTimeoutRef.current) {
+      window.clearTimeout(controlsTimeoutRef.current);
+    }
+    controlsTimeoutRef.current = window.setTimeout(() => {
+      const v = innerRef.current;
+      if (v && !v.paused) {
+        setShowControls(false);
+      }
+    }, 2500);
+  };
+
+  useEffect(() => {
+    return () => {
+      if (controlsTimeoutRef.current) window.clearTimeout(controlsTimeoutRef.current);
+    };
+  }, []);
+
+  // Custom progress bar seeking scrubbing logic
+  const scrubberRef = useRef<HTMLDivElement>(null);
+  const [scrubbing, setScrubbing] = useState(false);
+
+  const handleScrub = (clientX: number) => {
+    const el = scrubberRef.current;
+    if (!el || duration === 0) return;
+    const rect = el.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const newTime = pct * duration;
+    setTime(newTime);
+    if (innerRef.current) {
+      innerRef.current.currentTime = newTime;
+    }
+  };
+
+  useEffect(() => {
+    if (!scrubbing) return;
+    const onMove = (e: PointerEvent) => {
+      handleScrub(e.clientX);
+    };
+    const onUp = () => setScrubbing(false);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scrubbing, duration]);
+
   const toggleFullscreen = async () => {
     const el = containerRef.current;
     if (!el) return;
@@ -71,66 +214,263 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
 
   // Free position drag handlers
   useEffect(() => {
-    if (!dragging) return;
+    if (!draggingCaptionId) return;
     const onMove = (e: PointerEvent) => {
-      const c = containerRef.current;
+      const c = canvasRef.current;
       if (!c) return;
       const rect = c.getBoundingClientRect();
-      const x = (e.clientX - rect.left) / rect.width;
-      const y = (e.clientY - rect.top) / rect.height;
-      onPositionChange?.({
-        posX: Math.max(0.05, Math.min(0.95, x)),
-        posY: Math.max(0.05, Math.min(0.95, y)),
+      const x = (e.clientX - dragOffset.x - rect.left) / rect.width;
+      const y = (e.clientY - dragOffset.y - rect.top) / rect.height;
+      onCaptionPositionChange?.(draggingCaptionId, {
+        x: Math.max(0.05, Math.min(0.95, x)),
+        y: Math.max(0.05, Math.min(0.95, y)),
+        style: {
+          position: "free"
+        }
       });
     };
-    const onUp = () => setDragging(false);
+    const onUp = (e: PointerEvent) => {
+      const target = e.target as HTMLElement;
+      if (target && typeof target.releasePointerCapture === "function") {
+        try {
+          target.releasePointerCapture(e.pointerId);
+        } catch { /* ignore */ }
+      }
+      setDraggingCaptionId(null);
+    };
+    const onCancel = () => setDraggingCaptionId(null);
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onCancel);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onCancel);
+    };
+  }, [draggingCaptionId, onCaptionPositionChange, dragOffset]);
+
+  const captionBoxRefs = useRef<Map<string, HTMLDivElement>>(new Map());
+
+  const handleResizeStart = (
+    e: React.PointerEvent<HTMLDivElement>,
+    id: string,
+    edge: "top" | "bottom" | "left" | "right"
+  ) => {
+    e.stopPropagation();
+    e.preventDefault();
+
+    const targetCaption = captions.find((c) => c.id === id);
+    const track = targetCaption ? (targetCaption.track || 1) : 1;
+    if (lockedTracks?.includes(track)) return;
+
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const captionEl = captionBoxRefs.current.get(id);
+    if (!captionEl) return;
+
+    const canvasRect = canvas.getBoundingClientRect();
+    const captionRect = captionEl.getBoundingClientRect();
+
+    const startWidth = (captionRect.width / canvasRect.width) * 100;
+    const startHeight = (captionRect.height / canvasRect.height) * 100;
+
+    const startPosX = ((captionRect.left + captionRect.width / 2) - canvasRect.left) / canvasRect.width;
+    const startPosY = ((captionRect.top + captionRect.height / 2) - canvasRect.top) / canvasRect.height;
+
+    setResizing({
+      id,
+      edge,
+      startPosX,
+      startPosY,
+      startWidth,
+      startHeight,
+    });
+  };
+
+  // Resize width & height handlers
+  useEffect(() => {
+    if (!resizing) return;
+
+    const onMove = (e: PointerEvent) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const pointerX = (e.clientX - rect.left) / rect.width;
+      const pointerY = (e.clientY - rect.top) / rect.height;
+
+      // Calculate original bounds in normalized coordinates (0..1)
+      const leftLimit = resizing.startPosX - resizing.startWidth / 200;
+      const rightLimit = resizing.startPosX + resizing.startWidth / 200;
+      const topLimit = resizing.startPosY - resizing.startHeight / 200;
+      const bottomLimit = resizing.startPosY + resizing.startHeight / 200;
+
+      let newWidth = resizing.startWidth;
+      let newHeight = resizing.startHeight;
+      let newPosX = resizing.startPosX;
+      let newPosY = resizing.startPosY;
+
+      const minWidthPercent = 10;
+      const minHeightPercent = 5;
+
+      if (resizing.edge === "right") {
+        const clampedPointerX = Math.max(leftLimit + minWidthPercent / 100, Math.min(1.0, pointerX));
+        newWidth = (clampedPointerX - leftLimit) * 100;
+        newPosX = (leftLimit + clampedPointerX) / 2;
+      } else if (resizing.edge === "left") {
+        const clampedPointerX = Math.max(0.0, Math.min(rightLimit - minWidthPercent / 100, pointerX));
+        newWidth = (rightLimit - clampedPointerX) * 100;
+        newPosX = (clampedPointerX + rightLimit) / 2;
+      } else if (resizing.edge === "bottom") {
+        const clampedPointerY = Math.max(topLimit + minHeightPercent / 100, Math.min(1.0, pointerY));
+        newHeight = (clampedPointerY - topLimit) * 100;
+        newPosY = (topLimit + clampedPointerY) / 2;
+      } else if (resizing.edge === "top") {
+        const clampedPointerY = Math.max(0.0, Math.min(bottomLimit - minHeightPercent / 100, pointerY));
+        newHeight = (bottomLimit - clampedPointerY) * 100;
+        newPosY = (clampedPointerY + bottomLimit) / 2;
+      }
+
+      onCaptionPositionChange?.(resizing.id, {
+        x: Math.max(0.05, Math.min(0.95, newPosX)),
+        y: Math.max(0.05, Math.min(0.95, newPosY)),
+        width: Math.max(minWidthPercent, Math.min(100, newWidth)),
+        height: Math.max(minHeightPercent, Math.min(100, newHeight)),
+        style: {
+          position: "free"
+        }
+      });
+    };
+
+    const onUp = () => {
+      setResizing(null);
+    };
+
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);
     return () => {
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
     };
-  }, [dragging, onPositionChange]);
+  }, [resizing, onCaptionPositionChange]);
 
-  const startEditing = () => {
-    if (!active) return;
-    setEditText(active.text);
-    setEditing(true);
+  // Override native video element fullscreen requests
+  useEffect(() => {
+    const video = innerRef.current;
+    if (!video) return;
+
+    interface FullscreenElement extends HTMLElement {
+      webkitRequestFullscreen?: (options?: FullscreenOptions) => Promise<void>;
+      mozRequestFullScreen?: (options?: FullscreenOptions) => Promise<void>;
+      msRequestFullscreen?: (options?: FullscreenOptions) => Promise<void>;
+    }
+
+    interface FullscreenVideo extends HTMLVideoElement {
+      webkitRequestFullscreen?: (options?: FullscreenOptions) => Promise<void>;
+      webkitEnterFullscreen?: (options?: FullscreenOptions) => Promise<void>;
+      webkitEnterFullScreen?: (options?: FullscreenOptions) => Promise<void>;
+      mozRequestFullScreen?: (options?: FullscreenOptions) => Promise<void>;
+      msRequestFullscreen?: (options?: FullscreenOptions) => Promise<void>;
+    }
+
+    const customRequestFs = function (this: HTMLVideoElement, options?: FullscreenOptions) {
+      const el = containerRef.current as FullscreenElement | null;
+      if (!el) return Promise.reject(new Error("No container"));
+
+      if (el.requestFullscreen) {
+        return el.requestFullscreen(options);
+      } else if (el.webkitRequestFullscreen) {
+        return el.webkitRequestFullscreen(options);
+      } else if (el.mozRequestFullScreen) {
+        return el.mozRequestFullScreen(options);
+      } else if (el.msRequestFullscreen) {
+        return el.msRequestFullscreen(options);
+      }
+      return Promise.reject(new Error("Fullscreen not supported on container"));
+    };
+
+    const fsVideo = video as FullscreenVideo;
+    fsVideo.requestFullscreen = customRequestFs;
+    fsVideo.webkitRequestFullscreen = customRequestFs;
+    fsVideo.webkitEnterFullscreen = customRequestFs;
+    fsVideo.webkitEnterFullScreen = customRequestFs;
+    fsVideo.mozRequestFullScreen = customRequestFs;
+    fsVideo.msRequestFullscreen = customRequestFs;
+  }, []);
+
+  const startEditing = (c: Caption) => {
+    setEditText(c.text);
+    setEditingCaptionId(c.id);
   };
 
   const commitEdit = () => {
-    if (active && onCaptionChange) onCaptionChange(active.id, editText);
-    setEditing(false);
+    if (editingCaptionId && onCaptionChange) onCaptionChange(editingCaptionId, editText);
+    setEditingCaptionId(null);
   };
 
-  // Compute caption position
-  const captionPos = computePosition(style);
   const isFree = style.position === "free";
 
-  // Compute animation progress for current caption
-  const animProgress = active ? Math.min(1, (time - active.start) / 0.35) : 0;
-  const exitProgress = active ? Math.max(0, Math.min(1, (active.end - time) / 0.25)) : 1;
+  const alignmentClass =
+    style.alignment === "left" ? "text-left items-start justify-start" :
+    style.alignment === "right" ? "text-right items-end justify-end" :
+    "text-center items-center justify-center";
 
-  const aspectStyle = frame && !isFullscreen
-    ? { aspectRatio: `${frame.width} / ${frame.height}` }
-    : undefined;
+  const targetRatio = frame
+    ? (frame.width / frame.height)
+    : (videoRatio || 16 / 9);
+
+  let canvasWidth = dimensions.width;
+  let canvasHeight = dimensions.width / targetRatio;
+  if (canvasHeight > dimensions.height) {
+    canvasHeight = dimensions.height;
+    canvasWidth = dimensions.height * targetRatio;
+  }
+
   const objectFit: "cover" | "contain" = frame?.fit ?? "contain";
 
   return (
     <div
       ref={containerRef}
-      className={`group/preview relative mx-auto w-full overflow-hidden bg-black ${
-        isFullscreen ? "flex h-full items-center justify-center rounded-none" : "rounded-xl shadow-elegant"
+      onPointerMove={triggerControlsShow}
+      className={`group/preview relative mx-auto overflow-hidden bg-black flex items-center justify-center ${
+        isFullscreen ? "h-full rounded-none" : "w-full h-full rounded-xl shadow-elegant"
       }`}
-      style={aspectStyle}
+      style={{
+        width: "100%",
+        height: "100%",
+        maxWidth: "100%",
+        maxHeight: "100%",
+      }}
     >
+      <div
+        ref={canvasRef}
+        className="relative flex items-center justify-center overflow-hidden flex-shrink-0"
+        style={{
+          width: `${canvasWidth}px`,
+          height: `${canvasHeight}px`,
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget || (e.target as HTMLElement).tagName === "VIDEO") {
+            if (innerRef.current) {
+              if (isPlaying) innerRef.current.pause();
+              else innerRef.current.play();
+            }
+          }
+        }}
+      >
       <video
         ref={innerRef}
         src={src}
         className="block h-full w-full"
         style={{ objectFit }}
-        controls
-        controlsList="nofullscreen"
+        playsInline
+        onDoubleClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          toggleFullscreen();
+        }}
         onTimeUpdate={(e) => {
           const t = (e.target as HTMLVideoElement).currentTime;
           setTime(t);
@@ -138,6 +478,9 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
         }}
         onLoadedMetadata={(e) => {
           const v = e.target as HTMLVideoElement;
+          if (v.videoWidth && v.videoHeight) {
+            setVideoRatio(v.videoWidth / v.videoHeight);
+          }
           onLoaded?.({
             width: v.videoWidth,
             height: v.videoHeight,
@@ -146,104 +489,325 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
         }}
       />
 
-      {/* Custom fullscreen toggle (native one is disabled so the caption overlay stays visible) */}
-      <button
-        type="button"
-        onClick={toggleFullscreen}
-        aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-        className="absolute right-2 top-2 z-30 flex h-8 w-8 items-center justify-center rounded-md bg-black/55 text-white opacity-0 backdrop-blur-sm transition hover:bg-black/75 group-hover/preview:opacity-100"
+      {/* Custom player controls bar */}
+      <div
+        className={`absolute bottom-0 left-0 right-0 p-3 bg-gradient-to-t from-black/95 via-black/50 to-transparent flex flex-col gap-1.5 z-50 transition-opacity duration-300 pointer-events-auto ${
+          showControls ? "opacity-100" : "opacity-0 pointer-events-none"
+        }`}
       >
-        {isFullscreen ? <Minimize className="h-4 w-4" /> : <Maximize className="h-4 w-4" />}
-      </button>
-
-      {active && (
+        {/* Timeline Progress Scrubber */}
         <div
+          ref={scrubberRef}
           onPointerDown={(e) => {
-            if (editing) return;
-            e.preventDefault();
-            setDragging(true);
-          }}
-          onDoubleClick={(e) => {
             e.stopPropagation();
-            startEditing();
+            setScrubbing(true);
+            handleScrub(e.clientX);
           }}
-          className={`group absolute flex max-w-[90%] -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center px-2 ${
-            editing ? "cursor-text" : "cursor-grab active:cursor-grabbing"
-          } ${dragging ? "ring-2 ring-primary" : ""}`}
-          style={{
-            left: `${captionPos.x * 100}%`,
-            top: `${captionPos.y * 100}%`,
-            transform: editing
-              ? "translate(-50%, -50%)"
-              : `translate(-50%, -50%) ${getAnimationTransform(style.animation, animProgress, exitProgress)}`,
-            opacity: editing ? 1 : getAnimationOpacity(style.animation, animProgress, exitProgress),
-            transition: dragging ? "none" : "left 80ms linear, top 80ms linear",
-          }}
+          className="group/scrub relative w-full h-3 flex items-center cursor-pointer animate-fade-in"
         >
-          {editing ? (
-            <textarea
-              autoFocus
-              value={editText}
-              onChange={(e) => setEditText(e.target.value)}
-              onBlur={commitEdit}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && !e.shiftKey) {
-                  e.preventDefault();
-                  commitEdit();
-                }
-                if (e.key === "Escape") setEditing(false);
-              }}
-              rows={2}
-              className="w-[min(70vw,420px)] resize-none rounded-md border-2 border-primary bg-black/80 px-3 py-1.5 text-center text-[15px] leading-tight text-white outline-none"
-            />
-          ) : (
-            <span
-              className="rounded-md px-3 py-1.5 text-center leading-tight"
-              style={{
-                fontFamily: `"${style.fontFamily}", sans-serif`,
-                fontSize: `clamp(14px, ${(style.fontSize / 1080) * 100}vw, 80px)`,
-                color: style.color,
-                backgroundColor: hexToRgba(style.bgColor, style.bgOpacity),
-                fontWeight: style.bold ? Math.max(style.fontWeight, 700) : style.fontWeight,
-                textTransform: style.uppercase ? "uppercase" : "none",
-                textShadow: style.strokeWidth > 0
-                  ? buildStroke(style.strokeColor, Math.max(1, style.strokeWidth / 3))
-                  : "0 2px 4px rgba(0,0,0,0.6)",
-                whiteSpace: "pre-wrap",
-              }}
-            >
-              {style.karaoke && active.words && active.words.length > 0
-                ? active.words.map((w, i) => {
-                    const isActive = time >= w.start && time <= w.end;
-                    const isPast = time > w.end;
-                    return (
-                      <span
-                        key={i}
-                        style={{
-                          color: isActive ? style.highlightColor : style.color,
-                          opacity: !isActive && !isPast ? 0.75 : 1,
-                          transform: isActive ? "scale(1.08)" : "scale(1)",
-                          display: "inline-block",
-                          transition: "color 80ms linear, transform 120ms ease-out, opacity 120ms",
-                        }}
-                      >
-                        {style.uppercase ? w.text.toUpperCase() : w.text}
-                      </span>
-                    );
-                  })
-                : style.uppercase ? active.text.toUpperCase() : active.text}
-            </span>
-          )}
+          {/* Track background */}
+          <div className="w-full h-1 bg-white/20 rounded-full group-hover/scrub:h-1.5 transition-all" />
 
-          {!editing && (
-            <span className="pointer-events-none mt-1 flex items-center gap-2 whitespace-nowrap rounded bg-black/65 px-2 py-0.5 text-[10px] font-medium text-white opacity-0 transition group-hover:opacity-100">
-              <Move className="h-3 w-3" /> drag to move
-              <span className="opacity-50">·</span>
-              <Pencil className="h-3 w-3" /> double-click to edit
-            </span>
-          )}
+          {/* Fill progress */}
+          <div
+            className="absolute left-0 h-1 bg-primary rounded-full group-hover/scrub:h-1.5 transition-all pointer-events-none"
+            style={{ width: `${duration > 0 ? (time / duration) * 100 : 0}%` }}
+          />
+
+          {/* Draggable indicator knob */}
+          <div
+            className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white shadow-md scale-0 group-hover/scrub:scale-100 transition-transform pointer-events-none"
+            style={{ left: `${duration > 0 ? (time / duration) * 100 : 0}%` }}
+          />
         </div>
-      )}
+
+        {/* Playback Actions Row */}
+        <div className="flex items-center justify-between text-white text-[12.5px] px-0.5 select-none">
+          <div className="flex items-center gap-3">
+            {/* Play/Pause Button */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                if (innerRef.current) {
+                  if (isPlaying) innerRef.current.pause();
+                  else innerRef.current.play();
+                }
+              }}
+              className="hover:scale-110 active:scale-95 transition-transform p-0.5 cursor-pointer"
+              aria-label={isPlaying ? "Pause" : "Play"}
+            >
+              {isPlaying ? (
+                <Pause className="h-4.5 w-4.5 fill-white text-white" />
+              ) : (
+                <Play className="h-4.5 w-4.5 fill-white text-white" />
+              )}
+            </button>
+
+            {/* Time display */}
+            <span className="font-mono text-[11px] select-none text-white/80">
+              {formatTime(time)} / {formatTime(duration)}
+            </span>
+          </div>
+
+          <div className="flex items-center gap-3">
+            {/* Mute/Volume controls */}
+            <div className="flex items-center gap-1.5 group/volume">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (innerRef.current) {
+                    innerRef.current.muted = !isMuted;
+                  }
+                }}
+                className="hover:scale-115 active:scale-95 transition-transform p-0.5 cursor-pointer"
+                aria-label={isMuted ? "Unmute" : "Mute"}
+              >
+                {isMuted ? (
+                  <VolumeX className="h-4.5 w-4.5 text-white" />
+                ) : (
+                  <Volume2 className="h-4.5 w-4.5 text-white" />
+                )}
+              </button>
+              
+              <input
+                type="range"
+                aria-label="Volume"
+                min={0}
+                max={1}
+                step={0.05}
+                value={isMuted ? 0 : volume}
+                onChange={(e) => {
+                  e.stopPropagation();
+                  const v = Number(e.target.value);
+                  if (innerRef.current) {
+                    innerRef.current.volume = v;
+                    innerRef.current.muted = v === 0;
+                  }
+                }}
+                className="w-0 group-hover/volume:w-16 h-1 rounded-full bg-white/20 accent-primary cursor-pointer transition-all duration-300 opacity-0 group-hover/volume:opacity-100"
+              />
+            </div>
+
+            {/* Fullscreen Button */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                toggleFullscreen();
+              }}
+              className="hover:scale-115 active:scale-95 transition-transform p-0.5 cursor-pointer"
+              aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+            >
+              {isFullscreen ? (
+                <Minimize className="h-4.5 w-4.5 text-white" />
+              ) : (
+                <Maximize className="h-4.5 w-4.5 text-white" />
+              )}
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {activeCaptions.map((activeItem) => {
+        const isEditing = editingCaptionId === activeItem.id;
+        const itemStyle = activeItem.style ? { ...style, ...activeItem.style } : style;
+        
+        const posX = activeItem.x ?? (itemStyle.position === "top" ? 0.5 : itemStyle.position === "middle" ? 0.5 : itemStyle.posX);
+        let posY = activeItem.y ?? (itemStyle.position === "top" ? 0.12 : itemStyle.position === "middle" ? 0.5 : itemStyle.posY);
+        if (activeItem.track && activeItem.track > 1 && activeItem.y === undefined) {
+          posY = Math.max(0.05, posY - (activeItem.track - 1) * 0.15);
+        }
+
+        const boxWidth = activeItem.width ?? itemStyle.boxWidth ?? 84;
+        const boxHeight = activeItem.height ?? itemStyle.boxHeight;
+
+        const animProgress = Math.min(1, (time - activeItem.start) / 0.35);
+        const exitProgress = Math.max(0, Math.min(1, (activeItem.end - time) / 0.25));
+        const isSelected = selectedCaptionId === activeItem.id;
+
+        return (
+          <div
+            key={activeItem.id}
+            ref={(el) => {
+              if (el) captionBoxRefs.current.set(activeItem.id, el);
+              else captionBoxRefs.current.delete(activeItem.id);
+            }}
+            onPointerDown={(e) => {
+              e.stopPropagation();
+              onSelect?.(activeItem.id);
+              if (isEditing) return;
+
+              const cTrack = activeItem.track || 1;
+              if (lockedTracks?.includes(cTrack)) {
+                return;
+              }
+
+              e.preventDefault();
+              e.currentTarget.setPointerCapture(e.pointerId);
+
+              const rect = e.currentTarget.getBoundingClientRect();
+              const centerX = rect.left + rect.width / 2;
+              const centerY = rect.top + rect.height / 2;
+              setDragOffset({
+                x: e.clientX - centerX,
+                y: e.clientY - centerY,
+              });
+
+              setDraggingCaptionId(activeItem.id);
+            }}
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              if (lockedTracks?.includes(activeItem.track || 1)) return;
+              startEditing(activeItem);
+            }}
+            className={`group/caption absolute z-40 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center ${
+              isEditing
+                ? "cursor-text"
+                : lockedTracks?.includes(activeItem.track || 1)
+                ? "cursor-default"
+                : "cursor-grab active:cursor-grabbing"
+            } ${draggingCaptionId === activeItem.id || resizing?.id === activeItem.id || isSelected ? "ring-2 ring-primary/80" : ""} outline outline-1 outline-dashed outline-transparent hover:outline-primary/45 focus-within:outline-primary/45 rounded-lg transition-all overflow-hidden`}
+            style={{
+              left: `${posX * 100}%`,
+              top: `${posY * 100}%`,
+              width: `${boxWidth}%`,
+              minHeight: boxHeight ? `${boxHeight}%` : undefined,
+              height: boxHeight ? `${boxHeight}%` : undefined,
+              transform: isEditing
+                ? "translate(-50%, -50%)"
+                : `translate(-50%, -50%) ${getAnimationTransform(itemStyle.animation, animProgress, exitProgress)}`,
+              opacity: isEditing ? 1 : getAnimationOpacity(itemStyle.animation, animProgress, exitProgress),
+              transition: draggingCaptionId === activeItem.id || resizing?.id === activeItem.id ? "none" : "left 80ms linear, top 80ms linear, width 80ms linear, height 80ms linear",
+            }}
+          >
+            {isEditing ? (
+              <textarea
+                autoFocus
+                value={editText}
+                onChange={(e) => setEditText(e.target.value)}
+                onBlur={commitEdit}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    commitEdit();
+                  }
+                  if (e.key === "Escape") setEditingCaptionId(null);
+                }}
+                rows={2}
+                style={{ textAlign: itemStyle.alignment || "center" }}
+                className="w-[min(70vw,420px)] resize-none rounded-md border-2 border-primary bg-black/80 px-3 py-1.5 text-[15px] leading-tight text-white outline-none"
+              />
+            ) : (
+              <span
+                className="rounded-md px-3 py-1.5 leading-tight"
+                style={{
+                  fontFamily: `"${itemStyle.fontFamily}", sans-serif`,
+                  fontSize: `${Math.max(14, Math.min(80, (itemStyle.fontSize / 1080) * canvasHeight))}px`,
+                  color: itemStyle.color,
+                  backgroundColor: hexToRgba(itemStyle.bgColor, itemStyle.bgOpacity),
+                  fontWeight: itemStyle.bold ? Math.max(itemStyle.fontWeight, 700) : itemStyle.fontWeight,
+                  textTransform: itemStyle.uppercase ? "uppercase" : "none",
+                  textShadow: itemStyle.strokeWidth > 0
+                    ? buildStroke(itemStyle.strokeColor, Math.max(1, itemStyle.strokeWidth / 3))
+                    : "0 2px 4px rgba(0,0,0,0.6)",
+                  whiteSpace: "pre-wrap",
+                  textAlign: itemStyle.alignment || "center",
+                }}
+              >
+                {(() => {
+                  if (itemStyle.animation === "typewriter") {
+                    const elapsedMs = Math.max(0, (time - activeItem.start) * 1000);
+                    const { text: slicedText, showCursor } = getTypewriterState(activeItem.text, itemStyle, elapsedMs);
+                    const displayText = itemStyle.uppercase ? slicedText.toUpperCase() : slicedText;
+                    return (
+                      <>
+                        <span>{displayText}</span>
+                        {showCursor && (
+                          <span
+                            className="inline-block w-[0.07em] h-[1.15em] ml-1 animate-cursor-blink flex-shrink-0"
+                            style={{
+                              backgroundColor: itemStyle.typewriterCursorColor || "#ff5c3a",
+                              verticalAlign: "middle",
+                            }}
+                          />
+                        )}
+                      </>
+                    );
+                  }
+                  return itemStyle.karaoke && activeItem.words && activeItem.words.length > 0
+                    ? activeItem.words.map((w, i) => {
+                        const isActive = time >= w.start && time <= w.end;
+                        const isPast = time > w.end;
+                        const text = itemStyle.uppercase ? w.text.toUpperCase() : w.text;
+                        const hasTrailingSpace = text.endsWith(" ");
+                        const showSpace = i < activeItem.words.length - 1 && !hasTrailingSpace;
+                        return (
+                          <span key={i} className="inline-block">
+                            <span
+                              style={{
+                                color: isActive ? itemStyle.highlightColor : itemStyle.color,
+                                opacity: !isActive && !isPast ? 0.75 : 1,
+                                transform: isActive ? "scale(1.08)" : "scale(1)",
+                                display: "inline-block",
+                                transition: "color 80ms linear, transform 120ms ease-out, opacity 120ms",
+                              }}
+                            >
+                              {text}
+                            </span>
+                            {showSpace ? "\u00A0" : ""}
+                          </span>
+                        );
+                      })
+                    : itemStyle.uppercase ? activeItem.text.toUpperCase() : activeItem.text;
+                })()}
+              </span>
+            )}
+
+            {!isEditing && !lockedTracks?.includes(activeItem.track || 1) && (
+              <>
+                <span className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full mt-1 flex items-center gap-2 whitespace-nowrap rounded bg-black/65 px-2 py-0.5 text-[10px] font-medium text-white opacity-0 transition group-hover/caption:opacity-100 z-50">
+                  <Move className="h-3 w-3" /> drag · <Pencil className="h-3 w-3" /> dbl-click · <ResizeIcon className="h-3 w-3" /> edges to resize
+                </span>
+
+                {/* Left Resize Handle */}
+                <div
+                  onPointerDown={(e) => handleResizeStart(e, activeItem.id, "left")}
+                  className="absolute top-0 bottom-0 left-0 w-4 -translate-x-1/2 cursor-ew-resize flex items-center justify-center z-50 group/handle"
+                >
+                  <div className={`w-1.5 h-6 rounded-full bg-primary/70 border border-white/85 shadow-md transition-all duration-150 group-hover/handle:bg-primary group-hover/handle:scale-y-110 group-hover/handle:w-2 ${isSelected ? "opacity-100" : "opacity-0 group-hover/caption:opacity-100"}`} />
+                </div>
+
+                {/* Right Resize Handle */}
+                <div
+                  onPointerDown={(e) => handleResizeStart(e, activeItem.id, "right")}
+                  className="absolute top-0 bottom-0 right-0 w-4 translate-x-1/2 cursor-ew-resize flex items-center justify-center z-50 group/handle"
+                >
+                  <div className={`w-1.5 h-6 rounded-full bg-primary/70 border border-white/85 shadow-md transition-all duration-150 group-hover/handle:bg-primary group-hover/handle:scale-y-110 group-hover/handle:w-2 ${isSelected ? "opacity-100" : "opacity-0 group-hover/caption:opacity-100"}`} />
+                </div>
+
+                {/* Top Resize Handle */}
+                <div
+                  onPointerDown={(e) => handleResizeStart(e, activeItem.id, "top")}
+                  className="absolute top-0 left-0 right-0 h-4 -translate-y-1/2 cursor-ns-resize flex items-center justify-center z-50 group/handle"
+                >
+                  <div className={`h-1.5 w-6 rounded-full bg-primary/70 border border-white/85 shadow-md transition-all duration-150 group-hover/handle:bg-primary group-hover/handle:scale-x-110 group-hover/handle:h-2 ${isSelected ? "opacity-100" : "opacity-0 group-hover/caption:opacity-100"}`} />
+                </div>
+
+                {/* Bottom Resize Handle */}
+                <div
+                  onPointerDown={(e) => handleResizeStart(e, activeItem.id, "bottom")}
+                  className="absolute bottom-0 left-0 right-0 h-4 translate-y-1/2 cursor-ns-resize flex items-center justify-center z-50 group/handle"
+                >
+                  <div className={`h-1.5 w-6 rounded-full bg-primary/70 border border-white/85 shadow-md transition-all duration-150 group-hover/handle:bg-primary group-hover/handle:scale-x-110 group-hover/handle:h-2 ${isSelected ? "opacity-100" : "opacity-0 group-hover/caption:opacity-100"}`} />
+                </div>
+              </>
+            )}
+          </div>
+        );
+      })}
+      </div>
     </div>
   );
 });
@@ -261,11 +825,26 @@ function Move({ className }: { className?: string }) {
   );
 }
 
-function computePosition(style: CaptionStyle): { x: number; y: number } {
-  if (style.position === "free") return { x: style.posX, y: style.posY };
-  if (style.position === "top") return { x: 0.5, y: 0.12 };
-  if (style.position === "middle") return { x: 0.5, y: 0.5 };
-  return { x: 0.5, y: 0.88 };
+function ResizeIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <polyline points="8 5 3 10 8 15" />
+      <polyline points="16 5 21 10 16 15" />
+      <line x1="3" y1="10" x2="21" y2="10" />
+    </svg>
+  );
+}
+
+function computePosition(style: CaptionStyle, track?: number): { x: number; y: number } {
+  let basePos = { x: 0.5, y: 0.88 };
+  if (style.position === "free") basePos = { x: style.posX, y: style.posY };
+  else if (style.position === "top") basePos = { x: 0.5, y: 0.12 };
+  else if (style.position === "middle") basePos = { x: 0.5, y: 0.5 };
+
+  if (track === 2) {
+    return { x: basePos.x, y: Math.max(0.05, basePos.y - 0.15) };
+  }
+  return basePos;
 }
 
 function getAnimationTransform(anim: CaptionAnimation, enter: number, exit: number): string {
@@ -325,3 +904,53 @@ function hexToRgba(hex: string, a: number) {
   const b = parseInt(h.substring(4, 6), 16);
   return `rgba(${r}, ${g}, ${b}, ${a})`;
 }
+
+function getTypewriterState(text: string, style: CaptionStyle, elapsedMs: number) {
+  const L = text.length;
+  const speed = style.typewriterSpeed || 80;
+  const delSpeed = style.typewriterDeleteSpeed || 40;
+  const delay = style.typewriterDelay || 1500;
+  const loop = style.typewriterLoop !== false;
+  const emptyPause = 500;
+
+  const typeTime = L * speed;
+  const deleteTime = L * delSpeed;
+  const cycleTime = typeTime + delay + deleteTime + emptyPause;
+
+  let charCount = L;
+  let showCursor = true;
+
+  if (loop) {
+    const t = elapsedMs % cycleTime;
+    if (t < typeTime) {
+      charCount = Math.floor(t / speed);
+    } else if (t < typeTime + delay) {
+      charCount = L;
+    } else if (t < typeTime + delay + deleteTime) {
+      const elapsedDelete = t - (typeTime + delay);
+      const deletedChars = Math.floor(elapsedDelete / delSpeed);
+      charCount = Math.max(0, L - deletedChars);
+    } else {
+      charCount = 0;
+      showCursor = false;
+    }
+  } else {
+    if (elapsedMs < typeTime) {
+      charCount = Math.floor(elapsedMs / speed);
+    } else {
+      charCount = L;
+    }
+  }
+
+  return {
+    text: text.slice(0, charCount),
+    showCursor,
+  };
+}
+
+const formatTime = (secs: number) => {
+  if (isNaN(secs)) return "0:00";
+  const m = Math.floor(secs / 60);
+  const s = Math.floor(secs % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+};

@@ -6,6 +6,7 @@ type Props = {
   currentTime: number;
   onChange: (next: Caption[]) => void;
   onSeek: (t: number) => void;
+  lockedTracks?: number[];
 };
 
 const fmt = (t: number) => {
@@ -14,16 +15,46 @@ const fmt = (t: number) => {
   return `${m}:${s}`;
 };
 
-export function CaptionList({ captions, currentTime, onChange, onSeek }: Props) {
-  const update = (id: string, patch: Partial<Caption>) =>
+export function CaptionList({ captions, currentTime, onChange, onSeek, lockedTracks = [] }: Props) {
+  const update = (id: string, patch: Partial<Caption>) => {
+    const c = captions.find((cap) => cap.id === id);
+    if (c && lockedTracks.includes(c.track || 1)) return;
     onChange(captions.map((c) => (c.id === id ? { ...c, ...patch } : c)));
-  const remove = (id: string) => onChange(captions.filter((c) => c.id !== id));
+  };
+  const remove = (id: string) => {
+    const c = captions.find((cap) => cap.id === id);
+    if (c && lockedTracks.includes(c.track || 1)) return;
+    onChange(captions.filter((c) => c.id !== id));
+  };
   const add = () => {
+    let targetTrack = 1;
+    let found = false;
+    for (let t = 1; t <= 6; t++) {
+      if (!lockedTracks.includes(t)) {
+        targetTrack = t;
+        found = true;
+        break;
+      }
+    }
+    if (!found) return;
+
     const last = captions[captions.length - 1];
     const start = last ? last.end : 0;
+    const refCap = captions.find((c) => c.x !== undefined);
     onChange([
       ...captions,
-      { id: crypto.randomUUID(), start, end: start + 2, text: "New caption" },
+      {
+        id: crypto.randomUUID(),
+        start,
+        end: start + 2,
+        text: "New caption",
+        track: targetTrack,
+        x: refCap?.x ?? 0.5,
+        y: refCap?.y ?? 0.88,
+        width: refCap?.width ?? 84,
+        height: refCap?.height,
+        style: refCap?.style ? JSON.parse(JSON.stringify(refCap.style)) : undefined,
+      },
     ]);
   };
 
@@ -31,6 +62,7 @@ export function CaptionList({ captions, currentTime, onChange, onSeek }: Props) 
     const idx = captions.findIndex((c) => c.id === id);
     if (idx < 0) return;
     const c = captions[idx];
+    if (lockedTracks.includes(c.track || 1)) return;
     const mid = (c.start + c.end) / 2;
     const tokens = c.text.trim().split(/\s+/);
     const half = Math.max(1, Math.floor(tokens.length / 2));
@@ -52,6 +84,12 @@ export function CaptionList({ captions, currentTime, onChange, onSeek }: Props) 
       end: c.end,
       text: rightText,
       words: rightWords,
+      style: c.style ? JSON.parse(JSON.stringify(c.style)) : undefined,
+      x: c.x,
+      y: c.y,
+      width: c.width,
+      height: c.height,
+      track: c.track,
     };
     const next = [...captions];
     next.splice(idx, 1, left, right);
@@ -63,17 +101,26 @@ export function CaptionList({ captions, currentTime, onChange, onSeek }: Props) 
     if (idx < 0 || idx >= captions.length - 1) return;
     const a = captions[idx];
     const b = captions[idx + 1];
+    if (lockedTracks.includes(a.track || 1) || lockedTracks.includes(b.track || 1)) return;
     const merged: Caption = {
       id: a.id,
       start: a.start,
       end: b.end,
       text: `${a.text} ${b.text}`.trim(),
       words: a.words || b.words ? [...(a.words ?? []), ...(b.words ?? [])] : undefined,
+      style: a.style ? JSON.parse(JSON.stringify(a.style)) : undefined,
+      x: a.x,
+      y: a.y,
+      width: a.width,
+      height: a.height,
+      track: a.track,
     };
     const next = [...captions];
     next.splice(idx, 2, merged);
     onChange(next);
   };
+
+  const allTracksLocked = Array.from({ length: 6 }, (_, i) => i + 1).every((t) => lockedTracks.includes(t));
 
   return (
     <div className="flex h-full flex-col bg-white" style={{ fontFamily: "'Outfit', sans-serif" }}>
@@ -86,7 +133,8 @@ export function CaptionList({ captions, currentTime, onChange, onSeek }: Props) 
         </div>
         <button
           onClick={add}
-          className="inline-flex items-center gap-1.5 rounded-md border border-[#ffd5cc] bg-[#fff5f3] px-2.5 py-1 text-[12px] font-medium text-[#ff5c3a] transition hover:bg-[#ffe8e2]"
+          disabled={allTracksLocked}
+          className="inline-flex items-center gap-1.5 rounded-md border border-[#ffd5cc] bg-[#fff5f3] px-2.5 py-1 text-[12px] font-medium text-[#ff5c3a] transition hover:bg-[#ffe8e2] disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Plus className="h-3 w-3" strokeWidth={2.5} />
           Add
@@ -109,6 +157,7 @@ export function CaptionList({ captions, currentTime, onChange, onSeek }: Props) 
         {captions.map((c, idx) => {
           const active = currentTime >= c.start && currentTime <= c.end;
           const hasNext = idx < captions.length - 1;
+          const isLocked = lockedTracks.includes(c.track || 1);
           return (
             <div
               key={c.id}
@@ -127,42 +176,47 @@ export function CaptionList({ captions, currentTime, onChange, onSeek }: Props) 
                   {fmt(c.start)} – {fmt(c.end)}
                 </span>
                 <div className="flex items-center gap-1 opacity-0 transition group-hover:opacity-100">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); splitCaption(c.id); }}
-                    title="Split"
-                    aria-label="Split caption"
-                    className="text-[#aaa] hover:text-[#ff5c3a]"
-                  >
-                    <Scissors className="h-3.5 w-3.5" />
-                  </button>
-                  {hasNext && (
-                    <button
-                      onClick={(e) => { e.stopPropagation(); mergeWithNext(c.id); }}
-                      title="Merge"
-                      aria-label="Merge with next caption"
-                      className="text-[#aaa] hover:text-[#ff5c3a]"
-                    >
-                      <Combine className="h-3.5 w-3.5" />
-                    </button>
+                  {!isLocked && (
+                    <>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); splitCaption(c.id); }}
+                        title="Split"
+                        aria-label="Split caption"
+                        className="text-[#aaa] hover:text-[#ff5c3a]"
+                      >
+                        <Scissors className="h-3.5 w-3.5" />
+                      </button>
+                      {hasNext && !lockedTracks.includes(captions[idx + 1].track || 1) && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); mergeWithNext(c.id); }}
+                          title="Merge"
+                          aria-label="Merge with next caption"
+                          className="text-[#aaa] hover:text-[#ff5c3a]"
+                        >
+                          <Combine className="h-3.5 w-3.5" />
+                        </button>
+                      )}
+                      <button
+                        onClick={(e) => { e.stopPropagation(); remove(c.id); }}
+                        title="Delete"
+                        aria-label="Delete caption"
+                        className="text-[#aaa] hover:text-red-500"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </>
                   )}
-                  <button
-                    onClick={(e) => { e.stopPropagation(); remove(c.id); }}
-                    title="Delete"
-                    aria-label="Delete caption"
-                    className="text-[#aaa] hover:text-red-500"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
                 </div>
               </div>
               <input
                 value={c.text}
                 aria-label="Caption text"
+                disabled={isLocked}
                 onClick={(e) => e.stopPropagation()}
-                onChange={(e) => update(c.id, { text: e.target.value })}
+                onChange={(e) => update(c.id, { text: e.target.value, words: undefined })}
                 className={`w-full bg-transparent text-[12px] leading-relaxed outline-none ${
                   active ? "text-[#333]" : "text-[#666]"
-                }`}
+                } ${isLocked ? "opacity-60 cursor-not-allowed" : ""}`}
               />
               <div className="mt-1.5 grid grid-cols-2 gap-1.5 opacity-0 transition group-hover:opacity-100">
                 <input
@@ -170,22 +224,28 @@ export function CaptionList({ captions, currentTime, onChange, onSeek }: Props) 
                   step="0.1"
                   aria-label="Caption start time in seconds"
                   value={c.start.toFixed(2)}
+                  disabled={isLocked}
                   onClick={(e) => e.stopPropagation()}
                   onChange={(e) =>
                     update(c.id, { start: Math.max(0, parseFloat(e.target.value) || 0) })
                   }
-                  className="h-6 rounded border border-[#e8e4de] bg-[#faf9f7] px-1.5 text-[10px] outline-none focus:border-[#ff5c3a]"
+                  className={`h-6 rounded border border-[#e8e4de] bg-[#faf9f7] px-1.5 text-[10px] outline-none focus:border-[#ff5c3a] ${
+                    isLocked ? "opacity-60 cursor-not-allowed" : ""
+                  }`}
                 />
                 <input
                   type="number"
                   step="0.1"
                   aria-label="Caption end time in seconds"
                   value={c.end.toFixed(2)}
+                  disabled={isLocked}
                   onClick={(e) => e.stopPropagation()}
                   onChange={(e) =>
                     update(c.id, { end: Math.max(0, parseFloat(e.target.value) || 0) })
                   }
-                  className="h-6 rounded border border-[#e8e4de] bg-[#faf9f7] px-1.5 text-[10px] outline-none focus:border-[#ff5c3a]"
+                  className={`h-6 rounded border border-[#e8e4de] bg-[#faf9f7] px-1.5 text-[10px] outline-none focus:border-[#ff5c3a] ${
+                    isLocked ? "opacity-60 cursor-not-allowed" : ""
+                  }`}
                 />
               </div>
             </div>

@@ -12,18 +12,21 @@ import {
   AlignStartVertical,
   AlignCenterVertical,
   AlignEndVertical,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
   Move,
   Upload,
   X,
 } from "lucide-react";
 import {
   FONT_OPTIONS,
-  ANIMATION_OPTIONS,
   CAPTION_TEMPLATES,
   PREVIEW_TEXTS,
   DEFAULT_STYLE,
   type CaptionStyle,
   type CaptionTemplate,
+  type Caption,
 } from "@/lib/captions/types";
 import {
   loadGoogleFont,
@@ -40,6 +43,9 @@ import { BrandKitDialog, type BrandKit } from "./BrandKitDialog";
 type Props = {
   style: CaptionStyle;
   onChange: (s: CaptionStyle) => void;
+  selectedCaption?: Caption | null;
+  onCaptionChange?: (id: string, patch: Partial<Caption>) => void;
+  isLocked?: boolean;
 };
 
 type Preset = { id: string; name: string; style: CaptionStyle };
@@ -92,7 +98,55 @@ function TemplatePreview({ style, text, cycle }: { style: CaptionStyle; text: st
 
 
 
-export function StylePanel({ style, onChange }: Props) {
+const ANIM_STYLES = [
+  {
+    id: "none",
+    title: "None",
+    description: "Static text, no animation",
+    iconText: "Aa",
+    hasUnderline: false,
+    apply: (style: CaptionStyle) => ({ ...style, animation: "none" as const, karaoke: false }),
+    isActive: (style: CaptionStyle) => style.animation === "none" && !style.karaoke,
+  },
+  {
+    id: "karaoke",
+    title: "Karaoke",
+    description: "Highlight words as they are spoken",
+    iconText: "Aa",
+    hasUnderline: true,
+    apply: (style: CaptionStyle) => ({ ...style, animation: "pop" as const, karaoke: true }),
+    isActive: (style: CaptionStyle) => style.karaoke === true,
+  },
+  {
+    id: "pop",
+    title: "Pop",
+    description: "Words pop in with scale effect",
+    iconText: "Aa!",
+    hasUnderline: false,
+    apply: (style: CaptionStyle) => ({ ...style, animation: "pop" as const, karaoke: false }),
+    isActive: (style: CaptionStyle) => style.animation === "pop" && !style.karaoke,
+  },
+  {
+    id: "typewriter",
+    title: "Typewriter",
+    description: "Characters appear one at a time",
+    iconText: "Aa|",
+    hasUnderline: false,
+    apply: (style: CaptionStyle) => ({ ...style, animation: "typewriter" as const, karaoke: false }),
+    isActive: (style: CaptionStyle) => style.animation === "typewriter" && !style.karaoke,
+  },
+  {
+    id: "fade",
+    title: "Fade",
+    description: "Smooth fade in and out",
+    iconText: "Aa~",
+    hasUnderline: false,
+    apply: (style: CaptionStyle) => ({ ...style, animation: "fade" as const, karaoke: false }),
+    isActive: (style: CaptionStyle) => style.animation === "fade" && !style.karaoke,
+  },
+];
+
+export function StylePanel({ style, onChange, selectedCaption, onCaptionChange, isLocked }: Props) {
   const { user } = useAuth();
   const [tab, setTab] = useState<Tab>("style");
   const [presets, setPresets] = useState<Preset[]>([]);
@@ -184,12 +238,18 @@ export function StylePanel({ style, onChange }: Props) {
     try {
       const parsed = JSON.parse(raw);
       const list = Array.isArray(parsed) ? parsed : [parsed];
-      const cleaned: CaptionTemplate[] = list.map((t: any, i: number) => {
-        const sty = (t.style ?? t) as Partial<CaptionStyle>;
+      interface RawTemplate {
+        name?: string;
+        description?: string;
+        style?: Partial<CaptionStyle>;
+      }
+      const cleaned: CaptionTemplate[] = list.map((t: unknown, i: number) => {
+        const item = t as RawTemplate;
+        const sty = (item.style ?? item) as Partial<CaptionStyle>;
         return {
           id: `custom-${Date.now()}-${i}`,
-          name: t.name || "Imported template",
-          description: t.description || "Custom imported template",
+          name: item.name || "Imported template",
+          description: item.description || "Custom imported template",
           style: { ...DEFAULT_STYLE, ...sty },
         };
       });
@@ -249,7 +309,7 @@ export function StylePanel({ style, onChange }: Props) {
     toast.success("Brand kit applied");
   };
 
-  const tabs: { id: Tab; label: string; icon: any }[] = [
+  const tabs: { id: Tab; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: "style", label: "Style", icon: Type },
     { id: "anim", label: "Anim", icon: Sparkles },
     { id: "tmpl", label: "Tmpl", icon: Layers },
@@ -279,9 +339,38 @@ export function StylePanel({ style, onChange }: Props) {
         })}
       </div>
 
-      <div className="scrollbar-thin flex-1 overflow-y-auto p-4">
+      <div className={`scrollbar-thin flex-1 overflow-y-auto p-4 ${isLocked ? "pointer-events-none opacity-50 select-none" : ""}`}>
         {tab === "style" && (
           <div className="space-y-5">
+            <div className="space-y-4 pb-5 border-b border-[#f0ede8]">
+              <div className="text-[13px] font-semibold text-[#1a1a1a]">Caption Settings</div>
+              
+              <div className="rounded-[8px] border border-[#f0ede8]">
+                <ToggleRow
+                  icon="😊"
+                  label="Add Emojis to Captions"
+                  checked={style.emojiEnabled || false}
+                  onChange={(v) => set("emojiEnabled", v)}
+                  last
+                />
+              </div>
+
+              {style.emojiEnabled && (
+                <Field label="Emoji Density">
+                  <select
+                    aria-label="Emoji Density"
+                    value={style.emojiDensity || "medium"}
+                    onChange={(e) => set("emojiDensity", e.target.value as "light" | "medium" | "heavy")}
+                    className="w-full cursor-pointer rounded-[7px] border border-[#e8e4de] bg-white px-3 py-2 text-[13px] text-[#1a1a1a] outline-none transition hover:border-[#ccc] focus:border-[#ff5c3a]"
+                  >
+                    <option value="light">Light (sparse emojis)</option>
+                    <option value="medium">Medium (standard emojis)</option>
+                    <option value="heavy">Heavy (viral engagement)</option>
+                  </select>
+                </Field>
+              )}
+            </div>
+
             <Field label="Font">
               <select
                 aria-label="Caption font"
@@ -316,6 +405,12 @@ export function StylePanel({ style, onChange }: Props) {
             <SliderRow label="BG opacity" value={Math.round(style.bgOpacity * 100)} min={0} max={100} step={5}
               onChange={(v) => set("bgOpacity", v / 100)} suffix="%" />
 
+            <SliderRow label="Box width" value={style.boxWidth ?? 84} min={10} max={100} step={1}
+              onChange={(v) => set("boxWidth", v)} suffix="%" />
+
+            <SliderRow label="Box height" value={style.boxHeight ?? 0} min={0} max={100} step={1}
+              onChange={(v) => set("boxHeight", v === 0 ? undefined as unknown as number : v)} suffix="%" />
+
             <div className="grid grid-cols-2 gap-2">
               <ColorField label="Stroke" value={style.strokeColor} onChange={(v) => set("strokeColor", v)} />
               <SliderRow label="Stroke W" value={style.strokeWidth} min={0} max={12} step={1}
@@ -335,7 +430,25 @@ export function StylePanel({ style, onChange }: Props) {
                   return (
                     <button
                       key={p.key}
-                      onClick={() => set("position", p.key as CaptionStyle["position"])}
+                      onClick={() => {
+                        const newPos = p.key as CaptionStyle["position"];
+                        set("position", newPos);
+                        if (selectedCaption && onCaptionChange) {
+                          if (newPos === "top") {
+                            onCaptionChange(selectedCaption.id, { x: 0.5, y: 0.12, style: { position: "top" } });
+                          } else if (newPos === "middle") {
+                            onCaptionChange(selectedCaption.id, { x: 0.5, y: 0.5, style: { position: "middle" } });
+                          } else if (newPos === "bottom") {
+                            onCaptionChange(selectedCaption.id, { x: 0.5, y: 0.88, style: { position: "bottom" } });
+                          } else if (newPos === "free") {
+                            onCaptionChange(selectedCaption.id, {
+                              x: selectedCaption.x ?? style.posX ?? 0.5,
+                              y: selectedCaption.y ?? style.posY ?? 0.88,
+                              style: { position: "free" }
+                            });
+                          }
+                        }
+                      }}
                       className={`flex flex-col items-center justify-center gap-1 rounded-[7px] border px-1 py-2 text-[10.5px] transition ${
                         active
                           ? "border-[#ff5c3a] bg-[#fff5f3] text-[#ff5c3a]"
@@ -349,9 +462,55 @@ export function StylePanel({ style, onChange }: Props) {
                 })}
               </div>
               {style.position === "free" && (
-                <p className="mt-2 text-[11px] text-[#aaa]">
-                  Drag the caption on the video preview to position it.
-                </p>
+                <div className="space-y-1.5 mt-1.5">
+                  <p className="text-[11px] text-[#aaa] mb-2">
+                    Drag the caption on the video preview to position it, or use the controls below:
+                  </p>
+                  {selectedCaption && (
+                    <div className="space-y-4 border-t border-[#f0ede8] pt-3">
+                      <SliderRow
+                        label="Position X"
+                        value={Math.round((selectedCaption.x ?? 0.5) * 100)}
+                        min={5}
+                        max={95}
+                        step={1}
+                        onChange={(v) => onCaptionChange?.(selectedCaption.id, { x: v / 100 })}
+                        suffix="%"
+                        compact
+                      />
+                      <SliderRow
+                        label="Position Y"
+                        value={Math.round((selectedCaption.y ?? 0.88) * 100)}
+                        min={5}
+                        max={95}
+                        step={1}
+                        onChange={(v) => onCaptionChange?.(selectedCaption.id, { y: v / 100 })}
+                        suffix="%"
+                        compact
+                      />
+                      <SliderRow
+                        label="Box Width"
+                        value={selectedCaption.width ?? style.boxWidth ?? 84}
+                        min={10}
+                        max={100}
+                        step={1}
+                        onChange={(v) => onCaptionChange?.(selectedCaption.id, { width: v })}
+                        suffix="%"
+                        compact
+                      />
+                      <SliderRow
+                        label="Box Height"
+                        value={selectedCaption.height ?? 0}
+                        min={0}
+                        max={100}
+                        step={1}
+                        onChange={(v) => onCaptionChange?.(selectedCaption.id, { height: v === 0 ? undefined : v })}
+                        suffix="%"
+                        compact
+                      />
+                    </div>
+                  )}
+                </div>
               )}
             </Field>
 
@@ -368,33 +527,149 @@ export function StylePanel({ style, onChange }: Props) {
               <ColorField label="Highlight color" value={style.highlightColor}
                 onChange={(v) => set("highlightColor", v)} />
             )}
+
           </div>
         )}
 
         {tab === "anim" && (
-          <div>
-            <div className="mb-0.5 text-[13px] font-semibold text-[#1a1a1a]">Caption animation</div>
-            <div className="mb-4 text-[11.5px] leading-relaxed text-[#aaa]">
-              How captions enter the screen.
-            </div>
-            <div className="grid grid-cols-2 gap-1.5">
-              {ANIMATION_OPTIONS.map((a) => {
-                const active = style.animation === a.value;
+          <div className="space-y-4">
+            <div className="text-[13px] font-semibold text-[#1a1a1a] dark:text-[#f5f3ee]">Animation Style</div>
+            <div className="space-y-2.5">
+              {ANIM_STYLES.map((opt) => {
+                const active = opt.isActive(style);
                 return (
                   <button
-                    key={a.value}
-                    onClick={() => set("animation", a.value)}
-                    className={`rounded-[8px] border px-3 py-2.5 text-[12.5px] font-medium transition ${
+                    key={opt.id}
+                    onClick={() => onChange(opt.apply(style))}
+                    className={`flex w-full items-center gap-4 rounded-xl border p-3.5 text-left transition ${
                       active
-                        ? "border-[#ff5c3a] bg-[#fff5f3] text-[#ff5c3a] shadow-[0_0_0_3px_rgba(255,92,58,0.08)]"
-                        : "border-[#e8e4de] bg-white text-[#555] hover:border-[#ffd5cc] hover:bg-[#fffaf9] hover:text-[#ff5c3a]"
+                        ? "border-purple-500 bg-purple-50/20 dark:bg-purple-950/10"
+                        : "border-[#e8e4de] bg-white hover:border-purple-300 dark:border-[#2a2622] dark:bg-[#15130f]"
                     }`}
                   >
-                    {a.label}
+                    {/* Icon block */}
+                    <div
+                      className={`flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-[10px] font-serif-display text-base font-bold ${
+                        active
+                          ? "bg-purple-100 text-purple-600 dark:bg-purple-900/50 dark:text-purple-400"
+                          : "bg-[#f5f3ee] text-[#666] dark:bg-[#1a1714] dark:text-[#a8a39c]"
+                      }`}
+                    >
+                      {opt.hasUnderline ? (
+                        <span className="underline decoration-2 underline-offset-4">{opt.iconText}</span>
+                      ) : (
+                        opt.iconText
+                      )}
+                    </div>
+
+                    {/* Text block */}
+                    <div className="flex-1 min-w-0">
+                      <div className={`text-[13px] font-semibold ${active ? "text-purple-700 dark:text-purple-300" : "text-[#1a1a1a] dark:text-[#f5f3ee]"}`}>
+                        {opt.title}
+                      </div>
+                      <div className="text-[11px] text-[#999] dark:text-[#908a82] leading-tight mt-0.5">
+                        {opt.description}
+                      </div>
+                    </div>
+
+                    {/* Selection Indicator */}
+                    {active && (
+                      <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-purple-600 text-white dark:bg-purple-500">
+                        <Check className="h-3 w-3" strokeWidth={3} />
+                      </div>
+                    )}
                   </button>
                 );
               })}
             </div>
+
+            {style.animation === "typewriter" && (
+              <div className="mt-4 space-y-4 border-t border-[#f0ede8] pt-4 dark:border-[#2a2622]">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-[#bbb] mb-1">
+                  Typewriter settings
+                </div>
+
+                <SliderRow
+                  label="Typing Speed"
+                  value={style.typewriterSpeed || 80}
+                  min={30}
+                  max={300}
+                  step={10}
+                  onChange={(v) => set("typewriterSpeed", v)}
+                  suffix=" ms"
+                  compact
+                />
+
+                <SliderRow
+                  label="Deleting Speed"
+                  value={style.typewriterDeleteSpeed || 40}
+                  min={10}
+                  max={200}
+                  step={10}
+                  onChange={(v) => set("typewriterDeleteSpeed", v)}
+                  suffix=" ms"
+                  compact
+                />
+
+                <SliderRow
+                  label="Delay Pause"
+                  value={style.typewriterDelay || 1500}
+                  min={500}
+                  max={4000}
+                  step={100}
+                  onChange={(v) => set("typewriterDelay", v)}
+                  suffix=" ms"
+                  compact
+                />
+
+                <div className="rounded-[8px] border border-[#f0ede8] dark:border-[#2a2622]">
+                  <ToggleRow
+                    icon="🔁"
+                    label="Loop Mode"
+                    checked={style.typewriterLoop !== false}
+                    onChange={(v) => set("typewriterLoop", v)}
+                    last
+                  />
+                </div>
+
+                <div className="space-y-2">
+                  <label className="block text-[10.5px] font-medium uppercase tracking-[0.07em] text-[#aaa]">
+                    Text Alignment
+                  </label>
+                  <div className="grid grid-cols-3 gap-1.5">
+                    {[
+                      { key: "left", icon: AlignLeft, label: "Left" },
+                      { key: "center", icon: AlignCenter, label: "Center" },
+                      { key: "right", icon: AlignRight, label: "Right" },
+                    ].map((p) => {
+                      const Icon = p.icon;
+                      const active = (style.alignment || "center") === p.key;
+                      return (
+                        <button
+                          key={p.key}
+                          type="button"
+                          onClick={() => set("alignment", p.key as CaptionStyle["alignment"])}
+                          className={`flex items-center justify-center gap-1.5 rounded-[7px] border py-2 text-[11px] font-medium transition ${
+                            active
+                              ? "border-[#ff5c3a] bg-[#fff5f3] text-[#ff5c3a]"
+                              : "border-[#e8e4de] bg-white text-[#aaa] hover:border-[#ff5c3a] hover:text-[#ff5c3a]"
+                          }`}
+                        >
+                          <Icon className="h-3.5 w-3.5" strokeWidth={1.8} />
+                          {p.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <ColorField
+                  label="Cursor Color"
+                  value={style.typewriterCursorColor || "#ff5c3a"}
+                  onChange={(v) => set("typewriterCursorColor", v)}
+                />
+              </div>
+            )}
           </div>
         )}
 

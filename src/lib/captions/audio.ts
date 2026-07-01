@@ -18,12 +18,30 @@ export async function extractAudioNative(videoFile: File): Promise<Blob> {
   // Mix all channels down to mono
   const numChannels = audioBuffer.numberOfChannels;
   const length = audioBuffer.length;
-  const monoData = new Float32Array(length);
+  let monoData: Float32Array;
 
-  for (let ch = 0; ch < numChannels; ch++) {
-    const channelData = audioBuffer.getChannelData(ch);
+  if (numChannels === 1) {
+    monoData = audioBuffer.getChannelData(0);
+  } else if (numChannels === 2) {
+    monoData = new Float32Array(length);
+    const left = audioBuffer.getChannelData(0);
+    const right = audioBuffer.getChannelData(1);
     for (let i = 0; i < length; i++) {
-      monoData[i] += channelData[i] / numChannels;
+      monoData[i] = (left[i] + right[i]) * 0.5;
+    }
+  } else {
+    monoData = new Float32Array(length);
+    const channels = [];
+    for (let ch = 0; ch < numChannels; ch++) {
+      channels.push(audioBuffer.getChannelData(ch));
+    }
+    const factor = 1 / numChannels;
+    for (let i = 0; i < length; i++) {
+      let sum = 0;
+      for (let ch = 0; ch < numChannels; ch++) {
+        sum += channels[ch][i];
+      }
+      monoData[i] = sum * factor;
     }
   }
 
@@ -33,8 +51,8 @@ export async function extractAudioNative(videoFile: File): Promise<Blob> {
 /** Encode a Float32Array of mono PCM samples into a 16-bit PCM WAV Blob. */
 function encodeWav(samples: Float32Array, sampleRate: number): Blob {
   const dataBytes = samples.length * 2; // 16-bit = 2 bytes per sample
-  const buffer = new ArrayBuffer(44 + dataBytes);
-  const view = new DataView(buffer);
+  const headerBuffer = new ArrayBuffer(44);
+  const view = new DataView(headerBuffer);
 
   const str = (offset: number, s: string) => {
     for (let i = 0; i < s.length; i++) view.setUint8(offset + i, s.charCodeAt(i));
@@ -59,11 +77,12 @@ function encodeWav(samples: Float32Array, sampleRate: number): Blob {
   str(36, "data");
   view.setUint32(40, dataBytes, true);
 
-  // Convert Float32 → Int16
+  // Convert Float32 → Int16 using a fast Int16Array directly
+  const int16Samples = new Int16Array(samples.length);
   for (let i = 0; i < samples.length; i++) {
     const s = Math.max(-1, Math.min(1, samples[i]));
-    view.setInt16(44 + i * 2, s < 0 ? s * 0x8000 : s * 0x7fff, true);
+    int16Samples[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
   }
 
-  return new Blob([buffer], { type: "audio/wav" });
+  return new Blob([headerBuffer, int16Samples.buffer], { type: "audio/wav" });
 }

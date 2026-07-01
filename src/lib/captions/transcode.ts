@@ -33,11 +33,12 @@ async function getFFmpeg(onLog?: (msg: string) => void): Promise<FFmpeg> {
  */
 export async function transcodeWebmToMp4(opts: {
   webmBlob: Blob;
+  quality?: "standard" | "high";
   onProgress?: (progress: number) => void;
   onLog?: (msg: string) => void;
   signal?: AbortSignal;
 }): Promise<Blob> {
-  const { webmBlob, onProgress, onLog, signal } = opts;
+  const { webmBlob, quality, onProgress, onLog, signal } = opts;
 
   if (signal?.aborted) {
     const err = new Error("Export cancelled");
@@ -66,11 +67,13 @@ export async function transcodeWebmToMp4(opts: {
 
     await ffmpeg.writeFile(inputName, await fetchFile(webmBlob));
 
+    const crf = quality === "high" ? "18" : "23";
+
     const exitCode = await ffmpeg.exec([
       "-i", inputName,
       "-c:v", "libx264",
       "-preset", "ultrafast",
-      "-crf", "23",
+      "-crf", crf,
       "-pix_fmt", "yuv420p",
       "-c:a", "aac",
       "-b:a", "128k",

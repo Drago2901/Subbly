@@ -14,6 +14,15 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
 import { Seo } from "@/components/Seo";
+import { AvatarDropdown } from "@/components/AvatarDropdown";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+
 
 const HOME_DESCRIPTION =
   "Upload a video, auto-generate captions with AI, edit text and styling, then export a captioned video — all in your browser.";
@@ -58,14 +67,14 @@ const Index = () => {
     <div className="min-h-screen bg-[#f5f3ee] text-[#1a1a1a]" style={{ fontFamily: "'Outfit', sans-serif" }}>
       <Seo title="Subbly — AI Video Caption Editor" description={HOME_DESCRIPTION} path="/" jsonLd={HOME_JSONLD} />
       {/* Nav */}
-      <nav className="sticky top-0 z-[200] flex h-[62px] items-center justify-between border-b border-[#e8e4de] bg-white/95 px-6 backdrop-blur-xl md:px-12">
+      <nav className="relative sticky top-0 z-[200] flex h-[62px] items-center justify-between border-b border-[#e8e4de] bg-white/95 px-6 backdrop-blur-xl md:px-12">
         <Link to="/" className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-[#ff5c3a]">
-            <Type className="h-[17px] w-[17px] text-white" strokeWidth={2.2} />
+            <span className="font-serif-display text-[22px] font-bold text-white leading-none select-none">S</span>
           </div>
           <span className="font-serif-display text-[18px] tracking-[-0.2px]">Subbly</span>
         </Link>
-        <div className="hidden items-center gap-[30px] md:flex">
+        <div className="hidden items-center gap-[30px] md:flex md:absolute md:left-1/2 md:-translate-x-1/2 md:top-1/2 md:-translate-y-1/2">
           <a href="#features" className="text-[13.5px] text-[#666] transition hover:text-[#1a1a1a]">Features</a>
           <a href="#how" className="text-[13.5px] text-[#666] transition hover:text-[#1a1a1a]">How it works</a>
           <Link to="/pricing" className="text-[13.5px] text-[#666] transition hover:text-[#1a1a1a]">Pricing</Link>
@@ -84,6 +93,16 @@ const Index = () => {
           >
             Open editor <ArrowRight className="h-3 w-3" strokeWidth={2.2} />
           </Link>
+          {user ? (
+            <AvatarDropdown />
+          ) : (
+            <Link
+              to="/auth"
+              className="inline-flex items-center rounded-lg border border-[#e8e4de] bg-white px-[16px] py-2 text-[13px] font-medium text-[#666] transition hover:text-[#1a1a1a] hover:border-[#b0aba4]"
+            >
+              Sign In
+            </Link>
+          )}
         </div>
       </nav>
 
@@ -110,9 +129,28 @@ const Index = () => {
             >
               Start captioning <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.5} />
             </Link>
-            <button className="inline-flex items-center gap-2 rounded-[10px] border border-[#e8e4de] bg-white px-6 py-3.5 text-[14.5px] text-[#666] transition hover:border-[#b0aba4] hover:text-[#1a1a1a]">
-              <Play className="h-3.5 w-3.5" /> Watch demo
-            </button>
+            <Dialog>
+              <DialogTrigger asChild>
+                <button className="inline-flex items-center gap-2 rounded-[10px] border border-[#e8e4de] bg-white px-6 py-3.5 text-[14.5px] text-[#666] transition hover:border-[#b0aba4] hover:text-[#1a1a1a]">
+                  <Play className="h-3.5 w-3.5" /> Watch demo
+                </button>
+              </DialogTrigger>
+              <DialogContent className="max-w-[700px] border-[#e8e4de] bg-white p-0 overflow-hidden shadow-2xl">
+                <DialogHeader className="p-4 border-b border-[#e8e4de] bg-[#faf9f7]">
+                  <DialogTitle className="font-serif-display text-lg font-normal">Subbly Demo Walkthrough</DialogTitle>
+                </DialogHeader>
+                <div className="aspect-video bg-[#1a1a1a] relative flex items-center justify-center">
+                  <video
+                    src="https://assets.mixkit.co/videos/preview/mixkit-forest-stream-in-the-sunlight-529-large.mp4"
+                    controls
+                    autoPlay
+                    className="w-full h-full object-cover"
+                    poster="/placeholder.svg"
+                  />
+                </div>
+              </DialogContent>
+            </Dialog>
+
           </div>
         </div>
 

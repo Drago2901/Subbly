@@ -66,10 +66,13 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
       if (style.karaoke && c.words && c.words.length > 0) {
         // Per-word color animation: at each word's start, snap text color to highlight,
         // then snap back to base at the word's end. Times are in ms relative to line start.
-        const segments = c.words.map((w) => {
+        const segments = c.words.map((w, idx) => {
           const startMs = Math.max(0, Math.round((w.start - c.start) * 1000));
           const endMs = Math.max(startMs + 1, Math.round((w.end - c.start) * 1000));
-          const txt = style.uppercase ? w.text.toUpperCase() : w.text;
+          let txt = style.uppercase ? w.text.toUpperCase() : w.text;
+          if (idx < c.words.length - 1 && !txt.endsWith(" ")) {
+            txt += " ";
+          }
           return `{\\t(${startMs},${startMs},\\1c${stripAlpha(secondary)})\\t(${endMs},${endMs},\\1c${stripAlpha(primary)})}${escapeAss(txt)}`;
         });
         body = segments.join("");

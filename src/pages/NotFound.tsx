@@ -1,6 +1,6 @@
 import { useLocation, Link } from "react-router-dom";
 import { useEffect } from "react";
-import { Type, ArrowLeft } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 const NotFound = () => {
   const location = useLocation();
@@ -15,7 +15,7 @@ const NotFound = () => {
       <nav className="sticky top-0 z-[200] flex h-[62px] items-center justify-between border-b border-[#e8e4de] bg-white/95 px-6 backdrop-blur-xl md:px-12">
         <Link to="/" className="flex items-center gap-2.5">
           <div className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-[#ff5c3a]">
-            <Type className="h-[17px] w-[17px] text-white" strokeWidth={2.2} />
+            <span className="font-serif-display text-[22px] font-bold text-white leading-none select-none">S</span>
           </div>
           <span className="font-serif-display text-[18px] tracking-[-0.2px]">Subbly</span>
         </Link>

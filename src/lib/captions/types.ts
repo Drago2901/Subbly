@@ -11,6 +11,12 @@ export type Caption = {
   end: number;
   text: string;
   words?: Word[];
+  track?: number;
+  style?: Partial<CaptionStyle>;
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
 };
 
 export type CaptionAnimation =
@@ -48,6 +54,16 @@ export type CaptionStyle = {
   /** Text outline / stroke */
   strokeWidth: number; // px @ 1080p
   strokeColor: string; // hex
+  typewriterSpeed: number;
+  typewriterDeleteSpeed: number;
+  typewriterDelay: number;
+  typewriterLoop: boolean;
+  typewriterCursorColor: string;
+  alignment: "left" | "center" | "right";
+  boxWidth: number; // width in percent of preview container (10..100)
+  boxHeight?: number; // height in percent of preview container (5..100)
+  emojiEnabled?: boolean;
+  emojiDensity?: "light" | "medium" | "heavy";
 };
 
 export const DEFAULT_STYLE: CaptionStyle = {
@@ -67,6 +83,15 @@ export const DEFAULT_STYLE: CaptionStyle = {
   animation: "pop",
   strokeWidth: 0,
   strokeColor: "#000000",
+  typewriterSpeed: 80,
+  typewriterDeleteSpeed: 40,
+  typewriterDelay: 1500,
+  typewriterLoop: true,
+  typewriterCursorColor: "#ff5c3a",
+  alignment: "center",
+  boxWidth: 84,
+  emojiEnabled: false,
+  emojiDensity: "medium",
 };
 
 export const FONT_OPTIONS = [

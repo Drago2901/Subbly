@@ -20,16 +20,49 @@ export class ExportCancelledError extends Error {
   }
 }
 
+export function computeExportResolution(
+  srcW: number,
+  srcH: number,
+  quality?: "standard" | "high",
+  output?: { width?: number; height?: number }
+): { width: number; height: number } {
+  let width = output?.width && output.width > 0 ? Math.round(output.width) : srcW;
+  let height = output?.height && output.height > 0 ? Math.round(output.height) : srcH;
+
+  if (quality) {
+    const targetShortDim = quality === "high" ? 1080 : 720;
+    const ar = (output?.width && output?.height && output.width > 0 && output.height > 0)
+      ? (output.width / output.height)
+      : (srcW / srcH);
+    
+    if (ar >= 1) {
+      // Landscape or Square: Shorter dimension is height
+      height = targetShortDim;
+      width = Math.round(targetShortDim * ar);
+    } else {
+      // Portrait: Shorter dimension is width
+      width = targetShortDim;
+      height = Math.round(targetShortDim / ar);
+    }
+    // Ensure dimensions are even numbers (critical for encoding compatibility)
+    if (width % 2 !== 0) width += 1;
+    if (height % 2 !== 0) height += 1;
+  }
+
+  return { width, height };
+}
+
 export async function burnCaptions(opts: {
   videoFile: File;
   captions: Caption[];
   style: CaptionStyle;
   output?: ExportOutput;
+  quality?: "standard" | "high";
   onProgress?: RenderProgress;
   onLog?: (msg: string) => void;
   signal?: AbortSignal;
 }): Promise<Blob> {
-  const { videoFile, captions, style, output, onProgress, onLog, signal } = opts;
+  const { videoFile, captions, style, output, quality, onProgress, onLog, signal } = opts;
 
   if (signal?.aborted) throw new ExportCancelledError();
 
@@ -71,9 +104,7 @@ export async function burnCaptions(opts: {
     const srcH = video.videoHeight || 720;
     const duration = Math.max(video.duration || 0, 0.001);
 
-    // Determine output canvas size. Default to source resolution.
-    const width = output?.width && output.width > 0 ? Math.round(output.width) : srcW;
-    const height = output?.height && output.height > 0 ? Math.round(output.height) : srcH;
+    const { width, height } = computeExportResolution(srcW, srcH, quality, output);
     const fit = output?.fit ?? "cover";
     const bg = output?.background ?? "#000000";
 
@@ -113,10 +144,12 @@ export async function burnCaptions(opts: {
     const audioTracks = audioDestination?.stream.getAudioTracks() ?? [];
     outputStream = new MediaStream([...canvasStream.getVideoTracks(), ...audioTracks]);
 
+    const renderQuality = quality ?? "standard";
+    const videoBitsPerSecond = renderQuality === "high" ? 8_000_000 : 4_000_000;
     const mimeType = getSupportedMimeType();
     recorder = mimeType
-      ? new MediaRecorder(outputStream, { mimeType, videoBitsPerSecond: 8_000_000, audioBitsPerSecond: 128_000 })
-      : new MediaRecorder(outputStream, { videoBitsPerSecond: 8_000_000, audioBitsPerSecond: 128_000 });
+      ? new MediaRecorder(outputStream, { mimeType, videoBitsPerSecond, audioBitsPerSecond: 128_000 })
+      : new MediaRecorder(outputStream, { videoBitsPerSecond, audioBitsPerSecond: 128_000 });
 
     const chunks: BlobPart[] = [];
     const result = new Promise<Blob>((resolve, reject) => {
@@ -241,113 +274,200 @@ function drawCaptionOverlay(
   height: number,
   time: number,
 ) {
-  const active = captions.find((caption) => time >= caption.start && time <= caption.end);
-  if (!active) return;
+  const activeCaptions = captions.filter((caption) => time >= caption.start && time <= caption.end);
+  if (activeCaptions.length === 0) return;
 
-  const fontSize = clamp(Math.round((style.fontSize / 1080) * height), 18, 160);
-  const padX = Math.round(fontSize * 0.36);
-  const padY = Math.round(fontSize * 0.24);
-  const lineGap = Math.round(fontSize * 0.2);
-  const maxLineWidth = width * 0.84;
+  activeCaptions.forEach((active) => {
+    const activeStyle = active.style ? { ...style, ...active.style } : style;
+    const fontSize = clamp(Math.round((activeStyle.fontSize / 1080) * height), 18, 160);
+    const padX = Math.round(fontSize * 0.36);
+    const padY = Math.round(fontSize * 0.24);
+    const lineGap = Math.round(fontSize * 0.2);
 
-  setCanvasFont(ctx, style, fontSize);
-  const words = getRenderWords(ctx, active, style);
-  const lines = wrapWords(words, maxLineWidth);
-  const lineBoxHeight = fontSize + padY * 2;
-  const blockHeight = lines.length * lineBoxHeight + Math.max(0, lines.length - 1) * lineGap;
-  const maxLineW = lines.reduce((m, l) => Math.max(m, l.width), 0);
-  const blockWidth = maxLineW + padX * 2;
+    const boxWidth = active.width ?? activeStyle.boxWidth ?? 84;
+    const boxHeight = active.height ?? activeStyle.boxHeight;
 
-  // Compute anchor position
-  const center = computeCenter(style, width, height, blockWidth, blockHeight);
-  const blockTop = center.y - blockHeight / 2;
-  const blockCenterX = center.x;
+    const maxLineWidth = width * (boxWidth / 100);
 
-  // Animation transform (origin = block center)
-  const enter = clamp((time - active.start) / 0.35, 0, 1);
-  const exit = clamp((active.end - time) / 0.25, 0, 1);
-  const anim = computeAnim(style.animation, enter, exit);
+    setCanvasFont(ctx, activeStyle, fontSize);
+    const words = getRenderWords(ctx, active, activeStyle);
+    const lines = wrapWords(words, maxLineWidth);
+    const lineBoxHeight = fontSize + padY * 2;
+    const textBlockHeight = lines.length * lineBoxHeight + Math.max(0, lines.length - 1) * lineGap;
+    // If a custom boxHeight is set, the visible container is taller than the text block — centre text vertically.
+    const containerHeight = boxHeight ? height * (boxHeight / 100) : textBlockHeight;
+    const blockHeight = Math.max(textBlockHeight, containerHeight);
+    const maxLineW = lines.reduce((m, l) => Math.max(m, l.width), 0);
+    const blockWidth = maxLineW + padX * 2;
 
-  ctx.save();
-  ctx.globalAlpha = anim.opacity;
-  ctx.translate(blockCenterX, center.y);
-  if (anim.scale !== 1) ctx.scale(anim.scale, anim.scale);
-  if (anim.translateY) ctx.translate(0, anim.translateY * (height / 1080));
-  ctx.translate(-blockCenterX, -center.y);
+    // Compute anchor position
+    const center = computeCenter(active, activeStyle, width, height, blockWidth, blockHeight);
+    // Vertical offset so text is centred inside the container
+    const textAreaTop = center.y - blockHeight / 2 + (blockHeight - textBlockHeight) / 2;
+    const blockTop = textAreaTop;
+    const blockCenterX = center.x;
+    const alignLeftX = blockCenterX - maxLineW / 2;
 
-  ctx.textAlign = "left";
-  ctx.textBaseline = "alphabetic";
+    // Animation transform (origin = block center)
+    const enter = clamp((time - active.start) / 0.35, 0, 1);
+    const exit = clamp((active.end - time) / 0.25, 0, 1);
+    const anim = computeAnim(activeStyle.animation, enter, exit);
 
-  const strokePx = Math.round((style.strokeWidth / 1080) * height);
+    ctx.save();
+    ctx.globalAlpha = anim.opacity;
+    ctx.translate(blockCenterX, center.y);
+    if (anim.scale !== 1) ctx.scale(anim.scale, anim.scale);
+    if (anim.translateY) ctx.translate(0, anim.translateY * (height / 1080));
+    ctx.translate(-blockCenterX, -center.y);
 
-  lines.forEach((line, lineIndex) => {
-    const lineLeft = blockCenterX - line.width / 2;
-    const lineTop = blockTop + lineIndex * (lineBoxHeight + lineGap);
-    const baselineY = lineTop + padY + fontSize * 0.82;
+    ctx.textAlign = "left";
+    ctx.textBaseline = "alphabetic";
 
-    if (style.bgOpacity > 0) {
-      ctx.save();
-      ctx.fillStyle = hexToRgba(style.bgColor, style.bgOpacity);
-      fillRoundedRect(
-        ctx,
-        lineLeft - padX,
-        lineTop,
-        line.width + padX * 2,
-        lineBoxHeight,
-        Math.max(8, Math.round(fontSize * 0.18)),
-      );
-      ctx.restore();
-    }
+    const strokePx = Math.round((activeStyle.strokeWidth / 1080) * height);
 
-    let cursorX = lineLeft;
-    line.words.forEach((word) => {
-      const isActiveWord = style.karaoke && time >= word.start && time <= word.end;
-      const isFutureWord = style.karaoke && time < word.start;
-      const scale = isActiveWord ? 1.08 : 1;
-      const fillColor = isActiveWord ? style.highlightColor : style.color;
-      const alpha = isFutureWord ? 0.75 : 1;
+    // Typewriter character budget
+    const isTypewriter = activeStyle.animation === "typewriter";
+    const elapsedMs = Math.max(0, (time - active.start) * 1000);
+    const typewriterState = isTypewriter
+      ? getTypewriterState(active.text, activeStyle, elapsedMs)
+      : { text: active.text, showCursor: false };
 
-      ctx.save();
-      setCanvasFont(ctx, style, fontSize);
+    const charBudget = typewriterState.text.length;
+    let charsDrawn = 0;
+    let cursorDrawn = false;
+    const isCursorVisible = typewriterState.showCursor && (Math.floor(time * 2) % 2 === 0);
 
-      // Stroke first
-      if (strokePx > 0) {
-        ctx.strokeStyle = style.strokeColor;
-        ctx.lineWidth = strokePx;
-        ctx.lineJoin = "round";
-        ctx.miterLimit = 2;
-        if (scale !== 1) {
-          const cx = cursorX + word.width / 2;
-          const cy = baselineY - fontSize * 0.38;
-          ctx.translate(cx, cy);
-          ctx.scale(scale, scale);
-          ctx.translate(-cx, -cy);
-        }
-        ctx.strokeText(word.text, cursorX, baselineY);
-      } else {
-        if (scale !== 1) {
-          const cx = cursorX + word.width / 2;
-          const cy = baselineY - fontSize * 0.38;
-          ctx.translate(cx, cy);
-          ctx.scale(scale, scale);
-          ctx.translate(-cx, -cy);
-        }
+    lines.forEach((line, lineIndex) => {
+      let lineLeft = blockCenterX - line.width / 2;
+      if (activeStyle.alignment === "left") {
+        lineLeft = alignLeftX;
+      } else if (activeStyle.alignment === "right") {
+        lineLeft = alignLeftX + (maxLineW - line.width);
+      }
+      const lineTop = blockTop + lineIndex * (lineBoxHeight + lineGap);
+      const baselineY = lineTop + padY + fontSize * 0.82;
+
+      if (activeStyle.bgOpacity > 0) {
+        ctx.save();
+        ctx.fillStyle = hexToRgba(activeStyle.bgColor, activeStyle.bgOpacity);
+        fillRoundedRect(
+          ctx,
+          lineLeft - padX,
+          lineTop,
+          line.width + padX * 2,
+          lineBoxHeight,
+          Math.max(8, Math.round(fontSize * 0.18)),
+        );
+        ctx.restore();
       }
 
-      ctx.fillStyle = hexToRgba(fillColor, alpha);
-      ctx.shadowColor = isActiveWord
-        ? hexToRgba(style.highlightColor, 0.7)
-        : "rgba(0, 0, 0, 0.55)";
-      ctx.shadowBlur = isActiveWord ? Math.round(fontSize * 0.45) : Math.round(fontSize * 0.12);
-      ctx.shadowOffsetY = 2;
+      let cursorX = lineLeft;
+      line.words.forEach((word) => {
+        let textToDraw = word.text;
+        let drawLen = word.text.length;
 
-      ctx.fillText(word.text, cursorX, baselineY);
-      ctx.restore();
-      cursorX += word.width;
+        if (isTypewriter) {
+          const remaining = charBudget - charsDrawn;
+          if (remaining <= 0) {
+            return;
+          }
+          drawLen = Math.min(word.text.length, remaining);
+          textToDraw = word.text.substring(0, drawLen);
+        }
+
+        const isActiveWord = activeStyle.karaoke && time >= word.start && time <= word.end;
+        const isFutureWord = activeStyle.karaoke && time < word.start;
+        const scale = isActiveWord ? 1.08 : 1;
+        const fillColor = isActiveWord ? activeStyle.highlightColor : activeStyle.color;
+        const alpha = isFutureWord ? 0.75 : 1;
+
+        ctx.save();
+        setCanvasFont(ctx, activeStyle, fontSize);
+
+        const textWidth = ctx.measureText(textToDraw).width;
+
+        // Stroke first
+        if (strokePx > 0) {
+          ctx.strokeStyle = activeStyle.strokeColor;
+          ctx.lineWidth = strokePx;
+          ctx.lineJoin = "round";
+          ctx.miterLimit = 2;
+          if (scale !== 1) {
+            const cx = cursorX + word.width / 2;
+            const cy = baselineY - fontSize * 0.38;
+            ctx.translate(cx, cy);
+            ctx.scale(scale, scale);
+            ctx.translate(-cx, -cy);
+          }
+          ctx.strokeText(textToDraw, cursorX, baselineY);
+        } else {
+          if (scale !== 1) {
+            const cx = cursorX + word.width / 2;
+            const cy = baselineY - fontSize * 0.38;
+            ctx.translate(cx, cy);
+            ctx.scale(scale, scale);
+            ctx.translate(-cx, -cy);
+          }
+        }
+
+        ctx.fillStyle = hexToRgba(fillColor, alpha);
+        ctx.shadowColor = isActiveWord
+          ? hexToRgba(activeStyle.highlightColor, 0.7)
+          : "rgba(0, 0, 0, 0.55)";
+        ctx.shadowBlur = isActiveWord ? Math.round(fontSize * 0.45) : Math.round(fontSize * 0.12);
+        ctx.shadowOffsetY = 2;
+
+        ctx.fillText(textToDraw, cursorX, baselineY);
+        ctx.restore();
+
+        if (isTypewriter) {
+          if (drawLen < word.text.length && isCursorVisible && !cursorDrawn) {
+            drawCursor(ctx, cursorX + textWidth, baselineY, fontSize, activeStyle.typewriterCursorColor || "#ff5c3a");
+            cursorDrawn = true;
+          }
+          charsDrawn += word.text.length;
+          if (charsDrawn === charBudget && isCursorVisible && !cursorDrawn) {
+            drawCursor(ctx, cursorX + textWidth, baselineY, fontSize, activeStyle.typewriterCursorColor || "#ff5c3a");
+            cursorDrawn = true;
+          }
+        }
+
+        cursorX += word.width;
+      });
+
+      if (isTypewriter && charBudget === 0 && lineIndex === 0 && isCursorVisible && !cursorDrawn) {
+        drawCursor(ctx, lineLeft, baselineY, fontSize, activeStyle.typewriterCursorColor || "#ff5c3a");
+        cursorDrawn = true;
+      }
     });
-  });
 
-  ctx.restore();
+    ctx.restore();
+  });
+}
+
+function computeCenter(
+  caption: Caption,
+  style: CaptionStyle,
+  width: number,
+  height: number,
+  blockWidth: number,
+  blockHeight: number,
+): { x: number; y: number } {
+  const posX = caption.x ?? (style.position === "top" ? 0.5 : style.position === "middle" ? 0.5 : style.posX);
+  const posY = caption.y ?? (style.position === "top" ? 0.12 : style.position === "middle" ? 0.5 : style.posY);
+
+  const basePos = {
+    x: clamp(posX * width, 0.05 * width, 0.95 * width),
+    y: clamp(posY * height, 0.05 * height, 0.95 * height),
+  };
+
+  if (caption.track && caption.track > 1 && caption.y === undefined) {
+    return {
+      x: basePos.x,
+      y: clamp(basePos.y - height * (caption.track - 1) * 0.15, 0.05 * height, 0.95 * height),
+    };
+  }
+  return basePos;
 }
 
 type RenderWord = {
@@ -371,8 +491,11 @@ function getRenderWords(
     ? caption.words.map((word) => ({ text: word.text, start: word.start, end: word.end }))
     : splitIntoWordTokens(caption.text).map((text) => ({ text, start: caption.start, end: caption.end }));
 
-  return sourceWords.map((word) => {
-    const text = style.uppercase ? word.text.toUpperCase() : word.text;
+  return sourceWords.map((word, idx) => {
+    let text = style.uppercase ? word.text.toUpperCase() : word.text;
+    if (style.karaoke && caption.words?.length && idx < sourceWords.length - 1 && !text.endsWith(" ")) {
+      text += " ";
+    }
     return {
       ...word,
       text,
@@ -413,23 +536,6 @@ function setCanvasFont(ctx: CanvasRenderingContext2D, style: CaptionStyle, fontS
   ctx.font = `${weight} ${fontSize}px "${style.fontFamily}", sans-serif`;
 }
 
-function computeCenter(
-  style: CaptionStyle,
-  width: number,
-  height: number,
-  blockWidth: number,
-  blockHeight: number,
-): { x: number; y: number } {
-  if (style.position === "free") {
-    const x = clamp(style.posX * width, blockWidth / 2, width - blockWidth / 2);
-    const y = clamp(style.posY * height, blockHeight / 2, height - blockHeight / 2);
-    return { x, y };
-  }
-  const x = width / 2;
-  if (style.position === "top") return { x, y: height * 0.12 };
-  if (style.position === "middle") return { x, y: height / 2 };
-  return { x, y: height * 0.88 };
-}
 
 function computeAnim(
   anim: CaptionStyle["animation"],
@@ -536,13 +642,14 @@ function waitForVideoEvent(video: HTMLVideoElement, event: string) {
   });
 }
 
-function getSupportedMimeType() {
+export function getSupportedMimeType() {
   const candidates = [
+    "video/mp4;codecs=h264,aac",
+    "video/mp4;codecs=h264",
+    "video/mp4",
     "video/webm;codecs=vp9,opus",
     "video/webm;codecs=vp8,opus",
     "video/webm",
-    "video/mp4;codecs=h264,aac",
-    "video/mp4",
   ];
 
   return candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) || "";
@@ -580,4 +687,66 @@ function computeDrawRect(
     }
   }
   return { x: (dstW - w) / 2, y: (dstH - h) / 2, w, h };
+}
+
+function drawCursor(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  fontSize: number,
+  color: string,
+) {
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.shadowColor = "transparent";
+  ctx.shadowBlur = 0;
+  ctx.shadowOffsetY = 0;
+
+  const cursorH = fontSize * 1.15;
+  const cursorW = Math.max(2, Math.round(fontSize * 0.08));
+  ctx.fillRect(x + 1, y - fontSize * 0.95, cursorW, cursorH);
+  ctx.restore();
+}
+
+function getTypewriterState(text: string, style: CaptionStyle, elapsedMs: number) {
+  const L = text.length;
+  const speed = style.typewriterSpeed || 80;
+  const delSpeed = style.typewriterDeleteSpeed || 40;
+  const delay = style.typewriterDelay || 1500;
+  const loop = style.typewriterLoop !== false;
+  const emptyPause = 500;
+
+  const typeTime = L * speed;
+  const deleteTime = L * delSpeed;
+  const cycleTime = typeTime + delay + deleteTime + emptyPause;
+
+  let charCount = L;
+  let showCursor = true;
+
+  if (loop) {
+    const t = elapsedMs % cycleTime;
+    if (t < typeTime) {
+      charCount = Math.floor(t / speed);
+    } else if (t < typeTime + delay) {
+      charCount = L;
+    } else if (t < typeTime + delay + deleteTime) {
+      const elapsedDelete = t - (typeTime + delay);
+      const deletedChars = Math.floor(elapsedDelete / delSpeed);
+      charCount = Math.max(0, L - deletedChars);
+    } else {
+      charCount = 0;
+      showCursor = false;
+    }
+  } else {
+    if (elapsedMs < typeTime) {
+      charCount = Math.floor(elapsedMs / speed);
+    } else {
+      charCount = L;
+    }
+  }
+
+  return {
+    text: text.slice(0, charCount),
+    showCursor,
+  };
 }

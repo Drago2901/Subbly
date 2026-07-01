@@ -72,8 +72,8 @@ export function BrandKitDialog({ open, onOpenChange, brandKit, onSaved }: Props)
       const { data } = supabase.storage.from("brand-logos").getPublicUrl(path);
       set("logo_url", data.publicUrl);
       toast.success("Logo uploaded");
-    } catch (e: any) {
-      toast.error(e?.message || "Upload failed");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Upload failed");
     } finally {
       setUploading(false);
     }
@@ -83,8 +83,7 @@ export function BrandKitDialog({ open, onOpenChange, brandKit, onSaved }: Props)
     if (!user) return;
     setSaving(true);
     try {
-      const payload = { ...draft, user_id: user.id };
-      delete (payload as any).id;
+      const { id, ...payload } = { ...draft, user_id: user.id };
       const { data, error } = await supabase
         .from("brand_kits")
         .upsert(payload, { onConflict: "user_id" })
@@ -94,8 +93,8 @@ export function BrandKitDialog({ open, onOpenChange, brandKit, onSaved }: Props)
       onSaved(data as BrandKit);
       toast.success("Brand kit saved");
       onOpenChange(false);
-    } catch (e: any) {
-      toast.error(e?.message || "Save failed");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Save failed");
     } finally {
       setSaving(false);
     }
