@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Loader2, Sun, Moon, Eye, EyeOff, Copy } from "lucide-react";
 import { toast } from "sonner";
@@ -15,7 +15,7 @@ const Auth = () => {
   const location = useLocation() as { state?: { from?: string } };
   const redirectTo = location.state?.from || (isAdmin ? "/admin" : "/projects");
 
-  const [tab, setTab] = useState<"signin" | "signup">("signin");
+  const [tab, setTab] = useState<"signin" | "signup" | "forgot" | "reset">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -23,9 +23,23 @@ const Auth = () => {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  const isRecovering = tab === "reset" || (window.location.hash && window.location.hash.includes("type=recovery"));
 
+  useEffect(() => {
+    if (window.location.hash && window.location.hash.includes("type=recovery")) {
+      setTab("reset");
+    }
 
-  if (!loading && user) {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === "PASSWORD_RECOVERY") {
+        setTab("reset");
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  if (!loading && user && !isRecovering) {
     return <Navigate to={redirectTo} replace />;
   }
 
@@ -33,7 +47,31 @@ const Auth = () => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      if (tab === "signin") {
+      if (tab === "forgot") {
+        const localUsersStr = localStorage.getItem("rbac_users");
+        if (localUsersStr) {
+          const localUsers = JSON.parse(localUsersStr);
+          if (Array.isArray(localUsers)) {
+            const matchedUser = localUsers.find((u) => u.email === email);
+            if (matchedUser) {
+              toast.success("Password reset link sent (Mocked for local RBAC user)!");
+              setSubmitting(false);
+              return;
+            }
+          }
+        }
+
+        const { error } = await supabase.auth.resetPasswordForEmail(email, {
+          redirectTo: window.location.origin + "/auth",
+        });
+        if (error) throw error;
+        toast.success("Password reset email sent!");
+      } else if (tab === "reset") {
+        const { error } = await supabase.auth.updateUser({ password });
+        if (error) throw error;
+        toast.success("Password updated successfully! You can now sign in.");
+        setTab("signin");
+      } else if (tab === "signin") {
         // Superadmin bypass
         if (email === "superadmin@gmail.com" && password === "SuperAdm@123") {
           localStorage.setItem(
@@ -202,7 +240,7 @@ const Auth = () => {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
         toast.success("Welcome back!");
-      } else {
+      } else if (tab === "signup") {
         const { error: signUpError } = await supabase.auth.signUp({
           email,
           password,
@@ -315,38 +353,44 @@ const Auth = () => {
           </div>
 
           <h1 className="font-serif-display mb-2 text-center text-[30px] font-normal tracking-[-0.5px]">
-            {tab === "signin" ? "Welcome back" : "Create your account"}
+            {tab === "signin" && "Welcome back"}
+            {tab === "signup" && "Create your account"}
+            {tab === "forgot" && "Reset your password"}
+            {tab === "reset" && "Set new password"}
           </h1>
           <p className="mb-8 text-center text-[13.5px] text-[#b0aba4]">
-            {tab === "signin"
-              ? "Sign in to continue captioning"
-              : "Start captioning videos for free"}
+            {tab === "signin" && "Sign in to continue captioning"}
+            {tab === "signup" && "Start captioning videos for free"}
+            {tab === "forgot" && "We'll send you a password reset link to your email."}
+            {tab === "reset" && "Enter a new password for your account."}
           </p>
 
-          <div className="mb-7 flex gap-[3px] rounded-[9px] bg-[#f5f3ee] p-[3px]">
-            <button
-              type="button"
-              onClick={() => setTab("signin")}
-              className={`flex-1 rounded-[7px] px-2 py-2 text-[13px] transition ${
-                tab === "signin"
-                  ? "bg-white font-medium text-[#1a1a1a] shadow-[0_1px_4px_rgba(26,26,26,0.08)]"
-                  : "text-[#666]"
-              }`}
-            >
-              Sign in
-            </button>
-            <button
-              type="button"
-              onClick={() => setTab("signup")}
-              className={`flex-1 rounded-[7px] px-2 py-2 text-[13px] transition ${
-                tab === "signup"
-                  ? "bg-white font-medium text-[#1a1a1a] shadow-[0_1px_4px_rgba(26,26,26,0.08)]"
-                  : "text-[#666]"
-              }`}
-            >
-              Create account
-            </button>
-          </div>
+          {(tab === "signin" || tab === "signup") && (
+            <div className="mb-7 flex gap-[3px] rounded-[9px] bg-[#f5f3ee] p-[3px]">
+              <button
+                type="button"
+                onClick={() => setTab("signin")}
+                className={`flex-1 rounded-[7px] px-2 py-2 text-[13px] transition ${
+                  tab === "signin"
+                    ? "bg-white font-medium text-[#1a1a1a] shadow-[0_1px_4px_rgba(26,26,26,0.08)]"
+                    : "text-[#666]"
+                }`}
+              >
+                Sign in
+              </button>
+              <button
+                type="button"
+                onClick={() => setTab("signup")}
+                className={`flex-1 rounded-[7px] px-2 py-2 text-[13px] transition ${
+                  tab === "signup"
+                    ? "bg-white font-medium text-[#1a1a1a] shadow-[0_1px_4px_rgba(26,26,26,0.08)]"
+                    : "text-[#666]"
+                }`}
+              >
+                Create account
+              </button>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit}>
             {tab === "signup" && (
@@ -363,82 +407,113 @@ const Auth = () => {
                 />
               </div>
             )}
-            <div className="mb-[18px]">
-              <label htmlFor="email" className={labelCls}>Email address</label>
-              <input
-                id="email"
-                type="email"
-                autoComplete="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className={inputCls}
-                placeholder="you@example.com"
-              />
-            </div>
-            <div className="mb-[18px]">
-              <label htmlFor="password" className={labelCls}>Password</label>
-              <div className="relative w-full">
+            {(tab === "signin" || tab === "signup" || tab === "forgot") && (
+              <div className="mb-[18px]">
+                <label htmlFor="email" className={labelCls}>Email address</label>
                 <input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  autoComplete={tab === "signin" ? "current-password" : "new-password"}
-                  minLength={tab === "signup" ? 6 : undefined}
+                  id="email"
+                  type="email"
+                  autoComplete="email"
                   required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className={`${inputCls} pr-24`}
-                  placeholder="••••••••"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className={inputCls}
+                  placeholder="you@example.com"
                 />
-                <div className="absolute right-2 top-1/2 z-10 -translate-y-1/2 flex items-center gap-0.5">
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="text-neutral-400 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors focus:outline-none flex items-center justify-center p-2 cursor-pointer"
-                    aria-label={showPassword ? "Hide password" : "Show password"}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-5 w-5" />
-                    ) : (
-                      <Eye className="h-5 w-5" />
-                    )}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleCopyPassword}
-                    className="text-neutral-400 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors focus:outline-none flex items-center justify-center p-2 cursor-pointer"
-                    aria-label="Copy password"
-                  >
-                    <Copy className="h-5 w-5" />
-                  </button>
+              </div>
+            )}
+            {(tab === "signin" || tab === "signup" || tab === "reset") && (
+              <div className="mb-[18px]">
+                <div className="flex justify-between items-center mb-[7px]">
+                  <label htmlFor="password" className={labelCls + " mb-0"}>Password</label>
+                  {tab === "signin" && (
+                    <button
+                      type="button"
+                      onClick={() => setTab("forgot")}
+                      className="text-[12.5px] font-medium text-[#ff5c3a] hover:underline focus:outline-none bg-transparent border-none cursor-pointer"
+                    >
+                      Forgot password?
+                    </button>
+                  )}
+                </div>
+                <div className="relative w-full">
+                  <input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    autoComplete={tab === "signin" ? "current-password" : "new-password"}
+                    minLength={tab === "signup" ? 6 : undefined}
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className={`${inputCls} pr-24`}
+                    placeholder="••••••••"
+                  />
+                  <div className="absolute right-2 top-1/2 z-10 -translate-y-1/2 flex items-center gap-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="text-neutral-400 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors focus:outline-none flex items-center justify-center p-2 cursor-pointer"
+                      aria-label={showPassword ? "Hide password" : "Show password"}
+                    >
+                      {showPassword ? (
+                        <EyeOff className="h-5 w-5" />
+                      ) : (
+                        <Eye className="h-5 w-5" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleCopyPassword}
+                      className="text-neutral-400 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors focus:outline-none flex items-center justify-center p-2 cursor-pointer"
+                      aria-label="Copy password"
+                    >
+                      <Copy className="h-5 w-5" />
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
             <button
               type="submit"
               disabled={submitting}
               className="mt-1 flex w-full items-center justify-center gap-2 rounded-[9px] bg-[#ff5c3a] px-4 py-3 text-[14px] font-medium text-white transition hover:-translate-y-px hover:bg-[#ff7558] hover:shadow-[0_4px_16px_rgba(255,92,58,0.3)] disabled:opacity-60 disabled:hover:translate-y-0"
             >
               {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              {tab === "signin" ? "Continue" : "Create account"}
+              {tab === "signin" && "Continue"}
+              {tab === "signup" && "Create account"}
+              {tab === "forgot" && "Send reset link"}
+              {tab === "reset" && "Save new password"}
             </button>
+            {(tab === "forgot" || tab === "reset") && (
+              <button
+                type="button"
+                onClick={() => setTab("signin")}
+                className="mt-4 text-center text-xs text-[#ff5c3a] hover:underline block w-full focus:outline-none bg-transparent border-none cursor-pointer"
+              >
+                Back to sign in
+              </button>
+            )}
           </form>
 
-          <div className="my-5 flex items-center gap-3 text-xs text-[#b0aba4]">
-            <div className="h-px flex-1 bg-[#e8e4de]" />
-            or
-            <div className="h-px flex-1 bg-[#e8e4de]" />
-          </div>
+          {(tab === "signin" || tab === "signup") && (
+            <>
+              <div className="my-5 flex items-center gap-3 text-xs text-[#b0aba4]">
+                <div className="h-px flex-1 bg-[#e8e4de]" />
+                or
+                <div className="h-px flex-1 bg-[#e8e4de]" />
+              </div>
 
-          <button
-            type="button"
-            onClick={handleGoogle}
-            disabled={googleLoading}
-            className="flex w-full items-center justify-center gap-2.5 rounded-[9px] border border-[#e8e4de] bg-white px-4 py-2.5 text-[13.5px] text-[#666] transition hover:border-[#b0aba4] hover:text-[#1a1a1a] disabled:opacity-60"
-          >
-            {googleLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon className="h-4 w-4" />}
-            Continue with Google
-          </button>
+              <button
+                type="button"
+                onClick={handleGoogle}
+                disabled={googleLoading}
+                className="flex w-full items-center justify-center gap-2.5 rounded-[9px] border border-[#e8e4de] bg-white px-4 py-2.5 text-[13.5px] text-[#666] transition hover:border-[#b0aba4] hover:text-[#1a1a1a] disabled:opacity-60"
+              >
+                {googleLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon className="h-4 w-4" />}
+                Continue with Google
+              </button>
+            </>
+          )}
 
           <p className="mt-5 text-center text-xs text-[#b0aba4]">
             By continuing you agree to our{" "}
