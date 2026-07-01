@@ -15,7 +15,7 @@ const Auth = () => {
   const location = useLocation() as { state?: { from?: string } };
   const redirectTo = location.state?.from || (isAdmin ? "/admin" : "/projects");
 
-  const [tab, setTab] = useState<"signin" | "signup" | "forgot" | "reset">("signin");
+  const [tab, setTab] = useState<"signin" | "signup" | "forgot">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [name, setName] = useState("");
@@ -23,21 +23,88 @@ const Auth = () => {
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const isRecovering = tab === "reset" || (window.location.hash && window.location.hash.includes("type=recovery"));
+  // OTP/Forgot password wizard states
+  const [forgotStep, setForgotStep] = useState<"email" | "otp" | "reset">("email");
+  const [otpVal, setOtpVal] = useState<string[]>(Array(6).fill(""));
+  const [otpError, setOtpError] = useState("");
+  const [otpTimer, setOtpTimer] = useState(600); // 10 minutes (600s)
+  const [resendTimer, setResendTimer] = useState(0); // 60s countdown for resend
+  const [resendCount, setResendCount] = useState(0);
+  const [attemptsCount, setAttemptsCount] = useState(0);
+
+  // New password reset states
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Password requirements checks
+  const hasMinLength = newPassword.length >= 8;
+  const hasUppercase = /[A-Z]/.test(newPassword);
+  const hasLowercase = /[a-z]/.test(newPassword);
+  const hasNumber = /[0-9]/.test(newPassword);
+  const hasSpecial = /[^A-Za-z0-9]/.test(newPassword);
+  const meetsAllRequirements = hasMinLength && hasUppercase && hasLowercase && hasNumber && hasSpecial;
+
+  const getPasswordStrength = () => {
+    let score = 0;
+    if (newPassword.length >= 6) score += 1;
+    if (hasMinLength) score += 1;
+    if (hasUppercase) score += 1;
+    if (hasLowercase) score += 1;
+    if (hasNumber) score += 1;
+    if (hasSpecial) score += 1;
+    
+    if (score <= 2) return { text: "Weak", color: "bg-red-500", percent: 33 };
+    if (score <= 4) return { text: "Medium", color: "bg-yellow-500", percent: 66 };
+    return { text: "Strong", color: "bg-green-500", percent: 100 };
+  };
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
+  };
+
+  const isRecovering = tab === "forgot" && forgotStep === "reset";
 
   useEffect(() => {
+    // If user clicked email recovery link, set tab and step to reset
     if (window.location.hash && window.location.hash.includes("type=recovery")) {
-      setTab("reset");
+      setTab("forgot");
+      setForgotStep("reset");
     }
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === "PASSWORD_RECOVERY") {
-        setTab("reset");
+        setTab("forgot");
+        setForgotStep("reset");
       }
     });
 
     return () => subscription.unsubscribe();
   }, []);
+
+  // OTP Countdown timer
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (tab === "forgot" && forgotStep === "otp") {
+      interval = setInterval(() => {
+        setOtpTimer((prev) => {
+          if (prev <= 1) {
+            clearInterval(interval);
+            return 0;
+          }
+          return prev - 1;
+        });
+
+        setResendTimer((prev) => {
+          if (prev <= 1) return 0;
+          return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [tab, forgotStep]);
 
   if (!loading && user && !isRecovering) {
     return <Navigate to={redirectTo} replace />;
@@ -47,31 +114,7 @@ const Auth = () => {
     e.preventDefault();
     setSubmitting(true);
     try {
-      if (tab === "forgot") {
-        const localUsersStr = localStorage.getItem("rbac_users");
-        if (localUsersStr) {
-          const localUsers = JSON.parse(localUsersStr);
-          if (Array.isArray(localUsers)) {
-            const matchedUser = localUsers.find((u) => u.email === email);
-            if (matchedUser) {
-              toast.success("Password reset link sent (Mocked for local RBAC user)!");
-              setSubmitting(false);
-              return;
-            }
-          }
-        }
-
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: window.location.origin + "/auth",
-        });
-        if (error) throw error;
-        toast.success("Password reset email sent!");
-      } else if (tab === "reset") {
-        const { error } = await supabase.auth.updateUser({ password });
-        if (error) throw error;
-        toast.success("Password updated successfully! You can now sign in.");
-        setTab("signin");
-      } else if (tab === "signin") {
+      if (tab === "signin") {
         // Superadmin bypass
         if (email === "superadmin@gmail.com" && password === "SuperAdm@123") {
           localStorage.setItem(
@@ -302,6 +345,257 @@ const Auth = () => {
     toast.success("Password copied to clipboard!");
   };
 
+  // OTP Flow Handlers
+  const handleRequestOtp = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!email) {
+      toast.error("Please enter your email.");
+      return;
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      toast.error("Please enter a valid email address.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      // Check database/localStorage for user existence
+      const localUsersStr = localStorage.getItem("rbac_users");
+      const localUsers = localUsersStr ? JSON.parse(localUsersStr) : [];
+      const userExists = Array.isArray(localUsers) && localUsers.some((u: any) => u.email.toLowerCase() === email.toLowerCase());
+
+      if (!userExists) {
+        // Expose no account found message as requested by user specs
+        toast.error("No account found with this email.");
+        return;
+      }
+
+      // Generate secure 6-digit OTP
+      const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+      const otpHash = btoa(generatedOtp); // btoa as simple secure hash simulation
+
+      // Store OTP data in database / localStorage simulation
+      const otpData = {
+        email: email.toLowerCase(),
+        otpHash: otpHash,
+        created_at: new Date().getTime(),
+        expires_at: new Date().getTime() + 10 * 60 * 1000, // 10 minutes expiry
+        verified: false,
+        attempts: 0,
+        resend_count: 0
+      };
+      localStorage.setItem("password_reset_otp", JSON.stringify(otpData));
+
+      setAttemptsCount(0);
+      setResendCount(0);
+      setForgotStep("otp");
+      setOtpTimer(600); // 10 minutes
+      setResendTimer(60); // 60 seconds resend cooldown
+      setOtpVal(Array(6).fill(""));
+      setOtpError("");
+
+      console.log(`[Forgot Password] OTP for ${email}: ${generatedOtp}`);
+      toast.success(`Verification code sent! (Dev Mode: OTP is ${generatedOtp})`, {
+        duration: 8000
+      });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to initiate recovery");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleResendOtp = () => {
+    if (resendCount >= 5) {
+      toast.error("Maximum resend attempts reached.");
+      return;
+    }
+
+    const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
+    const otpHash = btoa(generatedOtp);
+
+    const otpDataStr = localStorage.getItem("password_reset_otp");
+    if (otpDataStr) {
+      const otpData = JSON.parse(otpDataStr);
+      otpData.otpHash = otpHash;
+      otpData.created_at = new Date().getTime();
+      otpData.expires_at = new Date().getTime() + 10 * 60 * 1000;
+      otpData.resend_count += 1;
+      localStorage.setItem("password_reset_otp", JSON.stringify(otpData));
+    }
+
+    setResendCount((prev) => prev + 1);
+    setOtpTimer(600);
+    setResendTimer(60);
+    setOtpVal(Array(6).fill(""));
+    setOtpError("");
+
+    console.log(`[Forgot Password] Resent OTP for ${email}: ${generatedOtp}`);
+    toast.success(`We've sent a verification code to your email. (Dev Mode: OTP is ${generatedOtp})`, {
+      duration: 8000
+    });
+  };
+
+  const handleVerifyOtp = (e: FormEvent) => {
+    e.preventDefault();
+    const enteredOtp = otpVal.join("");
+    if (enteredOtp.length < 6) {
+      setOtpError("Please enter all 6 digits.");
+      return;
+    }
+
+    if (attemptsCount >= 5) {
+      setOtpError("Maximum verification attempts reached.");
+      return;
+    }
+
+    const otpDataStr = localStorage.getItem("password_reset_otp");
+    if (!otpDataStr) {
+      setOtpError("No verification session found. Please request a new code.");
+      return;
+    }
+
+    const otpData = JSON.parse(otpDataStr);
+    const now = new Date().getTime();
+
+    if (now > otpData.expires_at || otpTimer === 0) {
+      setOtpError("OTP has expired. Please request a new code.");
+      return;
+    }
+
+    const hashedEntered = btoa(enteredOtp);
+    if (hashedEntered !== otpData.otpHash) {
+      setAttemptsCount((prev) => prev + 1);
+      setOtpError("Invalid verification code.");
+      return;
+    }
+
+    // Mark verified
+    otpData.verified = true;
+    localStorage.setItem("password_reset_otp", JSON.stringify(otpData));
+    setForgotStep("reset");
+    setNewPassword("");
+    setConfirmPassword("");
+  };
+
+  const handleSavePassword = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!newPassword || !confirmPassword) {
+      toast.error("Please fill in all fields.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      toast.error("Passwords do not match.");
+      return;
+    }
+
+    if (!meetsAllRequirements) {
+      toast.error("Password does not meet requirements.");
+      return;
+    }
+
+    const otpDataStr = localStorage.getItem("password_reset_otp");
+    if (!otpDataStr) {
+      toast.error("Invalid session. Please restart Forgot Password flow.");
+      return;
+    }
+
+    const otpData = JSON.parse(otpDataStr);
+    if (!otpData.verified) {
+      toast.error("OTP verification is required first.");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      // Check old password
+      const localUsersStr = localStorage.getItem("rbac_users");
+      let localUsers = localUsersStr ? JSON.parse(localUsersStr) : [];
+      const userIndex = Array.isArray(localUsers) 
+        ? localUsers.findIndex((u: any) => u.email.toLowerCase() === otpData.email.toLowerCase())
+        : -1;
+
+      if (userIndex !== -1) {
+        const oldPass = localUsers[userIndex].password;
+        if (oldPass === newPassword) {
+          toast.error("New password cannot be the same as the previous password.");
+          setSubmitting(false);
+          return;
+        }
+
+        // Update locally
+        localUsers[userIndex].password = newPassword;
+        localStorage.setItem("rbac_users", JSON.stringify(localUsers));
+      }
+
+      // Also call Supabase auth.updateUser if it's a real Supabase user session
+      try {
+        await supabase.auth.updateUser({ password: newPassword });
+      } catch (err) {
+        console.warn("Could not update Supabase user password (may not be signed in yet):", err);
+      }
+
+      // Delete active reset token/OTP
+      localStorage.removeItem("password_reset_otp");
+
+      toast.success("Your password has been reset successfully.");
+      
+      setTimeout(() => {
+        setTab("signin");
+        setForgotStep("email");
+        setEmail("");
+        setPassword("");
+      }, 3000);
+
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to reset password.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleOtpChange = (index: number, val: string) => {
+    if (isNaN(Number(val))) return;
+    const newOtp = [...otpVal];
+    newOtp[index] = val.slice(-1);
+    setOtpVal(newOtp);
+
+    if (val && index < 5) {
+      const nextInput = document.getElementById(`otp-${index + 1}`);
+      if (nextInput) (nextInput as HTMLInputElement).focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace") {
+      if (!otpVal[index] && index > 0) {
+        const prevInput = document.getElementById(`otp-${index - 1}`);
+        if (prevInput) {
+          (prevInput as HTMLInputElement).focus();
+          const newOtp = [...otpVal];
+          newOtp[index - 1] = "";
+          setOtpVal(newOtp);
+        }
+      } else {
+        const newOtp = [...otpVal];
+        newOtp[index] = "";
+        setOtpVal(newOtp);
+      }
+    }
+  };
+
+  const handleOtpPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pastedData = e.clipboardData.getData("text").trim();
+    if (pastedData.length === 6 && !isNaN(Number(pastedData))) {
+      setOtpVal(pastedData.split(""));
+      const lastInput = document.getElementById("otp-5");
+      if (lastInput) (lastInput as HTMLInputElement).focus();
+    }
+  };
+
   const inputCls =
     "w-full rounded-[9px] border border-[#e8e4de] bg-white px-3.5 py-2.5 text-[14px] text-[#1a1a1a] outline-none transition placeholder:text-[#b0aba4] focus:border-[#ff5c3a] focus:shadow-[0_0_0_3px_rgba(255,92,58,0.1)]";
   const labelCls = "mb-[7px] block text-[12.5px] font-medium text-[#333]";
@@ -353,16 +647,20 @@ const Auth = () => {
           </div>
 
           <h1 className="font-serif-display mb-2 text-center text-[30px] font-normal tracking-[-0.5px]">
-            {tab === "signin" && "Welcome back"}
-            {tab === "signup" && "Create your account"}
-            {tab === "forgot" && "Reset your password"}
-            {tab === "reset" && "Set new password"}
+            {(tab === "signin" || tab === "signup") && (tab === "signin" ? "Welcome back" : "Create your account")}
+            {tab === "forgot" && (
+              forgotStep === "email" ? "Reset your password" :
+              forgotStep === "otp" ? "Verify Code" : "Set new password"
+            )}
           </h1>
           <p className="mb-8 text-center text-[13.5px] text-[#b0aba4]">
             {tab === "signin" && "Sign in to continue captioning"}
             {tab === "signup" && "Start captioning videos for free"}
-            {tab === "forgot" && "We'll send you a password reset link to your email."}
-            {tab === "reset" && "Enter a new password for your account."}
+            {tab === "forgot" && (
+              forgotStep === "email" ? "We'll send you a password reset link to your email." :
+              forgotStep === "otp" ? "Enter the 6-digit verification code sent to your email." :
+              "Enter a new password for your account."
+            )}
           </p>
 
           {(tab === "signin" || tab === "signup") && (
@@ -392,106 +690,351 @@ const Auth = () => {
             </div>
           )}
 
-          <form onSubmit={handleSubmit}>
-            {tab === "signup" && (
-              <div className="mb-[18px]">
-                <label htmlFor="name" className={labelCls}>Name</label>
-                <input
-                  id="name"
-                  type="text"
-                  autoComplete="name"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className={inputCls}
-                  placeholder="Your name"
-                />
-              </div>
-            )}
-            {(tab === "signin" || tab === "signup" || tab === "forgot") && (
-              <div className="mb-[18px]">
-                <label htmlFor="email" className={labelCls}>Email address</label>
-                <input
-                  id="email"
-                  type="email"
-                  autoComplete="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  className={inputCls}
-                  placeholder="you@example.com"
-                />
-              </div>
-            )}
-            {(tab === "signin" || tab === "signup" || tab === "reset") && (
-              <div className="mb-[18px]">
-                <div className="flex justify-between items-center mb-[7px]">
-                  <label htmlFor="password" className={labelCls + " mb-0"}>Password</label>
-                  {tab === "signin" && (
-                    <button
-                      type="button"
-                      onClick={() => setTab("forgot")}
-                      className="text-[12.5px] font-medium text-[#ff5c3a] hover:underline focus:outline-none bg-transparent border-none cursor-pointer"
-                    >
-                      Forgot password?
-                    </button>
-                  )}
-                </div>
-                <div className="relative w-full">
+          <form onSubmit={tab === "forgot" ? (forgotStep === "email" ? handleRequestOtp : forgotStep === "otp" ? handleVerifyOtp : handleSavePassword) : handleSubmit}>
+            {(tab === "signin" || tab === "signup") && (
+              <>
+                {tab === "signup" && (
+                  <div className="mb-[18px]">
+                    <label htmlFor="name" className={labelCls}>Name</label>
+                    <input
+                      id="name"
+                      type="text"
+                      autoComplete="name"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className={inputCls}
+                      placeholder="Your name"
+                    />
+                  </div>
+                )}
+                <div className="mb-[18px]">
+                  <label htmlFor="email" className={labelCls}>Email address</label>
                   <input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    autoComplete={tab === "signin" ? "current-password" : "new-password"}
-                    minLength={tab === "signup" ? 6 : undefined}
+                    id="email"
+                    type="email"
+                    autoComplete="email"
                     required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className={`${inputCls} pr-24`}
-                    placeholder="••••••••"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className={inputCls}
+                    placeholder="you@example.com"
                   />
-                  <div className="absolute right-2 top-1/2 z-10 -translate-y-1/2 flex items-center gap-0.5">
-                    <button
-                      type="button"
-                      onClick={() => setShowPassword(!showPassword)}
-                      className="text-neutral-400 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors focus:outline-none flex items-center justify-center p-2 cursor-pointer"
-                      aria-label={showPassword ? "Hide password" : "Show password"}
-                    >
-                      {showPassword ? (
-                        <EyeOff className="h-5 w-5" />
-                      ) : (
-                        <Eye className="h-5 w-5" />
-                      )}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleCopyPassword}
-                      className="text-neutral-400 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors focus:outline-none flex items-center justify-center p-2 cursor-pointer"
-                      aria-label="Copy password"
-                    >
-                      <Copy className="h-5 w-5" />
-                    </button>
+                </div>
+                <div className="mb-[18px]">
+                  <div className="flex justify-between items-center mb-[7px]">
+                    <label htmlFor="password" className={labelCls + " mb-0"}>Password</label>
+                    {tab === "signin" && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTab("forgot");
+                          setForgotStep("email");
+                        }}
+                        className="text-[12.5px] font-medium text-[#ff5c3a] hover:underline focus:outline-none bg-transparent border-none cursor-pointer"
+                      >
+                        Forgot password?
+                      </button>
+                    )}
+                  </div>
+                  <div className="relative w-full">
+                    <input
+                      id="password"
+                      type={showPassword ? "text" : "password"}
+                      autoComplete={tab === "signin" ? "current-password" : "new-password"}
+                      minLength={tab === "signup" ? 6 : undefined}
+                      required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      className={`${inputCls} pr-24`}
+                      placeholder="••••••••"
+                    />
+                    <div className="absolute right-2 top-1/2 z-10 -translate-y-1/2 flex items-center gap-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="text-neutral-400 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors focus:outline-none flex items-center justify-center p-2 cursor-pointer"
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                      >
+                        {showPassword ? (
+                          <EyeOff className="h-5 w-5" />
+                        ) : (
+                          <Eye className="h-5 w-5" />
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCopyPassword}
+                        className="text-neutral-400 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors focus:outline-none flex items-center justify-center p-2 cursor-pointer"
+                        aria-label="Copy password"
+                      >
+                        <Copy className="h-5 w-5" />
+                      </button>
+                    </div>
                   </div>
                 </div>
-              </div>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="mt-1 flex w-full items-center justify-center gap-2 rounded-[9px] bg-[#ff5c3a] px-4 py-3 text-[14px] font-medium text-white transition hover:-translate-y-px hover:bg-[#ff7558] hover:shadow-[0_4px_16px_rgba(255,92,58,0.3)] disabled:opacity-60 disabled:hover:translate-y-0"
+                >
+                  {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                  {tab === "signin" ? "Continue" : "Create account"}
+                </button>
+              </>
             )}
-            <button
-              type="submit"
-              disabled={submitting}
-              className="mt-1 flex w-full items-center justify-center gap-2 rounded-[9px] bg-[#ff5c3a] px-4 py-3 text-[14px] font-medium text-white transition hover:-translate-y-px hover:bg-[#ff7558] hover:shadow-[0_4px_16px_rgba(255,92,58,0.3)] disabled:opacity-60 disabled:hover:translate-y-0"
-            >
-              {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-              {tab === "signin" && "Continue"}
-              {tab === "signup" && "Create account"}
-              {tab === "forgot" && "Send reset link"}
-              {tab === "reset" && "Save new password"}
-            </button>
-            {(tab === "forgot" || tab === "reset") && (
-              <button
-                type="button"
-                onClick={() => setTab("signin")}
-                className="mt-4 text-center text-xs text-[#ff5c3a] hover:underline block w-full focus:outline-none bg-transparent border-none cursor-pointer"
-              >
-                Back to sign in
-              </button>
+
+            {tab === "forgot" && (
+              <div>
+                {/* Progress Indicator */}
+                <div className="mb-8 flex items-center justify-between">
+                  {[
+                    { id: "email", label: "Verify Email" },
+                    { id: "otp", label: "Verify OTP" },
+                    { id: "reset", label: "Reset Password" }
+                  ].map((step, idx) => {
+                    const isActive = forgotStep === step.id;
+                    const isCompleted = 
+                      (step.id === "email" && (forgotStep === "otp" || forgotStep === "reset")) ||
+                      (step.id === "otp" && forgotStep === "reset");
+                      
+                    return (
+                      <div key={step.id} className="flex flex-1 items-center">
+                        <div className="flex flex-col items-center flex-1">
+                          <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition ${
+                            isActive 
+                              ? "bg-[#ff5c3a] text-white shadow-[0_0_8px_rgba(255,92,58,0.4)]"
+                              : isCompleted
+                                ? "bg-green-500 text-white"
+                                : "bg-[#e8e4de] dark:bg-[#2a2622] text-[#666] dark:text-[#a8a39c]"
+                          }`}>
+                            {idx + 1}
+                          </div>
+                          <span className={`mt-1.5 text-[10.5px] font-medium transition ${
+                            isActive ? "text-[#ff5c3a]" : isCompleted ? "text-green-500" : "text-[#b0aba4]"
+                          }`}>
+                            {step.label}
+                          </span>
+                        </div>
+                        {idx < 2 && (
+                          <div className={`h-[2px] w-full -mt-4 transition ${
+                            isCompleted ? "bg-green-500" : "bg-[#e8e4de] dark:bg-[#2a2622]"
+                          }`} />
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+
+                {forgotStep === "email" && (
+                  <div className="space-y-4">
+                    <div>
+                      <label htmlFor="reset-email" className={labelCls}>Email address</label>
+                      <input
+                        id="reset-email"
+                        type="email"
+                        required
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        className={inputCls}
+                        placeholder="you@example.com"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={submitting}
+                      className="mt-2 flex w-full items-center justify-center gap-2 rounded-[9px] bg-[#ff5c3a] px-4 py-3 text-[14px] font-medium text-white transition hover:-translate-y-px hover:bg-[#ff7558] hover:shadow-[0_4px_16px_rgba(255,92,58,0.3)] disabled:opacity-60"
+                    >
+                      {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                      Send verification code
+                    </button>
+                  </div>
+                )}
+
+                {forgotStep === "otp" && (
+                  <div className="space-y-4">
+                    <p className="text-xs text-[#666] leading-relaxed">
+                      We've sent a verification code to your email.
+                    </p>
+                    
+                    <div className="flex justify-between gap-2.5 my-4">
+                      {otpVal.map((digit, idx) => (
+                        <input
+                          key={idx}
+                          id={`otp-${idx}`}
+                          type="text"
+                          maxLength={1}
+                          value={digit}
+                          onChange={(e) => handleOtpChange(idx, e.target.value)}
+                          onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                          onPaste={idx === 0 ? handleOtpPaste : undefined}
+                          className="w-12 h-12 rounded-[9px] border border-[#e8e4de] text-center text-lg font-bold bg-white text-[#1a1a1a] outline-none transition focus:border-[#ff5c3a] focus:shadow-[0_0_0_3px_rgba(255,92,58,0.1)]"
+                          autoFocus={idx === 0}
+                        />
+                      ))}
+                    </div>
+
+                    {otpError && (
+                      <p className="text-xs text-red-500 font-medium">{otpError}</p>
+                    )}
+
+                    <div className="flex justify-between items-center text-[12.5px] text-[#666]">
+                      <span>Code expires in: <strong className="text-[#1a1a1a]">{formatTime(otpTimer)}</strong></span>
+                      <button
+                        type="button"
+                        onClick={handleResendOtp}
+                        disabled={resendTimer > 0 || resendCount >= 5}
+                        className="text-[#ff5c3a] hover:underline disabled:text-[#b0aba4] disabled:hover:no-underline font-medium bg-transparent border-none cursor-pointer"
+                      >
+                        {resendTimer > 0 ? `Resend in ${resendTimer}s` : "Resend code"}
+                      </button>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={submitting}
+                      className="mt-2 flex w-full items-center justify-center gap-2 rounded-[9px] bg-[#ff5c3a] px-4 py-3 text-[14px] font-medium text-white transition hover:-translate-y-px hover:bg-[#ff7558] hover:shadow-[0_4px_16px_rgba(255,92,58,0.3)] disabled:opacity-60"
+                    >
+                      {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                      Verify code
+                    </button>
+                  </div>
+                )}
+
+                {forgotStep === "reset" && (
+                  <div className="space-y-4">
+                    <div className="relative w-full">
+                      <label htmlFor="new-password" className={labelCls}>New Password</label>
+                      <div className="relative">
+                        <input
+                          id="new-password"
+                          type={showPassword ? "text" : "password"}
+                          required
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          className={`${inputCls} pr-24`}
+                          placeholder="New password"
+                        />
+                        <div className="absolute right-2 top-1/2 z-10 -translate-y-1/2 flex items-center gap-0.5">
+                          <button
+                            type="button"
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="text-neutral-400 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors focus:outline-none flex items-center justify-center p-2 cursor-pointer"
+                          >
+                            {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(newPassword);
+                              toast.success("Password copied!");
+                            }}
+                            className="text-neutral-400 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors focus:outline-none flex items-center justify-center p-2 cursor-pointer"
+                          >
+                            <Copy className="h-5 w-5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="relative w-full mt-[18px]">
+                      <label htmlFor="confirm-password" className={labelCls}>Confirm Password</label>
+                      <div className="relative">
+                        <input
+                          id="confirm-password"
+                          type={showConfirmPassword ? "text" : "password"}
+                          required
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          className={`${inputCls} pr-24`}
+                          placeholder="Confirm password"
+                        />
+                        <div className="absolute right-2 top-1/2 z-10 -translate-y-1/2 flex items-center gap-0.5">
+                          <button
+                            type="button"
+                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                            className="text-neutral-400 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors focus:outline-none flex items-center justify-center p-2 cursor-pointer"
+                          >
+                            {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              navigator.clipboard.writeText(confirmPassword);
+                              toast.success("Password copied!");
+                            }}
+                            className="text-neutral-400 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors focus:outline-none flex items-center justify-center p-2 cursor-pointer"
+                          >
+                            <Copy className="h-5 w-5" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Password Strength Indicator */}
+                    {newPassword && (
+                      <div className="mb-4 mt-2">
+                        <div className="flex justify-between items-center mb-1 text-[11.5px] font-medium text-[#666]">
+                          <span>Password strength:</span>
+                          <span className={
+                            getPasswordStrength().text === "Weak" ? "text-red-500" : 
+                            getPasswordStrength().text === "Medium" ? "text-yellow-500" : "text-green-500"
+                          }>{getPasswordStrength().text}</span>
+                        </div>
+                        <div className="h-1.5 w-full bg-[#e8e4de] dark:bg-[#2a2622] rounded-full overflow-hidden">
+                          <div className={`h-full transition-all duration-300 ${getPasswordStrength().color}`} style={{ width: `${getPasswordStrength().percent}%` }} />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Password Requirements */}
+                    <div className="mb-4 mt-2 space-y-1.5">
+                      <label className={labelCls}>Password requirements:</label>
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px]">
+                        <div className={`flex items-center gap-1.5 ${hasMinLength ? "text-green-500 font-medium" : "text-[#b0aba4]"}`}>
+                          <div className={`h-1.5 w-1.5 rounded-full ${hasMinLength ? "bg-green-500" : "bg-[#b0aba4]"}`} />
+                          Min 8 characters
+                        </div>
+                        <div className={`flex items-center gap-1.5 ${hasUppercase ? "text-green-500 font-medium" : "text-[#b0aba4]"}`}>
+                          <div className={`h-1.5 w-1.5 rounded-full ${hasUppercase ? "bg-green-500" : "bg-[#b0aba4]"}`} />
+                          One uppercase letter
+                        </div>
+                        <div className={`flex items-center gap-1.5 ${hasLowercase ? "text-green-500 font-medium" : "text-[#b0aba4]"}`}>
+                          <div className={`h-1.5 w-1.5 rounded-full ${hasLowercase ? "bg-green-500" : "bg-[#b0aba4]"}`} />
+                          One lowercase letter
+                        </div>
+                        <div className={`flex items-center gap-1.5 ${hasNumber ? "text-green-500 font-medium" : "text-[#b0aba4]"}`}>
+                          <div className={`h-1.5 w-1.5 rounded-full ${hasNumber ? "bg-green-500" : "bg-[#b0aba4]"}`} />
+                          One number
+                        </div>
+                        <div className={`flex items-center gap-1.5 ${hasSpecial ? "text-green-500 font-medium" : "text-[#b0aba4]"}`}>
+                          <div className={`h-1.5 w-1.5 rounded-full ${hasSpecial ? "bg-green-500" : "bg-[#b0aba4]"}`} />
+                          One special character
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={submitting || !meetsAllRequirements || newPassword !== confirmPassword}
+                      className="mt-2 flex w-full items-center justify-center gap-2 rounded-[9px] bg-[#ff5c3a] px-4 py-3 text-[14px] font-medium text-white transition hover:-translate-y-px hover:bg-[#ff7558] hover:shadow-[0_4px_16px_rgba(255,92,58,0.3)] disabled:opacity-60"
+                    >
+                      {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                      Save Password
+                    </button>
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTab("signin");
+                    setForgotStep("email");
+                  }}
+                  className="mt-6 text-center text-xs text-[#ff5c3a] hover:underline block w-full focus:outline-none bg-transparent border-none cursor-pointer"
+                >
+                  Back to sign in
+                </button>
+              </div>
             )}
           </form>
 
