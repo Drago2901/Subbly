@@ -16,6 +16,12 @@ import {
   Wand2,
   Sun,
   Moon,
+  Plus,
+  Type,
+  Layers,
+  Palette,
+  ChevronsUpDown,
+  MoreVertical,
 } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { supabase } from "@/integrations/supabase/client";
@@ -46,6 +52,7 @@ import { CaptionList } from "@/components/captionly/CaptionList";
 import { StylePanel } from "@/components/captionly/StylePanel";
 import { Timeline } from "@/components/captionly/Timeline";
 import { ExportProgressDialog } from "@/components/captionly/ExportProgressDialog";
+import { ExportSuccessDialog } from "@/components/captionly/ExportSuccessDialog";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { AvatarDropdown } from "@/components/AvatarDropdown";
 import { wordsToCaptions } from "@/lib/captions/segment";
@@ -119,7 +126,7 @@ const FRAME_PRESETS: FramePreset[] = [
 ];
 
 // Helper to safely invoke a Supabase Edge Function and parse details from non-2xx errors
-const invokeEdgeFunction = async (name: string, options?: any) => {
+const invokeEdgeFunction = async (name: string, options?: { headers?: Record<string, string>; body?: unknown }) => {
   const { data, error } = await supabase.functions.invoke(name, options);
   if (error) {
     let message = error.message || "An error occurred calling the edge function";
@@ -146,12 +153,88 @@ const invokeEdgeFunction = async (name: string, options?: any) => {
   return data;
 };
 
+const formatTime = (secs: number) => {
+  if (isNaN(secs) || secs < 0) return "0:00";
+  const m = Math.floor(secs / 60);
+  const s = Math.floor(secs % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+};
+
+const CondensedTimeline = ({
+  duration,
+  currentTime,
+  onSeek,
+}: {
+  duration: number;
+  currentTime: number;
+  onSeek: (t: number) => void;
+}) => {
+  const bars = useMemo(() => {
+    let seed = 123;
+    const rand = () => {
+      seed = (seed * 1664525 + 1013904223) & 0x7fffffff;
+      return Math.abs(seed) / 0x7fffffff;
+    };
+    return Array.from({ length: 60 }, (_, i) => 0.25 + rand() * 0.75);
+  }, []);
+
+  const progressPct = duration > 0 ? (currentTime / duration) * 100 : 0;
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    const rect = el.getBoundingClientRect();
+    const update = (clientX: number) => {
+      const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+      onSeek(pct * duration);
+    };
+    update(e.clientX);
+    
+    const onMouseMove = (ev: PointerEvent) => update(ev.clientX);
+    const onMouseUp = () => {
+      window.removeEventListener("pointermove", onMouseMove);
+      window.removeEventListener("pointerup", onMouseUp);
+    };
+    window.addEventListener("pointermove", onMouseMove);
+    window.addEventListener("pointerup", onMouseUp);
+  };
+
+  return (
+    <div 
+      onPointerDown={handlePointerDown}
+      className="relative flex-1 h-8 bg-neutral-100 dark:bg-neutral-900 rounded-lg flex items-center gap-0.5 px-2 cursor-pointer overflow-hidden border border-[#e8e4de] dark:border-neutral-800"
+    >
+      {bars.map((h, i) => {
+        const barProgress = (i / bars.length) * 100;
+        const active = barProgress <= progressPct;
+        return (
+          <div
+            key={i}
+            className="flex-grow rounded-[1px]"
+            style={{
+              height: `${h * 70}%`,
+              minHeight: "4px",
+              backgroundColor: active ? "#10b981" : "#d1d5db",
+            }}
+          />
+        );
+      })}
+      {/* Playhead */}
+      <div 
+        className="absolute top-0 bottom-0 w-[2px] bg-[#ff5c3a] z-10"
+        style={{ left: `${progressPct}%` }}
+      />
+    </div>
+  );
+};
+
 const Editor = () => {
 
   const { user, signOut } = useAuth();
   const { theme, toggle: toggleTheme } = useTheme();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
+  const [activeMobileTab, setActiveMobileTab] = useState<"captions" | "style" | "anim" | "tmpl" | "brand">("style");
+  const [timelineExpanded, setTimelineExpanded] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const projectId = searchParams.get("project");
   const [isPlaying, setIsPlaying] = useState(false);
@@ -167,6 +250,27 @@ const Editor = () => {
   const [framePreset, setFramePreset] = useState<FramePreset>(FRAME_PRESETS[0]);
   const [exporting, setExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
+  const [exportResult, setExportResult] = useState<{
+    fileName: string;
+    fileSize: number;
+    duration: number;
+    videoUrl: string;
+  } | null>(null);
+
+  const closeExportResult = () => {
+    if (exportResult?.videoUrl) {
+      URL.revokeObjectURL(exportResult.videoUrl);
+    }
+    setExportResult(null);
+  };
+
+  const handleExportAnother = () => {
+    if (exportResult?.videoUrl) {
+      URL.revokeObjectURL(exportResult.videoUrl);
+    }
+    setExportResult(null);
+    navigate(user ? "/projects" : "/");
+  };
   const [saving, setSaving] = useState(false);
   const [autoSaveState, setAutoSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [loadingProject, setLoadingProject] = useState(false);
@@ -200,6 +304,37 @@ const Editor = () => {
       : null;
   }, [framePreset]);
 
+  const handleAddCaptionMobile = () => {
+    let targetTrack = 1;
+    let found = false;
+    for (let t = 1; t <= 6; t++) {
+      if (!lockedTracks.includes(t)) {
+        targetTrack = t;
+        found = true;
+        break;
+      }
+    }
+    if (!found) return;
+
+    const last = captions[captions.length - 1];
+    const start = last ? last.end : 0;
+    const refCap = captions.find((c) => c.x !== undefined);
+    const newCap: Caption = {
+      id: crypto.randomUUID(),
+      start,
+      end: start + 2,
+      text: "New caption",
+      track: targetTrack,
+      x: refCap?.x ?? 0.5,
+      y: refCap?.y ?? 0.88,
+      width: refCap?.width ?? 84,
+      height: refCap?.height,
+      style: refCap?.style ? JSON.parse(JSON.stringify(refCap.style)) : undefined,
+    };
+    setCaptions([...captions, newCap]);
+    toast.success("Caption added");
+  };
+
   const handleCaptionStyleChange = useCallback((id: string, styleUpdate: Partial<CaptionStyle>) => {
     setCaptions((cur) =>
       cur.map((c) =>
@@ -227,6 +362,42 @@ const Editor = () => {
       });
     });
   }, []);
+
+  const handleStyleChange = useCallback((nextStyle: CaptionStyle) => {
+    // 1. Update the base/global style so any future / generating captions use these values
+    setStyle(nextStyle);
+
+    // 2. Update ALL captions to match the new style, keeping only their custom position/box size
+    setCaptions((cur) =>
+      cur.map((c) => {
+        // If the caption has no custom style object, it will inherit the new global style anyway.
+        if (!c.style) {
+          // If it is the selected caption, we give it nextStyle to make sure its style state is set
+          if (selectedCaptionId && c.id === selectedCaptionId) {
+            return {
+              ...c,
+              style: nextStyle,
+            };
+          }
+          return c;
+        }
+
+        // If it does have a custom style object, merge the new style into it,
+        // but preserve its custom position/box dimension settings.
+        const updatedStyle = { ...nextStyle };
+        if (c.style.position !== undefined) updatedStyle.position = c.style.position;
+        if (c.style.posX !== undefined) updatedStyle.posX = c.style.posX;
+        if (c.style.posY !== undefined) updatedStyle.posY = c.style.posY;
+        if (c.style.boxWidth !== undefined) updatedStyle.boxWidth = c.style.boxWidth;
+        if (c.style.boxHeight !== undefined) updatedStyle.boxHeight = c.style.boxHeight;
+
+        return {
+          ...c,
+          style: updatedStyle,
+        };
+      })
+    );
+  }, [selectedCaptionId]);
 
   // Debounced history record
   useEffect(() => {
@@ -795,6 +966,7 @@ const Editor = () => {
       toast.error("Upload a video first.");
       return;
     }
+    const exportStartTime = performance.now();
     const controller = new AbortController();
     exportAbortRef.current = controller;
     setExporting(true);
@@ -856,17 +1028,56 @@ const Editor = () => {
 
       const ext = "mp4";
       const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `captioned-${(title || "video").replace(/[^a-z0-9-_]+/gi, "_")}.${ext}`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
-      toast.success("Export ready — downloading.");
+      const finalFileName = `captioned-${(title || "video").replace(/[^a-z0-9-_]+/gi, "_")}.${ext}`;
+
+      // Calculate final resolution
+      let exportW = 1280;
+      let exportH = 720;
+      if (framePreset && framePreset.id !== "original") {
+        const targetShortDim = quality === "high" ? 1080 : 720;
+        const targetAR = framePreset.width / framePreset.height;
+        if (targetAR >= 1) {
+          exportH = targetShortDim;
+          exportW = Math.round(targetShortDim * targetAR);
+        } else {
+          exportW = targetShortDim;
+          exportH = Math.round(targetShortDim / targetAR);
+        }
+        if (exportW % 2 !== 0) exportW += 1;
+        if (exportH % 2 !== 0) exportH += 1;
+      } else if (meta) {
+        const targetShortDim = quality === "high" ? 1080 : 720;
+        const ar = meta.width / meta.height;
+        if (ar >= 1) {
+          exportH = targetShortDim;
+          exportW = Math.round(targetShortDim * ar);
+        } else {
+          exportW = targetShortDim;
+          exportH = Math.round(targetShortDim / ar);
+        }
+        if (exportW % 2 !== 0) exportW += 1;
+        if (exportH % 2 !== 0) exportH += 1;
+      }
+
+      const totalTimeSec = Math.round((performance.now() - exportStartTime) / 1000);
+
+      toast.success("Export complete!");
+
+      setExportResult({
+        fileName: finalFileName,
+        fileSize: blob.size,
+        duration: meta?.duration || 0,
+        encodingTime: Math.max(1, totalTimeSec),
+        resolution: `${exportW} × ${exportH}`,
+        videoUrl: url,
+      });
 
       // Auto-save the project + the exported video
-      await saveProject({ exportedBlob: blob });
+      try {
+        await saveProject({ exportedBlob: blob });
+      } catch (saveErr) {
+        console.warn("Failed to auto-save exported video to project database:", saveErr);
+      }
     } catch (e) {
       const isAbort = e instanceof ExportCancelledError || controller.signal.aborted;
       if (isAbort) {
@@ -1004,70 +1215,72 @@ const Editor = () => {
         path="/editor"
         noIndex
       />
-      <header className="flex flex-shrink-0 flex-wrap items-center justify-between gap-2 border-b border-[#e8e4de] bg-white px-3 py-2 md:gap-3 md:px-5">
-        <div className="flex min-w-0 flex-1 items-center gap-3">
-          <button
-            onClick={() => {
-              if (window.history.length > 1) {
-                navigate(-1);
-              } else {
-                navigate(user ? "/projects" : "/");
-              }
-            }}
-            className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-[7px] border border-[#e8e4de] bg-white text-[#666] transition hover:bg-[#f5f3ee]"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
-          </button>
-          <div className="flex items-center gap-2">
-            <div className="flex h-7 w-7 items-center justify-center rounded-[7px] bg-[#ff5c3a]">
-              <Sparkles className="h-[15px] w-[15px] text-white" strokeWidth={2} />
-            </div>
-            <span className="hidden text-[14px] font-semibold sm:inline">Captionly</span>
-          </div>
-          <div className="hidden h-[18px] w-px bg-[#e8e4de] sm:block" />
-          <Input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Project title"
-            className="h-8 min-w-0 flex-1 border-transparent bg-transparent px-2 text-[13px] font-medium text-[#1a1a1a] hover:border-[#e8e4de] focus-visible:border-[#e8e4de] focus-visible:ring-0 md:w-60 md:flex-none"
-          />
-          {projectId && autoSaveState !== "idle" && (
-            <span className="hidden flex-shrink-0 items-center gap-1 text-[11px] text-[#aaa] sm:inline-flex">
-              {autoSaveState === "saving" ? (
-                <>
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  Saving…
-                </>
-              ) : (
-                <>
-                  <Check className="h-3 w-3 text-emerald-500" strokeWidth={2.5} />
-                  Saved
-                </>
-              )}
-            </span>
-          )}
-        </div>
-        <div className="flex flex-shrink-0 items-center gap-1.5 md:gap-2">
-          {headerRight}
-          <button
-            onClick={toggleTheme}
-            aria-label="Toggle dark mode"
-            className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#e8e4de] bg-white text-[#666] transition hover:text-[#1a1a1a]"
-          >
-            {theme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
-          </button>
-          {user ? (
-            <AvatarDropdown />
-          ) : (
-            <Link
-              to="/auth"
-              className="inline-flex items-center rounded-lg bg-[#ff5c3a] px-[14px] py-1 text-[12px] font-medium text-white shadow-[0_2px_6px_rgba(255,92,58,0.15)] transition hover:bg-[#ff7558]"
+      {!isMobile && (
+        <header className="flex flex-shrink-0 flex-wrap items-center justify-between gap-2 border-b border-[#e8e4de] bg-white px-3 py-2 md:gap-3 md:px-5">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
+            <button
+              onClick={() => {
+                if (window.history.length > 1) {
+                  navigate(-1);
+                } else {
+                  navigate(user ? "/projects" : "/");
+                }
+              }}
+              className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-[7px] border border-[#e8e4de] bg-white text-[#666] transition hover:bg-[#f5f3ee]"
             >
-              Sign In
-            </Link>
-          )}
-        </div>
-      </header>
+              <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
+            </button>
+            <div className="flex items-center gap-2">
+              <div className="flex h-7 w-7 items-center justify-center rounded-[7px] bg-[#ff5c3a]">
+                <Sparkles className="h-[15px] w-[15px] text-white" strokeWidth={2} />
+              </div>
+              <span className="hidden text-[14px] font-semibold sm:inline">Captionly</span>
+            </div>
+            <div className="hidden h-[18px] w-px bg-[#e8e4de] sm:block" />
+            <Input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Project title"
+              className="h-8 min-w-0 flex-1 border-transparent bg-transparent px-2 text-[13px] font-medium text-[#1a1a1a] hover:border-[#e8e4de] focus-visible:border-[#e8e4de] focus-visible:ring-0 md:w-60 md:flex-none"
+            />
+            {projectId && autoSaveState !== "idle" && (
+              <span className="hidden flex-shrink-0 items-center gap-1 text-[11px] text-[#aaa] sm:inline-flex">
+                {autoSaveState === "saving" ? (
+                  <>
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                    Saving…
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-3 w-3 text-emerald-500" strokeWidth={2.5} />
+                    Saved
+                  </>
+                )}
+              </span>
+            )}
+          </div>
+          <div className="flex flex-shrink-0 items-center gap-1.5 md:gap-2">
+            {headerRight}
+            <button
+              onClick={toggleTheme}
+              aria-label="Toggle dark mode"
+              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#e8e4de] bg-white text-[#666] transition hover:text-[#1a1a1a]"
+            >
+              {theme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+            </button>
+            {user ? (
+              <AvatarDropdown />
+            ) : (
+              <Link
+                to="/auth"
+                className="inline-flex items-center rounded-lg bg-[#ff5c3a] px-[14px] py-1 text-[12px] font-medium text-white shadow-[0_2px_6px_rgba(255,92,58,0.15)] transition hover:bg-[#ff7558]"
+              >
+                Sign In
+              </Link>
+            )}
+          </div>
+        </header>
+      )}
 
       {file && <h1 className="sr-only">Subbly caption editor</h1>}
 
@@ -1160,6 +1373,7 @@ const Editor = () => {
                   }
                   frame={frame}
                   lockedTracks={lockedTracks}
+                  quality={quality}
                 />
               </div>
             </div>
@@ -1171,19 +1385,7 @@ const Editor = () => {
         const stylePanel = (
           <StylePanel
             style={selectedCaption?.style ? { ...style, ...selectedCaption.style } : style}
-            onChange={(nextStyle) => {
-              if (selectedCaptionId) {
-                setCaptions((cur) =>
-                  cur.map((c) =>
-                    c.id === selectedCaptionId
-                      ? { ...c, style: { ...c.style, ...nextStyle } }
-                      : c
-                  )
-                );
-              } else {
-                setStyle(nextStyle);
-              }
-            }}
+            onChange={handleStyleChange}
             selectedCaption={selectedCaption}
             onCaptionChange={(id, patch) => {
               setCaptions((cur) => {
@@ -1346,29 +1548,358 @@ const Editor = () => {
 
             {/* Mobile layout */}
             {isMobile && (
-              <>
-                <div className="flex flex-1 flex-col overflow-hidden bg-white p-2">
-                  <Tabs defaultValue="preview" className="flex flex-1 flex-col overflow-hidden">
-                    <TabsList className="grid w-full grid-cols-3 bg-[#f5f3ee]">
-                      <TabsTrigger value="captions">Captions</TabsTrigger>
-                      <TabsTrigger value="preview">Preview</TabsTrigger>
-                      <TabsTrigger value="style">Style</TabsTrigger>
-                    </TabsList>
-                    <TabsContent value="captions" className="mt-2 flex-1 overflow-hidden rounded-xl border border-[#e8e4de]">
-                      {captionsPanel}
-                    </TabsContent>
-                    <TabsContent value="preview" className="mt-2 flex-1 overflow-hidden rounded-xl border border-[#e8e4de]">
-                      {previewPanel}
-                    </TabsContent>
-                    <TabsContent value="style" className="mt-2 flex-1 overflow-hidden rounded-xl border border-[#e8e4de]">
-                      {stylePanel}
-                    </TabsContent>
-                  </Tabs>
+              <div className="flex flex-1 flex-col overflow-hidden bg-white pb-16">
+                {/* 1. Top Nav Bar (44px tall, fixed at the top of the mobile container) */}
+                <div className="h-11 flex-shrink-0 flex items-center justify-between px-3 border-b border-[#e8e4de] bg-white">
+                  <button
+                    onClick={() => {
+                      if (window.history.length > 1) {
+                        navigate(-1);
+                      } else {
+                        navigate(user ? "/projects" : "/");
+                      }
+                    }}
+                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#e8e4de] text-neutral-500 hover:bg-[#f5f3ee] min-h-[44px] min-w-[44px] cursor-pointer"
+                    aria-label="Back"
+                  >
+                    <ArrowLeft className="h-4 w-4" strokeWidth={2.2} />
+                  </button>
+                  
+                  <span className="text-[13px] font-semibold text-neutral-800 max-w-[160px] truncate">
+                    {title}
+                  </span>
+
+                  <div className="flex items-center gap-1">
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <button
+                          type="button"
+                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#e8e4de] text-neutral-500 hover:bg-[#f5f3ee] min-h-[44px] min-w-[44px] cursor-pointer"
+                          aria-label="Project actions menu"
+                        >
+                          <MoreVertical className="h-4 w-4" />
+                        </button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-44 bg-white border border-[#e8e4de] shadow-lg rounded-xl">
+                        <DropdownMenuLabel className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider px-2 py-1">Actions</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={handleImportSrtClick} className="text-xs cursor-pointer py-2 hover:bg-neutral-50 rounded-lg">Import SRT</DropdownMenuItem>
+                        {captions.length > 0 && (
+                          <DropdownMenuItem onClick={handleExportSrt} className="text-xs cursor-pointer py-2 hover:bg-neutral-50 rounded-lg">Export SRT</DropdownMenuItem>
+                        )}
+                        {file && (
+                          <DropdownMenuItem onClick={handleManualSave} className="text-xs cursor-pointer py-2 hover:bg-neutral-50 rounded-lg">Save Project</DropdownMenuItem>
+                        )}
+                        <DropdownMenuSeparator className="bg-neutral-100" />
+                        <DropdownMenuLabel className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider px-2 py-1">Export Quality</DropdownMenuLabel>
+                        <DropdownMenuItem 
+                          onClick={() => setQuality("standard")} 
+                          className="text-xs cursor-pointer py-2 hover:bg-neutral-50 rounded-lg flex items-center justify-between"
+                        >
+                          <span>Standard (720p)</span>
+                          {quality === "standard" && <Check className="h-3.5 w-3.5 text-[#ff5c3a]" />}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          onClick={() => setQuality("high")} 
+                          className="text-xs cursor-pointer py-2 hover:bg-neutral-50 rounded-lg flex items-center justify-between"
+                        >
+                          <span>High (1080p)</span>
+                          {quality === "high" && <Check className="h-3.5 w-3.5 text-[#ff5c3a]" />}
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    {file && (
+                      <button
+                        onClick={exportVideo}
+                        disabled={exporting}
+                        className="flex h-9 px-3 items-center justify-center gap-1.5 rounded-lg bg-[#ff5c3a] text-xs font-semibold text-white transition hover:bg-[#e84e2e] disabled:opacity-75 min-h-[44px] cursor-pointer"
+                      >
+                        {exporting ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <Download className="h-3.5 w-3.5" strokeWidth={2} />
+                        )}
+                        <span>Export</span>
+                      </button>
+                    )}
+                  </div>
                 </div>
 
-                {combinedToolbar}
-                {timelinePanel}
-              </>
+                {/* Vertical Scroll Area (everything below top nav bar, except bottom tab bar) */}
+                <div className="flex-1 overflow-y-auto scrollbar-thin">
+                  {/* 2. Video Preview (full-width) */}
+                  <div className="w-full bg-[#f5f3ee] flex flex-col items-center justify-center p-3">
+                    <div
+                      className="w-full flex items-center justify-center overflow-hidden"
+                      style={{
+                        maxWidth: "100%",
+                        aspectRatio: framePreset.id !== "original"
+                          ? `${framePreset.width}/${framePreset.height}`
+                          : (meta ? `${meta.width}/${meta.height}` : "9/16"),
+                      }}
+                    >
+                      <VideoPreview
+                        ref={videoRef}
+                        src={videoUrl}
+                        captions={captions}
+                        style={style}
+                        selectedCaptionId={selectedCaptionId}
+                        onSelect={setSelectedCaptionId}
+                        onTimeUpdate={setCurrentTime}
+                        onLoaded={setMeta}
+                        onCaptionStyleChange={handleCaptionStyleChange}
+                        onCaptionPositionChange={handleCaptionPositionChange}
+                        onCaptionChange={(id, text) =>
+                          setCaptions((cur) =>
+                            cur.map((c) => (c.id === id ? { ...c, text, words: undefined } : c)),
+                          )
+                        }
+                        frame={frame}
+                        lockedTracks={lockedTracks}
+                        quality={quality}
+                      />
+                    </div>
+                  </div>
+
+                  {/* 3. Format Selector Chips (horizontal scroll row) */}
+                  <div className="flex overflow-x-auto scrollbar-none gap-2 px-4 py-3 bg-[#f5f3ee] border-b border-[#e8e4de] select-none">
+                    {FRAME_PRESETS.map((p) => {
+                      const active = framePreset.id === p.id;
+                      return (
+                        <button
+                          key={p.id}
+                          onClick={() => setFramePreset(p)}
+                          className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-semibold select-none transition min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer ${
+                            active
+                              ? "bg-[#ff5c3a] text-white shadow-sm"
+                              : "bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-50"
+                          }`}
+                        >
+                          {p.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {/* 4. Condensed Audio Strip / Expanded Timeline */}
+                  {timelineExpanded ? (
+                    <div className="border-b border-[#e8e4de] bg-[#f9f8f6] p-2">
+                      <div className="flex justify-between items-center px-2 pb-2 border-b border-neutral-200/60 mb-2">
+                        <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider">Multi-track Editor</span>
+                        <button
+                          onClick={() => setTimelineExpanded(false)}
+                          className="text-[11px] font-bold text-[#ff5c3a] hover:underline px-3 py-1.5 min-h-[44px] flex items-center cursor-pointer"
+                        >
+                          Collapse
+                        </button>
+                      </div>
+                      <div className="overflow-hidden rounded-lg border border-[#e8e4de]">
+                        {timelinePanel}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3 px-4 py-3 border-b border-[#e8e4de] bg-white">
+                      <span className="text-[11px] font-mono text-[#ff5c3a] font-semibold select-none flex-shrink-0">
+                        {formatTime(currentTime)}
+                      </span>
+                      <CondensedTimeline
+                        duration={meta?.duration ?? 0}
+                        currentTime={currentTime}
+                        onSeek={seek}
+                      />
+                      <span className="text-[11px] font-mono text-neutral-400 font-semibold select-none flex-shrink-0">
+                        {formatTime(meta?.duration ?? 0)}
+                      </span>
+                      <button
+                        onClick={() => setTimelineExpanded(true)}
+                        className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#e8e4de] hover:bg-neutral-50 text-neutral-500 cursor-pointer min-h-[44px] min-w-[44px] flex-shrink-0"
+                        title="Expand Timeline"
+                        aria-label="Expand Timeline"
+                      >
+                        <ChevronsUpDown className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+
+                  <div className="flex-1 bg-white">
+                    {captions.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center text-center py-6 px-6 bg-white border border-[#e8e4de]/60 rounded-xl my-4 mx-4 shadow-sm">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#fff5f3] text-[#ff5c3a] mb-3">
+                          <Wand2 className="h-6 w-6" strokeWidth={2} />
+                        </div>
+                        <h3 className="text-[15px] font-bold text-[#1a1a1a] mb-1">Generate Captions</h3>
+                        <p className="text-[12px] text-neutral-400 mb-5 max-w-[280px] leading-relaxed">
+                          Follow the steps below to automatically transcribe your video.
+                        </p>
+                        
+                        <div className="w-full space-y-4 mb-6 text-left">
+                          {/* Step 1: Select Language */}
+                          <div className="space-y-1.5">
+                            <label className="text-[11.5px] font-semibold text-[#555] uppercase tracking-wider block">
+                              1. Select Caption Language
+                            </label>
+                            <Select value={language} onValueChange={setLanguage} disabled={transcribing}>
+                              <SelectTrigger className="w-full h-10 rounded-lg border-[#e8e4de] bg-[#f9f8f6] px-3 text-[12.5px] text-[#1a1a1a] focus:ring-0">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                {LANGUAGES.map((l) => (
+                                  <SelectItem key={l.code} value={l.code} className="text-[13px]">
+                                    {l.label}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {/* Step 2: Add Emojis */}
+                          <div className="flex items-center justify-between py-1 border-t border-[#f0ede8] pt-3">
+                            <div className="flex flex-col">
+                              <span className="text-[11.5px] font-semibold text-[#555] uppercase tracking-wider">
+                                2. Emojis in Captions
+                              </span>
+                              <span className="text-[11px] text-neutral-400">
+                                Add viral emojis automatically
+                              </span>
+                            </div>
+                            <div className="flex rounded-[7px] bg-[#f5f3ee] p-0.5 border border-[#e8e4de] flex-shrink-0">
+                              <button
+                                type="button"
+                                disabled={transcribing}
+                                onClick={() => setStyle((prev) => ({ ...prev, emojiEnabled: true }))}
+                                className={`px-3 py-1 text-[11px] font-semibold rounded-[5px] transition-all cursor-pointer ${
+                                  style.emojiEnabled
+                                    ? "bg-[#ff5c3a] text-white shadow-sm"
+                                    : "text-[#888] hover:text-[#555] bg-transparent"
+                                }`}
+                              >
+                                On
+                              </button>
+                              <button
+                                type="button"
+                                disabled={transcribing}
+                                onClick={() => setStyle((prev) => ({ ...prev, emojiEnabled: false }))}
+                                className={`px-3 py-1 text-[11px] font-semibold rounded-[5px] transition-all cursor-pointer ${
+                                  !style.emojiEnabled
+                                    ? "bg-white text-[#1a1a1a] border border-[#e8e4de]/60 shadow-sm"
+                                    : "text-[#888] hover:text-[#555] bg-transparent"
+                                }`}
+                              >
+                                Off
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex flex-col w-full gap-2">
+                          <button
+                            onClick={transcribe}
+                            disabled={transcribing}
+                            className="w-full flex h-11 items-center justify-center gap-2 rounded-lg bg-[#ff5c3a] text-xs font-semibold text-white shadow-sm hover:bg-[#e84e2e] active:scale-98 transition disabled:opacity-50 min-h-[44px] cursor-pointer"
+                          >
+                            {transcribing ? (
+                              <>
+                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                <span>{transcribeStage || "Transcribing..."}</span>
+                              </>
+                            ) : (
+                              <>
+                                <Wand2 className="h-3.5 w-3.5" />
+                                <span>3. Auto-transcribe</span>
+                              </>
+                            )}
+                          </button>
+                          <button
+                            onClick={handleAddCaptionMobile}
+                            disabled={transcribing}
+                            className="w-full flex h-11 items-center justify-center gap-2 rounded-lg border border-[#e8e4de] bg-white text-xs font-semibold text-neutral-600 hover:bg-[#faf9f6] active:scale-98 transition min-h-[44px] cursor-pointer"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            <span>Or manually add caption</span>
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="border-b border-[#e8e4de]">
+                        {captionsPanel}
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 6. Settings Panel Sheet */}
+                  {activeMobileTab !== "captions" && (
+                    <div className="border-t border-[#e8e4de] bg-white pb-6">
+                      <div className="px-4 py-2.5 bg-[#faf9f6] border-b border-[#e8e4de] flex justify-between items-center select-none">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">
+                          {activeMobileTab === "style" && "Text Style"}
+                          {activeMobileTab === "anim" && "Caption Animation"}
+                          {activeMobileTab === "tmpl" && "Style Templates"}
+                          {activeMobileTab === "brand" && "Brand Settings"}
+                        </span>
+                        <button
+                          onClick={() => setActiveMobileTab("captions")}
+                          className="text-[11px] font-bold text-neutral-400 hover:text-neutral-600 px-3 py-1.5 min-h-[44px] flex items-center cursor-pointer"
+                        >
+                          Close
+                        </button>
+                      </div>
+                      <div className="p-1">
+                        <StylePanel
+                          style={selectedCaption?.style ? { ...style, ...selectedCaption.style } : style}
+                          onChange={handleStyleChange}
+                          selectedCaption={selectedCaption}
+                          onCaptionChange={(id, patch) => {
+                            setCaptions((cur) => {
+                              const target = cur.find((c) => c.id === id);
+                              const targetTrack = target ? (target.track || 1) : 1;
+                              return cur.map((c) => {
+                                const cTrack = c.track || 1;
+                                if (cTrack === targetTrack) {
+                                  return {
+                                    ...c,
+                                    ...patch,
+                                    style: patch.style ? { ...c.style, ...patch.style } : c.style
+                                  };
+                                }
+                                return c;
+                              });
+                            });
+                          }}
+                          isLocked={selectedCaption ? lockedTracks.includes(selectedCaption.track || 1) : false}
+                          activeTab={activeMobileTab === "tmpl" ? "tmpl" : activeMobileTab === "brand" ? "brand" : activeMobileTab === "anim" ? "anim" : "style"}
+                          showTabsHeader={false}
+                        />
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* 7. Bottom Navigation Tab Bar (Fixed at the absolute bottom of the viewport) */}
+                <div className="fixed bottom-0 left-0 right-0 z-50 h-16 bg-white border-t border-[#e8e4de] flex items-center justify-around px-2 pb-safe shadow-[0_-2px_10px_rgba(0,0,0,0.03)]">
+                  {[
+                    { id: "captions", label: "Captions", icon: FileText },
+                    { id: "style", label: "Style", icon: Type },
+                    { id: "anim", label: "Anim", icon: Sparkles },
+                    { id: "tmpl", label: "Templates", icon: Layers },
+                    { id: "brand", label: "Brand", icon: Palette },
+                  ].map((tabItem) => {
+                    const Icon = tabItem.icon;
+                    const active = activeMobileTab === tabItem.id;
+                    return (
+                      <button
+                        key={tabItem.id}
+                        onClick={() => setActiveMobileTab(tabItem.id as "captions" | "style" | "anim" | "tmpl" | "brand")}
+                        className={`flex flex-col items-center justify-center flex-1 h-full min-h-[44px] min-w-[44px] gap-1 transition cursor-pointer ${
+                          active ? "text-[#ff5c3a]" : "text-neutral-400 hover:text-neutral-600"
+                        }`}
+                      >
+                        <Icon className="h-5 w-5" strokeWidth={2} />
+                        <span className="text-[10px] font-semibold tracking-wide select-none">{tabItem.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </div>
         );
@@ -1380,6 +1911,17 @@ const Editor = () => {
         progress={exportProgress}
         format="mp4"
         onCancel={cancelExport}
+      />
+      <ExportSuccessDialog
+        open={exportResult !== null}
+        onClose={closeExportResult}
+        onExportAnother={handleExportAnother}
+        fileName={exportResult?.fileName || ""}
+        fileSize={exportResult?.fileSize || 0}
+        duration={exportResult?.duration || 0}
+        encodingTime={exportResult?.encodingTime || 0}
+        resolution={exportResult?.resolution || ""}
+        videoUrl={exportResult?.videoUrl || ""}
       />
     </div>
   );

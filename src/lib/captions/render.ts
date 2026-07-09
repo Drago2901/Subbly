@@ -245,6 +245,14 @@ export async function burnCaptions(opts: {
     renderFrame();
     onProgress?.({ progress: 1, message: "Finalizing export" });
 
+    // Disconnect audio nodes immediately to prevent trailing clicking/beeping/popping sounds
+    try {
+      audioSource?.disconnect();
+      audioDestination?.disconnect();
+    } catch (e) {
+      console.warn("Failed to disconnect audio nodes:", e);
+    }
+
     if (recorder.state !== "inactive") {
       recorder.stop();
     }
@@ -489,11 +497,20 @@ function getRenderWords(
 ): RenderWord[] {
   const sourceWords = style.karaoke && caption.words?.length
     ? caption.words.map((word) => ({ text: word.text, start: word.start, end: word.end }))
-    : splitIntoWordTokens(caption.text).map((text) => ({ text, start: caption.start, end: caption.end }));
+    : (() => {
+        const tokens = splitIntoWordTokens(caption.text);
+        const duration = Math.max(0.1, caption.end - caption.start);
+        const wordDur = duration / tokens.length;
+        return tokens.map((text, idx) => ({
+          text,
+          start: caption.start + idx * wordDur,
+          end: caption.start + (idx + 1) * wordDur,
+        }));
+      })();
 
   return sourceWords.map((word, idx) => {
     let text = style.uppercase ? word.text.toUpperCase() : word.text;
-    if (style.karaoke && caption.words?.length && idx < sourceWords.length - 1 && !text.endsWith(" ")) {
+    if (style.karaoke && idx < sourceWords.length - 1 && !text.endsWith(" ")) {
       text += " ";
     }
     return {
@@ -543,28 +560,29 @@ function computeAnim(
   exit: number,
 ): { scale: number; translateY: number; opacity: number } {
   const e = easeOutBack(enter);
+  const ex = easeOutBack(exit);
   const fade = Math.min(enter * 1.5, 1) * Math.min(exit * 1.5, 1);
   switch (anim) {
     case "zoom-in":
-      return { scale: 0.5 + 0.5 * e, translateY: 0, opacity: fade };
+      return { scale: (0.5 + 0.5 * e) * (0.5 + 0.5 * ex), translateY: 0, opacity: fade };
     case "zoom-out":
-      return { scale: 1.5 - 0.5 * e, translateY: 0, opacity: fade };
+      return { scale: (1.5 - 0.5 * e) * (1.5 - 0.5 * ex), translateY: 0, opacity: fade };
     case "pop":
-      return { scale: 0.7 + 0.3 * e, translateY: 0, opacity: fade };
+      return { scale: (0.7 + 0.3 * e) * (0.7 + 0.3 * ex), translateY: 0, opacity: fade };
     case "fade":
       return { scale: 1, translateY: 0, opacity: enter * exit };
     case "slide-up":
-      return { scale: 1, translateY: (1 - e) * 30, opacity: fade };
+      return { scale: 1, translateY: (1 - e) * 30 + (1 - ex) * -30, opacity: fade };
     case "slide-down":
-      return { scale: 1, translateY: (1 - e) * -30, opacity: fade };
+      return { scale: 1, translateY: (1 - e) * -30 + (1 - ex) * 30, opacity: fade };
     case "bounce": {
       const b = Math.sin(enter * Math.PI * 2) * (1 - enter) * 0.15;
-      return { scale: 0.7 + 0.3 * enter + b, translateY: 0, opacity: fade };
+      return { scale: (0.7 + 0.3 * enter + b) * ex, translateY: 0, opacity: fade };
     }
     case "wave":
       return { scale: 1, translateY: Math.sin(performance.now() / 200) * 4, opacity: fade };
     case "typewriter":
-      return { scale: 1, translateY: 0, opacity: enter * exit };
+      return { scale: 1, translateY: 0, opacity: exit };
     case "none":
     default:
       return { scale: 1, translateY: 0, opacity: 1 };

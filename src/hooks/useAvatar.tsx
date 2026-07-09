@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -90,6 +90,19 @@ export function AvatarProvider({ children }: { children: ReactNode }) {
   const [selection, setSelectionState] = useState<AvatarSelection | null>(
     loadInitial,
   );
+
+  useEffect(() => {
+    if (!user) {
+      setSelectionState(null);
+      return;
+    }
+    try {
+      const raw = localStorage.getItem(AVATAR_KEY(user.id));
+      setSelectionState(raw ? JSON.parse(raw) : null);
+    } catch {
+      setSelectionState(null);
+    }
+  }, [user]);
 
   const setSelection = useCallback(
     (sel: AvatarSelection | null) => {

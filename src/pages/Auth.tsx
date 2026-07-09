@@ -3,7 +3,6 @@ import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
 import { Loader2, Sun, Moon, Eye, EyeOff, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
 import { Seo } from "@/components/Seo";
@@ -296,7 +295,7 @@ const Auth = () => {
         
         try {
           const existingUsers = JSON.parse(localStorage.getItem("rbac_users") || "[]");
-          if (!existingUsers.some((u: any) => u.email === email)) {
+          if (!existingUsers.some((u: { email: string }) => u.email === email)) {
             const newUser = {
               name: name || email.split("@")[0],
               email: email,
@@ -322,11 +321,14 @@ const Auth = () => {
   const handleGoogle = async () => {
     setGoogleLoading(true);
     try {
-      const result = await lovable.auth.signInWithOAuth("google", {
-        redirect_uri: window.location.origin + "/projects",
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: window.location.origin + "/projects",
+        },
       });
-      if (result.error) {
-        toast.error(result.error.message || "Google sign-in failed");
+      if (error) {
+        toast.error(error.message || "Google sign-in failed");
         return;
       }
     } catch (err) {
@@ -363,7 +365,7 @@ const Auth = () => {
       // Check database/localStorage for user existence
       const localUsersStr = localStorage.getItem("rbac_users");
       const localUsers = localUsersStr ? JSON.parse(localUsersStr) : [];
-      const userExists = Array.isArray(localUsers) && localUsers.some((u: any) => u.email.toLowerCase() === email.toLowerCase());
+      const userExists = Array.isArray(localUsers) && localUsers.some((u: { email: string }) => u.email.toLowerCase() === email.toLowerCase());
 
       if (!userExists) {
         // Expose no account found message as requested by user specs
@@ -512,9 +514,9 @@ const Auth = () => {
     try {
       // Check old password
       const localUsersStr = localStorage.getItem("rbac_users");
-      let localUsers = localUsersStr ? JSON.parse(localUsersStr) : [];
+      const localUsers = localUsersStr ? JSON.parse(localUsersStr) : [];
       const userIndex = Array.isArray(localUsers) 
-        ? localUsers.findIndex((u: any) => u.email.toLowerCase() === otpData.email.toLowerCase())
+        ? localUsers.findIndex((u: { email: string }) => u.email.toLowerCase() === otpData.email.toLowerCase())
         : -1;
 
       if (userIndex !== -1) {

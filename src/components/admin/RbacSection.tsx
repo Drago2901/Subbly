@@ -120,7 +120,7 @@ export default function RbacSection({ profiles, currentUserEmail, onRefresh }: R
   });
 
   const allUsers = [...systemUsers];
-  customUsers.forEach((cu: any) => {
+  customUsers.forEach((cu: { email: string; name: string; role: string }) => {
     const roleId = overrides[cu.email] || cu.role;
     allUsers.push({
       id: cu.email,
@@ -184,12 +184,12 @@ export default function RbacSection({ profiles, currentUserEmail, onRefresh }: R
 
   const handleDeleteMockUser = (email: string) => {
     const existingUsers = JSON.parse(localStorage.getItem("rbac_users") || "[]");
-    const targetUser = existingUsers.find((u: any) => u.email === email);
+    const targetUser = existingUsers.find((u: { email: string; role: string }) => u.email === email);
     if (targetUser?.role === "super_admin" && userRole !== "super_admin") {
       toast.error("Access Denied: Only a Super Admin can delete a Super Admin account.");
       return;
     }
-    const updated = existingUsers.filter((u: any) => u.email !== email);
+    const updated = existingUsers.filter((u: { email: string }) => u.email !== email);
     localStorage.setItem("rbac_users", JSON.stringify(updated));
 
     // Cleanup overrides

@@ -15,6 +15,7 @@ type Props = {
   onCaptionPositionChange?: (id: string, patch: Partial<Caption>) => void;
   frame?: { width: number; height: number; fit: "cover" | "contain" } | null;
   lockedTracks?: number[];
+  quality?: "standard" | "high";
 };
 
 export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPreview(
@@ -31,9 +32,11 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
     onCaptionPositionChange,
     frame,
     lockedTracks,
+    quality = "standard",
   },
   ref,
 ) {
+  console.log("[VideoPreview] quality prop value:", quality);
   const innerRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
@@ -444,6 +447,12 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
         maxHeight: "100%",
       }}
     >
+      {/* Resolution Badge */}
+      <div className="absolute top-3 right-3 z-50 pointer-events-none select-none">
+        <span className="px-2 py-1 text-[10px] font-bold tracking-wider text-white/90 bg-black/60 backdrop-blur-sm rounded border border-white/10 uppercase">
+          {quality === "high" ? "1080p" : "720p"}
+        </span>
+      </div>
       <div
         ref={canvasRef}
         className="relative flex items-center justify-center overflow-hidden flex-shrink-0"
@@ -736,31 +745,45 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
                       </>
                     );
                   }
-                  return itemStyle.karaoke && activeItem.words && activeItem.words.length > 0
-                    ? activeItem.words.map((w, i) => {
-                        const isActive = time >= w.start && time <= w.end;
-                        const isPast = time > w.end;
-                        const text = itemStyle.uppercase ? w.text.toUpperCase() : w.text;
-                        const hasTrailingSpace = text.endsWith(" ");
-                        const showSpace = i < activeItem.words.length - 1 && !hasTrailingSpace;
-                        return (
-                          <span key={i} className="inline-block">
-                            <span
-                              style={{
-                                color: isActive ? itemStyle.highlightColor : itemStyle.color,
-                                opacity: !isActive && !isPast ? 0.75 : 1,
-                                transform: isActive ? "scale(1.08)" : "scale(1)",
-                                display: "inline-block",
-                                transition: "color 80ms linear, transform 120ms ease-out, opacity 120ms",
-                              }}
-                            >
-                              {text}
-                            </span>
-                            {showSpace ? "\u00A0" : ""}
+                  if (itemStyle.karaoke) {
+                    const wordsToRender = (activeItem.words && activeItem.words.length > 0)
+                      ? activeItem.words
+                      : (() => {
+                          const tokens = activeItem.text.match(/\S+\s*/g) || [activeItem.text];
+                          const duration = Math.max(0.1, activeItem.end - activeItem.start);
+                          const wordDur = duration / tokens.length;
+                          return tokens.map((text, idx) => ({
+                            text,
+                            start: activeItem.start + idx * wordDur,
+                            end: activeItem.start + (idx + 1) * wordDur,
+                          }));
+                        })();
+
+                    return wordsToRender.map((w, i) => {
+                      const isActive = time >= w.start && time <= w.end;
+                      const isPast = time > w.end;
+                      const text = itemStyle.uppercase ? w.text.toUpperCase() : w.text;
+                      const hasTrailingSpace = text.endsWith(" ");
+                      const showSpace = i < wordsToRender.length - 1 && !hasTrailingSpace;
+                      return (
+                        <span key={i} className="inline-block">
+                          <span
+                            style={{
+                              color: isActive ? itemStyle.highlightColor : itemStyle.color,
+                              opacity: !isActive && !isPast ? 0.75 : 1,
+                              transform: isActive ? "scale(1.08)" : "scale(1)",
+                              display: "inline-block",
+                              transition: "color 80ms linear, transform 120ms ease-out, opacity 120ms",
+                            }}
+                          >
+                            {text}
                           </span>
-                        );
-                      })
-                    : itemStyle.uppercase ? activeItem.text.toUpperCase() : activeItem.text;
+                          {showSpace ? "\u00A0" : ""}
+                        </span>
+                      );
+                    });
+                  }
+                  return itemStyle.uppercase ? activeItem.text.toUpperCase() : activeItem.text;
                 })()}
               </span>
             )}
@@ -849,16 +872,17 @@ function computePosition(style: CaptionStyle, track?: number): { x: number; y: n
 
 function getAnimationTransform(anim: CaptionAnimation, enter: number, exit: number): string {
   const e = easeOutBack(enter);
-  if (anim === "zoom-in") return `scale(${0.5 + 0.5 * e})`;
-  if (anim === "zoom-out") return `scale(${1.5 - 0.5 * e})`;
-  if (anim === "pop") return `scale(${0.7 + 0.3 * e})`;
-  if (anim === "slide-up") return `translateY(${(1 - e) * 30}px)`;
-  if (anim === "slide-down") return `translateY(${(1 - e) * -30}px)`;
-  if (anim === "slide-left") return `translateX(${(1 - e) * 60}px)`;
-  if (anim === "slide-right") return `translateX(${(1 - e) * -60}px)`;
+  const ex = easeOutBack(exit);
+  if (anim === "zoom-in") return `scale(${(0.5 + 0.5 * e) * (0.5 + 0.5 * ex)})`;
+  if (anim === "zoom-out") return `scale(${(1.5 - 0.5 * e) * (1.5 - 0.5 * ex)})`;
+  if (anim === "pop") return `scale(${(0.7 + 0.3 * e) * (0.7 + 0.3 * ex)})`;
+  if (anim === "slide-up") return `translateY(${(1 - e) * 30 + (1 - ex) * -30}px)`;
+  if (anim === "slide-down") return `translateY(${(1 - e) * -30 + (1 - ex) * 30}px)`;
+  if (anim === "slide-left") return `translateX(${(1 - e) * 60 + (1 - ex) * -60}px)`;
+  if (anim === "slide-right") return `translateX(${(1 - e) * -60 + (1 - ex) * 60}px)`;
   if (anim === "bounce") {
     const b = Math.sin(enter * Math.PI * 2) * (1 - enter) * 0.15;
-    return `scale(${0.7 + 0.3 * enter + b})`;
+    return `scale(${(0.7 + 0.3 * enter + b) * ex})`;
   }
   if (anim === "wave") {
     const w = Math.sin(performance.now() / 200) * 4;
@@ -878,7 +902,9 @@ function getAnimationTransform(anim: CaptionAnimation, enter: number, exit: numb
 }
 
 function getAnimationOpacity(anim: CaptionAnimation, enter: number, exit: number): number {
-  if (anim === "fade" || anim === "typewriter") return enter * exit;
+  if (anim === "none") return 1;
+  if (anim === "typewriter") return exit;
+  if (anim === "fade") return enter * exit;
   return Math.min(enter * 1.5, 1) * Math.min(exit * 1.5, 1);
 }
 

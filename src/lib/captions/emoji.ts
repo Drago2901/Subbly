@@ -22,40 +22,79 @@ export function alignEmojisWithWords(words: Word[], enhancedText: string): Word[
   if (!words || words.length === 0) return [];
   const result = words.map((w) => ({ ...w }));
 
-  let searchIndex = 0;
+  // Helper to clean a string for comparison (strip emojis, punctuation, spacing)
+  const clean = (str: string) => {
+    return stripEmojis(str)
+      .replace(/[.,/#!$%^&*;:{}=\-_`~()?"'’]/g, "")
+      .trim()
+      .toLowerCase();
+  };
+
+  // Split enhancedText into tokens
+  const tokens = enhancedText.split(/\s+/).filter(Boolean);
+
+  let tokenIdx = 0;
+
   for (let i = 0; i < result.length; i++) {
-    const wordText = stripEmojis(result[i].text).toLowerCase();
-    if (!wordText) continue;
+    const target = clean(result[i].text);
+    if (!target) continue;
 
-    // Find the word in the enhanced text starting from searchIndex
-    const index = enhancedText.toLowerCase().indexOf(wordText, searchIndex);
-    if (index !== -1) {
-      // Advance our search index past the word
-      searchIndex = index + wordText.length;
+    // Find the next token in enhancedText that matches this word
+    let matchIdx = -1;
+    for (let j = tokenIdx; j < tokens.length; j++) {
+      const cleanedToken = clean(tokens[j]);
+      if (cleanedToken.includes(target) || target.includes(cleanedToken)) {
+        matchIdx = j;
+        break;
+      }
+    }
 
-      // Look ahead to find the boundary of the next word to capture any emojis placed between them
-      let nextWordIndex = enhancedText.length;
-      if (i < result.length - 1) {
-        const nextWordText = stripEmojis(result[i + 1].text).toLowerCase();
-        if (nextWordText) {
-          const nextIndex = enhancedText.toLowerCase().indexOf(nextWordText, searchIndex);
-          if (nextIndex !== -1) {
-            nextWordIndex = nextIndex;
-          }
+    if (matchIdx !== -1) {
+      // Find any emojis in the tokens between the previous index (tokenIdx) and the current match index (matchIdx),
+      // or directly inside/attached to the current matched token.
+      const collectedEmojis: string[] = [];
+
+      // 1. Check for emojis in the matched token itself
+      const matchedToken = tokens[matchIdx];
+      const emojisInMatch = matchedToken.match(/[\u{1F300}-\u{1F9FF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1FA00}-\u{1FAFF}]/gu);
+      if (emojisInMatch) {
+        collectedEmojis.push(...emojisInMatch);
+      }
+
+      // 2. Check for separate emoji tokens between tokenIdx and matchIdx
+      for (let k = tokenIdx; k < matchIdx; k++) {
+        const token = tokens[k];
+        const emojis = token.match(/[\u{1F300}-\u{1F9FF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1FA00}-\u{1FAFF}]/gu);
+        if (emojis) {
+          collectedEmojis.push(...emojis);
         }
       }
 
-      // Extract the segment between this word and the next word
-      const segment = enhancedText.substring(index, nextWordIndex);
-
-      // Extract all emojis in this segment
-      const emojis =
-        segment.match(
-          /[\u{1F300}-\u{1F9FF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1FA00}-\u{1FAFF}]/gu,
-        ) || [];
-      if (emojis.length > 0) {
-        result[i].text = stripEmojis(result[i].text) + " " + emojis.join("");
+      // 3. Look ahead: if the next tokens are purely emojis (until we hit a text word), collect them too!
+      let nextTokenIdx = matchIdx + 1;
+      while (nextTokenIdx < tokens.length) {
+        const nextToken = tokens[nextTokenIdx];
+        const cleanedNext = clean(nextToken);
+        // If the next token has no text letters/numbers (just emojis/punctuation), it's an emoji token
+        if (cleanedNext === "") {
+          const emojis = nextToken.match(/[\u{1F300}-\u{1F9FF}]|[\u{1F600}-\u{1F64F}]|[\u{1F680}-\u{1F6FF}]|[\u{2600}-\u{26FF}]|[\u{2700}-\u{27BF}]|[\u{1FA00}-\u{1FAFF}]/gu);
+          if (emojis) {
+            collectedEmojis.push(...emojis);
+          }
+          nextTokenIdx++;
+        } else {
+          break; // Hit a text word, stop looking ahead
+        }
       }
+
+      if (collectedEmojis.length > 0) {
+        // Remove duplicate emojis to keep it clean
+        const uniqueEmojis = Array.from(new Set(collectedEmojis));
+        result[i].text = stripEmojis(result[i].text) + " " + uniqueEmojis.join("");
+      }
+
+      // Move our search cursor to the next token after the matched one (and any trailing emojis)
+      tokenIdx = nextTokenIdx;
     }
   }
 

@@ -46,6 +46,8 @@ type Props = {
   selectedCaption?: Caption | null;
   onCaptionChange?: (id: string, patch: Partial<Caption>) => void;
   isLocked?: boolean;
+  activeTab?: Tab;
+  showTabsHeader?: boolean;
 };
 
 type Preset = { id: string; name: string; style: CaptionStyle };
@@ -146,9 +148,19 @@ const ANIM_STYLES = [
   },
 ];
 
-export function StylePanel({ style, onChange, selectedCaption, onCaptionChange, isLocked }: Props) {
+export function StylePanel({
+  style,
+  onChange,
+  selectedCaption,
+  onCaptionChange,
+  isLocked,
+  activeTab,
+  showTabsHeader = true,
+}: Props) {
   const { user } = useAuth();
-  const [tab, setTab] = useState<Tab>("style");
+  const [internalTab, setInternalTab] = useState<Tab>("style");
+  const tab = activeTab ?? internalTab;
+  const setTab = activeTab ? () => {} : setInternalTab;
   const [presets, setPresets] = useState<Preset[]>([]);
   const [presetName, setPresetName] = useState("");
   const [brandKit, setBrandKit] = useState<BrandKit | null>(null);
@@ -212,7 +224,26 @@ export function StylePanel({ style, onChange, selectedCaption, onCaptionChange, 
     () => [NONE_TEMPLATE, ...customTemplates, ...CAPTION_TEMPLATES],
     [NONE_TEMPLATE, customTemplates],
   );
-  
+
+  const isTemplateActive = (t: CaptionTemplate) => {
+    if (t.id === "none") {
+      const keysToCheck: (keyof CaptionStyle)[] = [
+        "fontFamily",
+        "color",
+        "bgColor",
+        "bold",
+        "uppercase",
+        "animation",
+        "karaoke",
+        "strokeWidth",
+      ];
+      return keysToCheck.every((key) => style[key] === DEFAULT_STYLE[key]);
+    }
+
+    return Object.entries(t.style).every(([key, value]) => {
+      return style[key as keyof CaptionStyle] === value;
+    });
+  };
 
   const applyTemplate = (t: CaptionTemplate) => {
     onChange({ ...style, ...t.style });
@@ -318,41 +349,65 @@ export function StylePanel({ style, onChange, selectedCaption, onCaptionChange, 
 
   return (
     <div className="flex h-full flex-col bg-white" style={{ fontFamily: "'Outfit', sans-serif" }}>
-      <div className="flex flex-shrink-0 border-b border-[#e8e4de]">
-        {tabs.map((t) => {
-          const Icon = t.icon;
-          const active = tab === t.id;
-          return (
-            <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`-mb-px flex flex-1 items-center justify-center gap-1.5 border-b-2 px-2 py-3 text-[12px] font-medium transition ${
-                active
-                  ? "border-[#ff5c3a] text-[#ff5c3a]"
-                  : "border-transparent text-[#aaa] hover:text-[#555]"
-              }`}
-            >
-              <Icon className="h-3 w-3" strokeWidth={1.8} />
-              {t.label}
-            </button>
-          );
-        })}
-      </div>
+      {showTabsHeader && (
+        <div className="flex flex-shrink-0 border-b border-[#e8e4de]">
+          {tabs.map((t) => {
+            const Icon = t.icon;
+            const active = tab === t.id;
+            return (
+              <button
+                key={t.id}
+                onClick={() => setTab(t.id)}
+                className={`-mb-px flex flex-1 items-center justify-center gap-1.5 border-b-2 px-2 py-3 text-[12px] font-medium transition ${
+                  active
+                    ? "border-[#ff5c3a] text-[#ff5c3a]"
+                    : "border-transparent text-[#aaa] hover:text-[#555]"
+                }`}
+              >
+                <Icon className="h-3 w-3" strokeWidth={1.8} />
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       <div className={`scrollbar-thin flex-1 overflow-y-auto p-4 ${isLocked ? "pointer-events-none opacity-50 select-none" : ""}`}>
         {tab === "style" && (
           <div className="space-y-5">
+            {/* Primary Settings */}
             <div className="space-y-4 pb-5 border-b border-[#f0ede8]">
               <div className="text-[13px] font-semibold text-[#1a1a1a]">Caption Settings</div>
               
-              <div className="rounded-[8px] border border-[#f0ede8]">
-                <ToggleRow
-                  icon="😊"
-                  label="Add Emojis to Captions"
-                  checked={style.emojiEnabled || false}
-                  onChange={(v) => set("emojiEnabled", v)}
-                  last
-                />
+              <div className="flex items-center justify-between py-1.5">
+                <div className="flex items-center gap-2 text-[12.5px] font-medium text-[#555]">
+                  <span className="text-base">😊</span>
+                  <span>Add Emojis to Captions</span>
+                </div>
+                <div className="flex rounded-[7px] bg-[#f5f3ee] p-0.5 border border-[#e8e4de]">
+                  <button
+                    type="button"
+                    onClick={() => set("emojiEnabled", true)}
+                    className={`px-3.5 py-1.5 text-[12px] font-semibold rounded-[5px] transition-all cursor-pointer ${
+                      style.emojiEnabled
+                        ? "bg-[#ff5c3a] text-white shadow-sm"
+                        : "text-[#888] hover:text-[#555] bg-transparent"
+                    }`}
+                  >
+                    On
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => set("emojiEnabled", false)}
+                    className={`px-3.5 py-1.5 text-[12px] font-semibold rounded-[5px] transition-all cursor-pointer ${
+                      !style.emojiEnabled
+                        ? "bg-white text-[#1a1a1a] border border-[#e8e4de]/60 shadow-sm"
+                        : "text-[#888] hover:text-[#555] bg-transparent"
+                    }`}
+                  >
+                    Off
+                  </button>
+                </div>
               </div>
 
               {style.emojiEnabled && (
@@ -361,7 +416,7 @@ export function StylePanel({ style, onChange, selectedCaption, onCaptionChange, 
                     aria-label="Emoji Density"
                     value={style.emojiDensity || "medium"}
                     onChange={(e) => set("emojiDensity", e.target.value as "light" | "medium" | "heavy")}
-                    className="w-full cursor-pointer rounded-[7px] border border-[#e8e4de] bg-white px-3 py-2 text-[13px] text-[#1a1a1a] outline-none transition hover:border-[#ccc] focus:border-[#ff5c3a]"
+                    className="w-full cursor-pointer rounded-[7px] border border-[#e8e4de] bg-white px-3 py-2 text-[13px] text-[#1a1a1a] outline-none transition hover:border-[#ccc] focus:border-[#ff5c3a] min-h-[44px]"
                   >
                     <option value="light">Light (sparse emojis)</option>
                     <option value="medium">Medium (standard emojis)</option>
@@ -376,7 +431,7 @@ export function StylePanel({ style, onChange, selectedCaption, onCaptionChange, 
                 aria-label="Caption font"
                 value={style.fontFamily}
                 onChange={(e) => set("fontFamily", e.target.value)}
-                className="w-full cursor-pointer rounded-[7px] border border-[#e8e4de] bg-white px-3 py-2 text-[13px] text-[#1a1a1a] outline-none transition hover:border-[#ccc] focus:border-[#ff5c3a]"
+                className="w-full cursor-pointer rounded-[7px] border border-[#e8e4de] bg-white px-3 py-2 text-[13px] text-[#1a1a1a] outline-none transition hover:border-[#ccc] focus:border-[#ff5c3a] min-h-[44px]"
                 style={{ fontFamily: `"${style.fontFamily}", sans-serif` }}
               >
                 {customFonts.length > 0 && (
@@ -392,142 +447,147 @@ export function StylePanel({ style, onChange, selectedCaption, onCaptionChange, 
               </select>
             </Field>
 
-            <SliderRow label="Size" value={style.fontSize} min={20} max={140} step={2}
-              onChange={(v) => set("fontSize", v)} suffix="px" />
-            <SliderRow label="Weight" value={style.fontWeight} min={300} max={900} step={100}
-              onChange={(v) => set("fontWeight", v)} />
+            {/* Paired Sliders in 2-Column Grid */}
+            <div className="grid grid-cols-2 gap-4">
+              <SliderRow label="Size" value={style.fontSize} min={20} max={140} step={2}
+                onChange={(v) => set("fontSize", v)} suffix="px" />
+              <SliderRow label="Weight" value={style.fontWeight} min={300} max={900} step={100}
+                onChange={(v) => set("fontWeight", v)} />
+            </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            {/* Color Swatches in 2-Column Grid */}
+            <div className="grid grid-cols-2 gap-4">
               <ColorField label="Text" value={style.color} onChange={(v) => set("color", v)} />
               <ColorField label="Background" value={style.bgColor} onChange={(v) => set("bgColor", v)} />
             </div>
 
-            <SliderRow label="BG opacity" value={Math.round(style.bgOpacity * 100)} min={0} max={100} step={5}
-              onChange={(v) => set("bgOpacity", v / 100)} suffix="%" />
-
             <SliderRow label="Box width" value={style.boxWidth ?? 84} min={10} max={100} step={1}
               onChange={(v) => set("boxWidth", v)} suffix="%" />
+            <div className="space-y-5 pt-3 border-t border-[#f0ede8]">
+              <SliderRow label="BG opacity" value={Math.round(style.bgOpacity * 100)} min={0} max={100} step={5}
+                onChange={(v) => set("bgOpacity", v / 100)} suffix="%" />
 
-            <SliderRow label="Box height" value={style.boxHeight ?? 0} min={0} max={100} step={1}
-              onChange={(v) => set("boxHeight", v === 0 ? undefined as unknown as number : v)} suffix="%" />
+              <SliderRow label="Box height" value={style.boxHeight ?? 0} min={0} max={100} step={1}
+                onChange={(v) => set("boxHeight", v === 0 ? undefined as unknown as number : v)} suffix="%" />
 
-            <div className="grid grid-cols-2 gap-2">
-              <ColorField label="Stroke" value={style.strokeColor} onChange={(v) => set("strokeColor", v)} />
-              <SliderRow label="Stroke W" value={style.strokeWidth} min={0} max={12} step={1}
-                onChange={(v) => set("strokeWidth", v)} compact />
-            </div>
-
-            <Field label="Position">
-              <div className="grid grid-cols-4 gap-1.5">
-                {[
-                  { key: "top", icon: AlignStartVertical, label: "Top" },
-                  { key: "middle", icon: AlignCenterVertical, label: "Middle" },
-                  { key: "bottom", icon: AlignEndVertical, label: "Bottom" },
-                  { key: "free", icon: Move, label: "Free" },
-                ].map((p) => {
-                  const Icon = p.icon;
-                  const active = style.position === p.key;
-                  return (
-                    <button
-                      key={p.key}
-                      onClick={() => {
-                        const newPos = p.key as CaptionStyle["position"];
-                        set("position", newPos);
-                        if (selectedCaption && onCaptionChange) {
-                          if (newPos === "top") {
-                            onCaptionChange(selectedCaption.id, { x: 0.5, y: 0.12, style: { position: "top" } });
-                          } else if (newPos === "middle") {
-                            onCaptionChange(selectedCaption.id, { x: 0.5, y: 0.5, style: { position: "middle" } });
-                          } else if (newPos === "bottom") {
-                            onCaptionChange(selectedCaption.id, { x: 0.5, y: 0.88, style: { position: "bottom" } });
-                          } else if (newPos === "free") {
-                            onCaptionChange(selectedCaption.id, {
-                              x: selectedCaption.x ?? style.posX ?? 0.5,
-                              y: selectedCaption.y ?? style.posY ?? 0.88,
-                              style: { position: "free" }
-                            });
-                          }
-                        }
-                      }}
-                      className={`flex flex-col items-center justify-center gap-1 rounded-[7px] border px-1 py-2 text-[10.5px] transition ${
-                        active
-                          ? "border-[#ff5c3a] bg-[#fff5f3] text-[#ff5c3a]"
-                          : "border-[#e8e4de] bg-white text-[#aaa] hover:border-[#ff5c3a] hover:text-[#ff5c3a]"
-                      }`}
-                    >
-                      <Icon className="h-3.5 w-3.5" strokeWidth={1.8} />
-                      {p.label}
-                    </button>
-                  );
-                })}
+              <div className="grid grid-cols-2 gap-4">
+                <ColorField label="Stroke" value={style.strokeColor} onChange={(v) => set("strokeColor", v)} />
+                <SliderRow label="Stroke W" value={style.strokeWidth} min={0} max={12} step={1}
+                  onChange={(v) => set("strokeWidth", v)} compact />
               </div>
-              {style.position === "free" && (
-                <div className="space-y-1.5 mt-1.5">
-                  <p className="text-[11px] text-[#aaa] mb-2">
-                    Drag the caption on the video preview to position it, or use the controls below:
-                  </p>
-                  {selectedCaption && (
-                    <div className="space-y-4 border-t border-[#f0ede8] pt-3">
-                      <SliderRow
-                        label="Position X"
-                        value={Math.round((selectedCaption.x ?? 0.5) * 100)}
-                        min={5}
-                        max={95}
-                        step={1}
-                        onChange={(v) => onCaptionChange?.(selectedCaption.id, { x: v / 100 })}
-                        suffix="%"
-                        compact
-                      />
-                      <SliderRow
-                        label="Position Y"
-                        value={Math.round((selectedCaption.y ?? 0.88) * 100)}
-                        min={5}
-                        max={95}
-                        step={1}
-                        onChange={(v) => onCaptionChange?.(selectedCaption.id, { y: v / 100 })}
-                        suffix="%"
-                        compact
-                      />
-                      <SliderRow
-                        label="Box Width"
-                        value={selectedCaption.width ?? style.boxWidth ?? 84}
-                        min={10}
-                        max={100}
-                        step={1}
-                        onChange={(v) => onCaptionChange?.(selectedCaption.id, { width: v })}
-                        suffix="%"
-                        compact
-                      />
-                      <SliderRow
-                        label="Box Height"
-                        value={selectedCaption.height ?? 0}
-                        min={0}
-                        max={100}
-                        step={1}
-                        onChange={(v) => onCaptionChange?.(selectedCaption.id, { height: v === 0 ? undefined : v })}
-                        suffix="%"
-                        compact
-                      />
-                    </div>
-                  )}
+
+              <Field label="Position">
+                <div className="grid grid-cols-4 gap-1.5">
+                  {[
+                    { key: "top", icon: AlignStartVertical, label: "Top" },
+                    { key: "middle", icon: AlignCenterVertical, label: "Middle" },
+                    { key: "bottom", icon: AlignEndVertical, label: "Bottom" },
+                    { key: "free", icon: Move, label: "Free" },
+                  ].map((p) => {
+                    const Icon = p.icon;
+                    const active = style.position === p.key;
+                    return (
+                      <button
+                        key={p.key}
+                        type="button"
+                        onClick={() => {
+                          const newPos = p.key as CaptionStyle["position"];
+                          set("position", newPos);
+                          if (selectedCaption && onCaptionChange) {
+                            if (newPos === "top") {
+                              onCaptionChange(selectedCaption.id, { x: 0.5, y: 0.12, style: { position: "top" } });
+                            } else if (newPos === "middle") {
+                              onCaptionChange(selectedCaption.id, { x: 0.5, y: 0.5, style: { position: "middle" } });
+                            } else if (newPos === "bottom") {
+                              onCaptionChange(selectedCaption.id, { x: 0.5, y: 0.88, style: { position: "bottom" } });
+                            } else if (newPos === "free") {
+                              onCaptionChange(selectedCaption.id, {
+                                x: selectedCaption.x ?? style.posX ?? 0.5,
+                                y: selectedCaption.y ?? style.posY ?? 0.88,
+                                style: { position: "free" }
+                              });
+                            }
+                          }
+                        }}
+                        className={`flex flex-col items-center justify-center gap-1 rounded-[7px] border px-1 py-2 text-[10.5px] transition min-h-[44px] cursor-pointer ${
+                          active
+                            ? "border-[#ff5c3a] bg-[#fff5f3] text-[#ff5c3a]"
+                            : "border-[#e8e4de] bg-white text-[#aaa] hover:border-[#ff5c3a] hover:text-[#ff5c3a]"
+                        }`}
+                      >
+                        <Icon className="h-3.5 w-3.5" strokeWidth={1.8} />
+                        {p.label}
+                      </button>
+                    );
+                  })}
                 </div>
+                {style.position === "free" && (
+                  <div className="space-y-3 mt-3 border-t border-[#f0ede8] pt-3">
+                    <p className="text-[11px] text-[#aaa]">
+                      Drag the caption on the video preview to position it, or use the controls below:
+                    </p>
+                    {selectedCaption && (
+                      <div className="space-y-4">
+                        <SliderRow
+                          label="Position X"
+                          value={Math.round((selectedCaption.x ?? 0.5) * 100)}
+                          min={5}
+                          max={95}
+                          step={1}
+                          onChange={(v) => onCaptionChange?.(selectedCaption.id, { x: v / 100 })}
+                          suffix="%"
+                          compact
+                        />
+                        <SliderRow
+                          label="Position Y"
+                          value={Math.round((selectedCaption.y ?? 0.88) * 100)}
+                          min={5}
+                          max={95}
+                          step={1}
+                          onChange={(v) => onCaptionChange?.(selectedCaption.id, { y: v / 100 })}
+                          suffix="%"
+                          compact
+                        />
+                        <SliderRow
+                          label="Box Width"
+                          value={selectedCaption.width ?? style.boxWidth ?? 84}
+                          min={10}
+                          max={100}
+                          step={1}
+                          onChange={(v) => onCaptionChange?.(selectedCaption.id, { width: v })}
+                          suffix="%"
+                          compact
+                        />
+                        <SliderRow
+                          label="Box Height"
+                          value={selectedCaption.height ?? 0}
+                          min={0}
+                          max={100}
+                          step={1}
+                          onChange={(v) => onCaptionChange?.(selectedCaption.id, { height: v === 0 ? undefined : v })}
+                          suffix="%"
+                          compact
+                        />
+                      </div>
+                    )}
+                  </div>
+                )}
+              </Field>
+
+              <div className="rounded-[8px] border border-[#f0ede8]">
+                <ToggleRow icon="B" label="Bold"
+                  checked={style.bold} onChange={(v) => set("bold", v)} />
+                <ToggleRow icon="AA" label="Uppercase"
+                  checked={style.uppercase} onChange={(v) => set("uppercase", v)} />
+                <ToggleRow icon="✨" label="Karaoke highlight"
+                  checked={style.karaoke} onChange={(v) => set("karaoke", v)} last />
+              </div>
+
+              {style.karaoke && (
+                <ColorField label="Highlight color" value={style.highlightColor}
+                  onChange={(v) => set("highlightColor", v)} />
               )}
-            </Field>
-
-            <div className="rounded-[8px] border border-[#f0ede8]">
-              <ToggleRow icon="B" label="Bold"
-                checked={style.bold} onChange={(v) => set("bold", v)} />
-              <ToggleRow icon="AA" label="Uppercase"
-                checked={style.uppercase} onChange={(v) => set("uppercase", v)} />
-              <ToggleRow icon="✨" label="Karaoke highlight"
-                checked={style.karaoke} onChange={(v) => set("karaoke", v)} last />
             </div>
-
-            {style.karaoke && (
-              <ColorField label="Highlight color" value={style.highlightColor}
-                onChange={(v) => set("highlightColor", v)} />
-            )}
-
           </div>
         )}
 
@@ -693,10 +753,15 @@ export function StylePanel({ style, onChange, selectedCaption, onCaptionChange, 
               {allTemplates.map((t) => {
                 const previewStyle = { ...DEFAULT_STYLE, ...t.style } as CaptionStyle;
                 const isCustom = t.id.startsWith("custom-");
+                const active = isTemplateActive(t);
                 return (
                   <div
                     key={t.id}
-                    className="group relative overflow-hidden rounded-[9px] border border-[#e8e4de] bg-white text-left transition hover:border-[#ffd5cc]"
+                    className={`group relative overflow-hidden rounded-[9px] border bg-white text-left transition ${
+                      active
+                        ? "border-[#ff5c3a] ring-1 ring-[#ff5c3a]"
+                        : "border-[#e8e4de] hover:border-[#ffd5cc]"
+                    }`}
                   >
                     {isCustom && (
                       <button
@@ -708,9 +773,14 @@ export function StylePanel({ style, onChange, selectedCaption, onCaptionChange, 
                       </button>
                     )}
                     <button onClick={() => applyTemplate(t)} className="block w-full text-left">
-                      <TemplatePreview style={previewStyle} text={t.name} cycle={previewIdx} />
-                      <div className="px-3 py-2 text-center">
+                      <TemplatePreview style={previewStyle} text={t.id === "none" ? "🚫" : t.name} cycle={previewIdx} />
+                      <div className="relative px-3 py-2 text-center">
                         <div className="truncate text-[12px] font-semibold text-[#1a1a1a]">{t.name}</div>
+                        {active && (
+                          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex h-4 w-4 items-center justify-center rounded-full bg-[#ff5c3a] text-white">
+                            <Check className="h-2.5 w-2.5" strokeWidth={3.5} />
+                          </div>
+                        )}
                       </div>
                     </button>
                   </div>
@@ -1018,9 +1088,12 @@ function ToggleRow({
   onChange: (v: boolean) => void; last?: boolean;
 }) {
   return (
-    <div className={`flex items-center justify-between px-3 py-2.5 ${last ? "" : "border-b border-[#f0ede8]"}`}>
-      <span className="flex items-center gap-2 text-[12.5px] text-[#555]">
-        <span className="flex h-[18px] min-w-[18px] items-center justify-center text-[11px] font-semibold text-[#888]">
+    <div
+      onClick={() => onChange(!checked)}
+      className={`flex items-center justify-between px-3.5 py-3 cursor-pointer select-none min-h-[44px] ${last ? "" : "border-b border-[#f0ede8]"}`}
+    >
+      <span className="flex items-center gap-2.5 text-[12.5px] font-medium text-[#555]">
+        <span className="flex h-5 min-w-[20px] items-center justify-center text-[11.5px] font-semibold text-[#888]">
           {icon}
         </span>
         {label}
@@ -1030,14 +1103,14 @@ function ToggleRow({
         role="switch"
         aria-label={label}
         aria-checked={checked}
-        onClick={() => onChange(!checked)}
-        className={`relative h-5 w-9 flex-shrink-0 rounded-full transition ${
+        onClick={(e) => { e.stopPropagation(); onChange(!checked); }}
+        className={`relative h-5.5 w-10 flex-shrink-0 rounded-full transition cursor-pointer ${
           checked ? "bg-[#ff5c3a]" : "bg-[#e8e4de]"
         }`}
       >
         <span
-          className={`absolute top-0.5 h-4 w-4 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.15)] transition-all ${
-            checked ? "left-[18px]" : "left-0.5"
+          className={`absolute top-0.5 h-4.5 w-4.5 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.15)] transition-all ${
+            checked ? "left-[20px]" : "left-0.5"
           }`}
         />
       </button>

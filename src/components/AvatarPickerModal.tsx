@@ -12,30 +12,51 @@ import {
   type AvatarSelection,
 } from "@/hooks/useAvatar";
 
-// ── Character name arrays (match the reference images) ─────────────────
-const MALE_NAMES = [
-  "Lelouch Lamperouge", "Monkey D. Luffy", "Levi Ackerman", "L (Lawliet)", "Roronoa Zoro", "Killua Zoldyck",
-  "Okabe Rintarou", "Light Yagami", "Edward Elric", "Naruto Uzumaki", "Guts", "Sakata Gintoki",
-  "Eren Yeager", "Kurisu Makise", "Itachi Uchiha", "Satoru Gojo", "Mikasa Ackerman", "Ken Kaneki",
-  "Hachiman Hikigaya", "Kakashi Hatake", "Spike Spiegel", "Saitama", "Rem",
-];
+// ── Character configuration array (matches the reference images) ───────
+const CHARACTERS: {
+  name: string;
+  category: "male" | "female";
+  sprite: "m" | "f";
+  col: number;
+  row: number;
+  aura: string;
+}[] = [
+  // Male characters
+  { name: "Lelouch Lamperouge", category: "male", sprite: "m", col: 0, row: 0, aura: "#a855f7" },
+  { name: "Monkey D. Luffy", category: "male", sprite: "m", col: 1, row: 0, aura: "#ff6b00" },
+  { name: "Levi Ackerman", category: "male", sprite: "m", col: 2, row: 0, aura: "#1e90ff" },
+  { name: "L (Lawliet)", category: "male", sprite: "m", col: 3, row: 0, aura: "#00bcd4" },
+  { name: "Roronoa Zoro", category: "male", sprite: "m", col: 4, row: 0, aura: "#22c55e" },
+  { name: "Killua Zoldyck", category: "male", sprite: "m", col: 5, row: 0, aura: "#3b82f6" },
+  { name: "Okabe Rintarou", category: "male", sprite: "m", col: 0, row: 1, aura: "#06b6d4" },
+  { name: "Light Yagami", category: "male", sprite: "m", col: 1, row: 1, aura: "#ef4444" },
+  { name: "Edward Elric", category: "male", sprite: "m", col: 2, row: 1, aura: "#fbbf24" },
+  { name: "Naruto Uzumaki", category: "male", sprite: "m", col: 3, row: 1, aura: "#f97316" },
+  { name: "Guts", category: "male", sprite: "m", col: 4, row: 1, aura: "#dc2626" },
+  { name: "Sakata Gintoki", category: "male", sprite: "m", col: 5, row: 1, aura: "#a78bfa" },
+  { name: "Eren Yeager", category: "male", sprite: "m", col: 0, row: 2, aura: "#22d3ee" },
+  { name: "Itachi Uchiha", category: "male", sprite: "m", col: 2, row: 2, aura: "#ef4444" },
+  { name: "Satoru Gojo", category: "male", sprite: "m", col: 3, row: 2, aura: "#6366f1" },
+  { name: "Ken Kaneki", category: "male", sprite: "m", col: 5, row: 2, aura: "#f472b6" },
+  { name: "Hachiman Hikigaya", category: "male", sprite: "m", col: 0, row: 3, aura: "#64748b" },
+  { name: "Kakashi Hatake", category: "male", sprite: "m", col: 1, row: 3, aura: "#38bdf8" },
+  { name: "Spike Spiegel", category: "male", sprite: "m", col: 2, row: 3, aura: "#f59e0b" },
+  { name: "Saitama", category: "male", sprite: "m", col: 3, row: 3, aura: "#fde047" },
 
-const FEMALE_NAMES = [
-  "Mikasa Ackerman", "Nezuko Kamado", "Sailor Moon", "Makima", "Yor Forger",
-  "C.C.", "Violet Evergarden", "Erza Scarlet", "Nico Robin", "Mai Sakurajima",
-];
-
-// Aura color per character (matches the glowing aura in reference images)
-const MALE_AURA_COLORS = [
-  "#a855f7", "#ff6b00", "#1e90ff", "#00bcd4", "#22c55e", "#3b82f6",
-  "#06b6d4", "#ef4444", "#fbbf24", "#f97316", "#dc2626", "#a78bfa",
-  "#22d3ee", "#e879f9", "#ef4444", "#6366f1", "#7c3aed", "#f472b6",
-  "#64748b", "#38bdf8", "#f59e0b", "#fde047", "#93c5fd",
-];
-
-const FEMALE_AURA_COLORS = [
-  "#ef4444", "#f472b6", "#3b82f6", "#ef4444", "#f59e0b",
-  "#22c55e", "#38bdf8", "#dc2626", "#f97316", "#8b5cf6",
+  // Female characters
+  { name: "Kurisu Makise", category: "female", sprite: "m", col: 1, row: 2, aura: "#e879f9" },
+  { name: "Mikasa Ackerman", category: "female", sprite: "m", col: 4, row: 2, aura: "#7c3aed" },
+  { name: "Rem", category: "female", sprite: "m", col: 4, row: 3, aura: "#93c5fd" },
+  { name: "Mikasa Ackerman", category: "female", sprite: "f", col: 0, row: 0, aura: "#ef4444" },
+  { name: "Nezuko Kamado", category: "female", sprite: "f", col: 1, row: 0, aura: "#f472b6" },
+  { name: "Sailor Moon", category: "female", sprite: "f", col: 2, row: 0, aura: "#3b82f6" },
+  { name: "Makima", category: "female", sprite: "f", col: 3, row: 0, aura: "#ef4444" },
+  { name: "Yor Forger", category: "female", sprite: "f", col: 4, row: 0, aura: "#f59e0b" },
+  { name: "C.C.", category: "female", sprite: "f", col: 0, row: 1, aura: "#22c55e" },
+  { name: "Violet Evergarden", category: "female", sprite: "f", col: 1, row: 1, aura: "#38bdf8" },
+  { name: "Erza Scarlet", category: "female", sprite: "f", col: 2, row: 1, aura: "#dc2626" },
+  { name: "Nico Robin", category: "female", sprite: "f", col: 3, row: 1, aura: "#f97316" },
+  { name: "Mai Sakurajima", category: "female", sprite: "f", col: 4, row: 1, aura: "#8b5cf6" },
 ];
 
 type Props = {
@@ -73,14 +94,7 @@ export function AvatarPickerModal({ open, onClose }: Props) {
     }
   };
 
-  const renderGrid = (
-    sprite: "m" | "f",
-    cols: number,
-    rows: number,
-    total: number,
-    names: string[],
-    auraColors: string[],
-  ) => {
+  const renderGrid = (activeTab: TabId) => {
     const items: JSX.Element[] = [];
 
     // Prominent "From Gallery" upload button as the first option
@@ -116,63 +130,57 @@ export function AvatarPickerModal({ open, onClose }: Props) {
       </button>
     );
 
-    let idx = 0;
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        if (idx >= total) break;
-        const col = c;
-        const row = r;
-        const name = names[idx] || "";
-        const aura = auraColors[idx] || "#f97316";
-        const isSelected =
-          selection?.type === "sprite" &&
-          selection.sprite === sprite &&
-          selection.col === col &&
-          selection.row === row;
+    const filtered = CHARACTERS.filter((c) => c.category === activeTab);
 
-        items.push(
-          <button
-            key={`${sprite}-${col}-${row}`}
-            onClick={() => handleSelect({ type: "sprite", sprite, col, row })}
-            className="group flex flex-col items-center gap-1.5 transition-transform hover:scale-105 active:scale-95"
-            aria-label={`Select avatar ${name}`}
-          >
-            <div className="relative">
-              {/* Aura glow */}
+    filtered.forEach((char) => {
+      const isSelected =
+        selection?.type === "sprite" &&
+        selection.sprite === char.sprite &&
+        selection.col === char.col &&
+        selection.row === char.row;
+
+      items.push(
+        <button
+          key={`${char.sprite}-${char.col}-${char.row}`}
+          onClick={() => handleSelect({ type: "sprite", sprite: char.sprite, col: char.col, row: char.row })}
+          className="group flex flex-col items-center gap-1.5 transition-transform hover:scale-105 active:scale-95"
+          aria-label={`Select avatar ${char.name}`}
+        >
+          <div className="relative">
+            {/* Aura glow */}
+            <div
+              className="absolute -inset-2 rounded-full opacity-0 group-hover:opacity-80 transition-opacity duration-300"
+              style={{
+                background: `radial-gradient(circle, ${char.aura}55 0%, ${char.aura}00 70%)`,
+                filter: "blur(6px)",
+              }}
+            />
+            {isSelected && (
               <div
-                className="absolute -inset-2 rounded-full opacity-0 group-hover:opacity-80 transition-opacity duration-300"
+                className="absolute -inset-1.5 rounded-full animate-pulse"
                 style={{
-                  background: `radial-gradient(circle, ${aura}55 0%, ${aura}00 70%)`,
-                  filter: "blur(6px)",
+                  background: `conic-gradient(from 0deg, ${char.aura}, transparent, ${char.aura})`,
+                  filter: "blur(3px)",
                 }}
               />
-              {isSelected && (
-                <div
-                  className="absolute -inset-1.5 rounded-full animate-pulse"
-                  style={{
-                    background: `conic-gradient(from 0deg, ${aura}, transparent, ${aura})`,
-                    filter: "blur(3px)",
-                  }}
-                />
-              )}
-              {/* Avatar circle */}
-              <div
-                className={`relative z-10 overflow-hidden rounded-full border-2 transition-all duration-200 ${
-                  isSelected
-                    ? "border-orange-400 shadow-lg shadow-orange-500/30 ring-2 ring-orange-400/50"
-                    : "border-white/10 hover:border-white/30"
-                }`}
-                style={buildSpriteStyle(col, row, sprite, 80)}
-              />
-            </div>
-            <span className="max-w-[85px] truncate text-[10px] font-medium text-white/70 group-hover:text-white transition-colors">
-              {name}
-            </span>
-          </button>,
-        );
-        idx++;
-      }
-    }
+            )}
+            {/* Avatar circle */}
+            <div
+              className={`relative z-10 overflow-hidden rounded-full border-2 transition-all duration-200 ${
+                isSelected
+                  ? "border-orange-400 shadow-lg shadow-orange-500/30 ring-2 ring-orange-400/50"
+                  : "border-white/10 hover:border-white/30"
+              }`}
+              style={buildSpriteStyle(char.col, char.row, char.sprite, 80)}
+            />
+          </div>
+          <span className="max-w-[85px] truncate text-[10px] font-medium text-white/70 group-hover:text-white transition-colors">
+            {char.name}
+          </span>
+        </button>,
+      );
+    });
+
     return items;
   };
 
@@ -225,9 +233,7 @@ export function AvatarPickerModal({ open, onClose }: Props) {
         {/* Grid */}
         <div className="flex-1 overflow-y-auto p-6">
           <div className="grid grid-cols-4 gap-5 sm:grid-cols-5 md:grid-cols-6">
-            {tab === "male"
-              ? renderGrid("m", SPRITE_M_COLS, SPRITE_M_ROWS, SPRITE_M_TOTAL, MALE_NAMES, MALE_AURA_COLORS)
-              : renderGrid("f", SPRITE_F_COLS, SPRITE_F_ROWS, SPRITE_F_TOTAL, FEMALE_NAMES, FEMALE_AURA_COLORS)}
+            {renderGrid(tab)}
           </div>
         </div>
 

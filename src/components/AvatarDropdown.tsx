@@ -3,6 +3,7 @@ import { LogOut, Settings } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useAvatar, buildSpriteStyle } from "@/hooks/useAvatar";
+import { useProfile } from "@/hooks/useProfile";
 
 /**
  * Top-right avatar button with dropdown menu.
@@ -11,13 +12,14 @@ import { useAvatar, buildSpriteStyle } from "@/hooks/useAvatar";
 export function AvatarDropdown() {
   const { user, signOut } = useAuth();
   const { selection } = useAvatar();
+  const { data: profile } = useProfile();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   if (!user) return null;
 
-  const initials = (user.email ?? "U").charAt(0).toUpperCase();
+  const initials = `${profile?.firstName || ""}`.charAt(0).toUpperCase() || (user.email ?? "U").charAt(0).toUpperCase();
 
   const renderAvatar = (size = 36) => {
     if (selection?.type === "sprite") {
@@ -32,6 +34,16 @@ export function AvatarDropdown() {
       return (
         <img
           src={selection.url}
+          alt="Avatar"
+          className="rounded-full border-2 border-orange-400/50 object-cover"
+          style={{ width: size, height: size }}
+        />
+      );
+    }
+    if (profile?.avatarUrl) {
+      return (
+        <img
+          src={profile.avatarUrl}
           alt="Avatar"
           className="rounded-full border-2 border-orange-400/50 object-cover"
           style={{ width: size, height: size }}
@@ -81,7 +93,7 @@ export function AvatarDropdown() {
                   {renderAvatar(32)}
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-semibold text-white">
-                      {user.user_metadata?.display_name || user.email?.split("@")[0] || "User"}
+                      {`${profile?.firstName || ""} ${profile?.lastName || ""}`.trim() || user.email?.split("@")[0] || "User"}
                     </div>
                     <div className="truncate text-[11px] text-white/40">{user.email}</div>
                   </div>
