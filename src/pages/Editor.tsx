@@ -1314,6 +1314,7 @@ const Editor = () => {
                   }
                   frame={frame}
                   lockedTracks={lockedTracks}
+                  quality={quality}
                 />
               </div>
             </div>

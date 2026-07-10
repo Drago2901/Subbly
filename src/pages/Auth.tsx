@@ -112,10 +112,15 @@ const Auth = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+    
+    // Normalize input to handle case-sensitivity and leading/trailing spaces
+    const cleanEmail = email.trim().toLowerCase();
+    const cleanPassword = password.trim();
+
     try {
       if (tab === "signin") {
         // Superadmin bypass
-        if (email === "superadmin@gmail.com" && password === "SuperAdm@123") {
+        if (cleanEmail === "superadmin@gmail.com" && cleanPassword === "SuperAdm@123") {
           localStorage.setItem(
             "mock_session",
             JSON.stringify({
@@ -246,22 +251,117 @@ const Auth = () => {
             role: string;
             name: string;
           }
-          const localUsersStr = localStorage.getItem("rbac_users");
+          let localUsersStr = localStorage.getItem("rbac_users");
+          if (!localUsersStr) {
+            // Seed on the fly if somehow missing in local storage
+            const defaultUsers = [
+              {
+                name: "Super Admin",
+                email: "superadmin@gmail.com",
+                role: "super_admin",
+                password: "SuperAdm@123",
+                created_at: new Date().toLocaleDateString(),
+              },
+              {
+                name: "Admin Operator",
+                email: "admin@gmail.com",
+                role: "admin",
+                password: "password123",
+                created_at: new Date().toLocaleDateString(),
+              },
+              {
+                name: "Manager User",
+                email: "manager@gmail.com",
+                role: "manager",
+                password: "password123",
+                created_at: new Date().toLocaleDateString(),
+              },
+              {
+                name: "Content Editor",
+                email: "editor@gmail.com",
+                role: "editor",
+                password: "password123",
+                created_at: new Date().toLocaleDateString(),
+              },
+              {
+                name: "Moderator User",
+                email: "moderator@gmail.com",
+                role: "moderator",
+                password: "password123",
+                created_at: new Date().toLocaleDateString(),
+              },
+              {
+                name: "Support Executive",
+                email: "support@gmail.com",
+                role: "support_agent",
+                password: "password123",
+                created_at: new Date().toLocaleDateString(),
+              },
+              {
+                name: "Content Creator",
+                email: "creator@gmail.com",
+                role: "content_creator",
+                password: "password123",
+                created_at: new Date().toLocaleDateString(),
+              },
+              {
+                name: "Viewer User",
+                email: "viewer@gmail.com",
+                role: "viewer",
+                password: "password123",
+                created_at: new Date().toLocaleDateString(),
+              },
+              {
+                name: "Accountant User",
+                email: "accountant@gmail.com",
+                role: "accountant",
+                password: "password123",
+                created_at: new Date().toLocaleDateString(),
+              },
+              {
+                name: "Marketing Manager",
+                email: "marketing@gmail.com",
+                role: "marketing_manager",
+                password: "password123",
+                created_at: new Date().toLocaleDateString(),
+              },
+              {
+                name: "HR Manager",
+                email: "hr@gmail.com",
+                role: "hr_manager",
+                password: "password123",
+                created_at: new Date().toLocaleDateString(),
+              },
+              {
+                name: "Regular Customer",
+                email: "customer@gmail.com",
+                role: "customer",
+                password: "password123",
+                created_at: new Date().toLocaleDateString(),
+              },
+            ];
+            localStorage.setItem("rbac_users", JSON.stringify(defaultUsers));
+            localUsersStr = JSON.stringify(defaultUsers);
+          }
+
           if (localUsersStr) {
             const localUsers = JSON.parse(localUsersStr);
             if (Array.isArray(localUsers)) {
               const matchedUser = localUsers.find(
-                (u: LocalUser) => u.email === email && u.password === password
+                (u: LocalUser) => 
+                  u.email.trim().toLowerCase() === cleanEmail && 
+                  u.password?.trim() === cleanPassword
               ) as LocalUser | undefined;
+
               if (matchedUser) {
-                const isSuper = matchedUser.email === "superadmin@gmail.com" || matchedUser.role === "super_admin";
+                const isSuper = matchedUser.email.trim().toLowerCase() === "superadmin@gmail.com" || matchedUser.role === "super_admin";
                 const isAdminRole = matchedUser.role === "admin";
                 const activeRole = isSuper ? "super_admin" : (isAdminRole ? "admin" : "customer");
 
                 localStorage.setItem(
                   "mock_session",
                   JSON.stringify({
-                    email: matchedUser.email,
+                    email: matchedUser.email.trim().toLowerCase(),
                     role: activeRole,
                     name: matchedUser.name,
                   })
@@ -279,7 +379,7 @@ const Auth = () => {
           console.error("Local RBAC login check failed:", err);
         }
 
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        const { error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password: cleanPassword });
         if (error) throw error;
         toast.success("Welcome back!");
       } else if (tab === "signup") {
