@@ -413,7 +413,7 @@ export default function Subscription() {
                 <p className="mt-0.5 text-xs text-[#b0aba4]">Your current usage this billing period</p>
               </div>
 
-              <div className="grid grid-cols-1 divide-y divide-[#e8e4de] dark:divide-zinc-800 md:grid-cols-3 md:divide-x md:divide-y-0 dark:md:divide-zinc-800">
+              <div className="grid grid-cols-1 divide-y divide-[#e8e4de] dark:divide-zinc-800 md:grid-cols-2 md:divide-x md:divide-y-0 dark:md:divide-zinc-800">
                 <UsageStat
                   icon={HardDrive}
                   iconColor="text-[#ff5c3a]"
@@ -436,17 +436,6 @@ export default function Subscription() {
                   leftNote={`${transPct.toFixed(1)}% used`}
                   rightNote={`${transLeft} mins left`}
                   noteColor={transPct > 80 ? "text-amber-500" : "text-zinc-400"}
-                />
-                <UsageStat
-                  icon={Mic}
-                  iconColor="text-fuchsia-400"
-                  label="Audio Cleans"
-                  current="0"
-                  total="3"
-                  pct={0}
-                  barColor="#a855f7"
-                  leftNote="0% used"
-                  rightNote="3 left"
                 />
               </div>
             </div>
