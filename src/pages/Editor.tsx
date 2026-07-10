@@ -231,7 +231,7 @@ const CondensedTimeline = ({
 
 const Editor = () => {
 
-  const { user, signOut } = useAuth();
+  const { user, signOut, isAdmin } = useAuth();
   const { theme, toggle: toggleTheme } = useTheme();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -610,6 +610,29 @@ const Editor = () => {
         },
       });
       return;
+    }
+
+    if (!isAdmin) {
+      try {
+        const { data: projects, error: projectsError } = await supabase
+          .from("projects")
+          .select("duration_seconds")
+          .eq("user_id", user.id);
+
+        let totalSeconds = 0;
+        if (projects && !projectsError) {
+          totalSeconds = projects.reduce((acc, p) => acc + (p.duration_seconds || 0), 0);
+        }
+
+        const totalMins = totalSeconds / 60;
+        if (totalMins >= 5.0) {
+          toast.error("Your free transcription limit (5 minutes) has expired. Please upgrade to continue.");
+          navigate("/subscription?tab=plans");
+          return;
+        }
+      } catch (err) {
+        console.error("Error checking transcription limit:", err);
+      }
     }
     setTranscribing(true);
     setTranscribeStage("Extracting audio...");
