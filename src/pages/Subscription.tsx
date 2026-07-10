@@ -197,7 +197,7 @@ function EmptyTab({
       {cta && ctaAction && (
         <button
           onClick={ctaAction}
-          className="rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-zinc-950 shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-400"
+          className="rounded-xl bg-[#ff5c3a] px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#ff5c3a]/20 transition hover:bg-[#ff7558]"
         >
           {cta}
         </button>
@@ -276,7 +276,7 @@ export default function Subscription() {
                 }`}
               >
                 <Icon
-                  className={`h-4 w-4 ${active ? "text-emerald-400" : "text-[#b0aba4]"}`}
+                  className={`h-4 w-4 ${active ? "text-[#ff5c3a]" : "text-[#b0aba4]"}`}
                   strokeWidth={1.8}
                 />
                 <span className="hidden sm:inline">{label}</span>
@@ -293,14 +293,14 @@ export default function Subscription() {
             {/* Current plan card */}
             <div className="overflow-hidden rounded-2xl border border-[#e8e4de] dark:border-zinc-800 bg-white dark:bg-zinc-900">
               {/* Top stripe */}
-              <div className="h-1 w-full bg-gradient-to-r from-emerald-500/60 via-emerald-400/40 to-transparent" />
+              <div className="h-1 w-full bg-gradient-to-r from-[#ff5c3a]/60 via-[#ff5c3a]/30 to-transparent" />
 
               <div className="p-6">
                 <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
                   {/* Plan info */}
                   <div className="flex items-start gap-4">
-                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-emerald-500/10 ring-1 ring-emerald-500/20">
-                      <Zap className="h-5 w-5 text-emerald-400" strokeWidth={1.8} />
+                    <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-[#ff5c3a]/10 ring-1 ring-[#ff5c3a]/20">
+                      <Zap className="h-5 w-5 text-[#ff5c3a]" strokeWidth={1.8} />
                     </div>
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-widest text-[#b0aba4]">Current Plan</p>
@@ -312,8 +312,8 @@ export default function Subscription() {
                   </div>
 
                   {/* Status badge */}
-                  <span className="flex w-fit items-center gap-1.5 rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1.5 text-xs font-semibold text-emerald-400">
-                    <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+                  <span className="flex w-fit items-center gap-1.5 rounded-full border border-[#ff5c3a]/20 bg-[#ff5c3a]/10 px-3 py-1.5 text-xs font-semibold text-[#ff5c3a]">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#ff5c3a]" />
                     Active
                   </span>
                 </div>
@@ -322,7 +322,7 @@ export default function Subscription() {
                 <div className="mt-6 flex flex-wrap gap-3">
                   <button
                     onClick={() => setTab("plans")}
-                    className="flex items-center gap-2 rounded-xl bg-emerald-500 px-5 py-2.5 text-sm font-semibold text-zinc-950 shadow-lg shadow-emerald-500/20 transition hover:bg-emerald-400 active:scale-95"
+                    className="flex items-center gap-2 rounded-xl bg-[#ff5c3a] px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#ff5c3a]/20 transition hover:bg-[#ff7558] active:scale-95"
                   >
                     Upgrade Plan
                     <ArrowUpRight className="h-4 w-4" />
@@ -348,12 +348,12 @@ export default function Subscription() {
               <div className="grid grid-cols-1 divide-y divide-[#e8e4de] dark:divide-zinc-800 md:grid-cols-3 md:divide-x md:divide-y-0 dark:md:divide-zinc-800">
                 <UsageStat
                   icon={HardDrive}
-                  iconColor="text-emerald-400"
+                  iconColor="text-[#ff5c3a]"
                   label="Storage"
                   current="< 0.1 GB"
                   total="5.0 GB"
                   pct={1.4}
-                  barColor="#34d399"
+                  barColor="#ff5c3a"
                   leftNote="1.4% used"
                   rightNote="4.9 GB left"
                 />
