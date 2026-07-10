@@ -1,4 +1,4 @@
-project_id = "syyfclyefqjguhpwtqrq"
+project_id = "polshaqgsqhzcvtipssx"
 
 [functions.transcribe-video]
 verify_jwt = false
