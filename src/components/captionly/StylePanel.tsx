@@ -338,128 +338,166 @@ const mapTemplateToStyle = (t: typeof TEMPLATES[number]): Partial<CaptionStyle> 
 };
 
 function CaptionPreview({ t }: { t: typeof TEMPLATES[number] }) {
-  const base = "font-black leading-tight tracking-tight";
+  const textWords = useMemo(() => t.text ? t.text.split(" ") : [], [t.text]);
+  const highlightWords = useMemo(() => t.highlight ? t.highlight.split(" ") : [], [t.highlight]);
+  const words = useMemo(() => [...textWords, ...highlightWords], [textWords, highlightWords]);
+  
+  const [activeIdx, setActiveIdx] = useState(0);
+
+  useEffect(() => {
+    if (words.length <= 1) return;
+    const interval = setInterval(() => {
+      setActiveIdx((prev) => (prev + 1) % words.length);
+    }, 600);
+    return () => clearInterval(interval);
+  }, [words]);
+
+  const base = "font-black leading-tight tracking-tight flex flex-wrap justify-center gap-x-1.5 gap-y-1 select-none text-center px-2";
 
   if (t.treatment === "oneword") {
     return (
-      <div className={`${base} text-2xl select-none`} style={{ color: t.accent }}>
+      <div 
+        className="font-black text-3xl select-none"
+        style={{ 
+          color: t.accent,
+          animation: "pulseScale 1.2s infinite ease-in-out"
+        }}
+      >
         {t.highlight}
       </div>
     );
   }
 
-  if (t.treatment === "box") {
-    return (
-      <div className={`${base} text-sm text-center select-none`}>
-        <span className="text-white">{t.text} </span>
-        <span
-          className="px-1.5 py-0.5 rounded"
-          style={{ backgroundColor: t.accent, color: "#0a0a0a" }}
-        >
-          {t.highlight}
-        </span>
-      </div>
-    );
-  }
-
-  if (t.treatment === "color") {
-    return (
-      <div className={`${base} text-sm text-center select-none`}>
-        <span className="text-white">{t.text} </span>
-        <span style={{ color: t.accent }}>{t.highlight}</span>
-      </div>
-    );
-  }
-
-  if (t.treatment === "glow") {
-    return (
-      <div className={`${base} text-sm text-center select-none`}>
-        <span className="text-white/80">{t.text} </span>
-        <span
-          style={{
-            color: t.accent,
-            textShadow: `0 0 8px ${t.accent}, 0 0 20px ${t.accent}66`,
-          }}
-        >
-          {t.highlight}
-        </span>
-      </div>
-    );
-  }
-
-  if (t.treatment === "outline") {
-    return (
-      <div className={`${base} text-sm text-center select-none`}>
-        <span className="text-white">{t.text} </span>
-        <span
-          style={{
-            color: "transparent",
-            WebkitTextStroke: `1px ${t.accent}`,
-          }}
-        >
-          {t.highlight}
-        </span>
-      </div>
-    );
-  }
-
-  if (t.treatment === "gradient") {
-    return (
-      <div className={`${base} text-sm text-center select-none`}>
-        <span className="text-white">{t.text} </span>
-        <span
-          className="bg-clip-text text-transparent"
-          style={{
-            backgroundImage: `linear-gradient(90deg, ${t.accent}, #ffffff)`,
-          }}
-        >
-          {t.highlight}
-        </span>
-      </div>
-    );
-  }
-
-  if (t.treatment === "karaoke") {
-    return (
-      <div className={`${base} text-sm text-center select-none`}>
-        <span className="text-white/35">{t.text} </span>
-        <span style={{ color: t.accent }}>{t.highlight}</span>
-      </div>
-    );
-  }
-
-  if (t.treatment === "mono") {
-    return (
-      <div className="text-xs text-center font-mono font-bold tracking-wide select-none">
-        <span className="text-white/60">{t.text} </span>
-        <span style={{ color: t.accent }}>{t.highlight}</span>
-      </div>
-    );
-  }
-
-  if (t.treatment === "serif") {
-    return (
-      <div className="text-sm text-center italic select-none" style={{ fontFamily: "Georgia, serif" }}>
-        <span className="text-white/70">{t.text} </span>
-        <span style={{ color: t.accent }}>{t.highlight}</span>
-      </div>
-    );
-  }
-
-  if (t.treatment === "stacked") {
-    return (
-      <div className={`${base} text-xs text-center select-none`}>
-        <div className="text-white">{t.text}</div>
-        <div style={{ color: t.accent }}>{t.highlight}</div>
-      </div>
-    );
-  }
-
-  // dim (default)
   return (
-    <div className={`${base} text-sm text-center select-none`}>
-      <span className="text-white/50">{t.text} </span>
-      <span className="text-white">{t.highlight}</span>
+    <div className={base}>
+      {words.map((word, idx) => {
+        const isHighlightWord = idx >= textWords.length;
+        const isActive = idx === activeIdx;
+
+        let style: React.CSSProperties = {
+          transition: "all 0.25s ease-in-out",
+        };
+
+        let className = "inline-block";
+
+        if (t.treatment === "karaoke") {
+          if (isActive) {
+            style.color = t.accent;
+            style.transform = "scale(1.15)";
+          } else {
+            style.color = "rgba(255,255,255,0.3)";
+          }
+        } else if (t.treatment === "box") {
+          if (isHighlightWord) {
+            style.backgroundColor = t.accent;
+            style.color = "#0a0a0a";
+            className += " px-1.5 py-0.5 rounded";
+            if (isActive) {
+              style.transform = "scale(1.1)";
+            }
+          } else {
+            style.color = isActive ? "#FFFFFF" : "rgba(255,255,255,0.6)";
+            if (isActive) {
+              style.transform = "scale(1.08)";
+            }
+          }
+        } else if (t.treatment === "color") {
+          if (isHighlightWord) {
+            style.color = t.accent;
+            if (isActive) {
+              style.transform = "scale(1.15)";
+            }
+          } else {
+            style.color = isActive ? "#FFFFFF" : "rgba(255,255,255,0.6)";
+            if (isActive) {
+              style.transform = "scale(1.08)";
+            }
+          }
+        } else if (t.treatment === "glow") {
+          if (isHighlightWord) {
+            style.color = t.accent;
+            style.animation = `glowPulse 1.5s infinite ease-in-out`;
+            // @ts-ignore
+            style["--glow-color"] = t.accent;
+            if (isActive) {
+              style.transform = "scale(1.1)";
+            }
+          } else {
+            style.color = isActive ? "#FFFFFF" : "rgba(255,255,255,0.6)";
+            if (isActive) {
+              style.transform = "scale(1.08)";
+            }
+          }
+        } else if (t.treatment === "outline") {
+          if (isHighlightWord) {
+            style.color = "transparent";
+            style.WebkitTextStroke = `1px ${t.accent}`;
+            if (isActive) {
+              style.transform = "scale(1.1)";
+            }
+          } else {
+            style.color = isActive ? "#FFFFFF" : "rgba(255,255,255,0.6)";
+            if (isActive) {
+              style.transform = "scale(1.08)";
+            }
+          }
+        } else if (t.treatment === "gradient") {
+          if (isHighlightWord) {
+            className += " bg-clip-text text-transparent bg-gradient-to-r";
+            style.backgroundImage = `linear-gradient(90deg, ${t.accent}, #ffffff)`;
+            if (isActive) {
+              style.transform = "scale(1.1)";
+            }
+          } else {
+            style.color = isActive ? "#FFFFFF" : "rgba(255,255,255,0.6)";
+            if (isActive) {
+              style.transform = "scale(1.08)";
+            }
+          }
+        } else if (t.treatment === "mono") {
+          className += " font-mono font-bold tracking-wide";
+          if (isHighlightWord) {
+            style.color = t.accent;
+            if (isActive) {
+              style.transform = "scale(1.1)";
+            }
+          } else {
+            style.color = isActive ? "#FFFFFF" : "rgba(255,255,255,0.5)";
+          }
+        } else if (t.treatment === "serif") {
+          className += " italic font-serif";
+          if (isHighlightWord) {
+            style.color = t.accent;
+            if (isActive) {
+              style.transform = "scale(1.1)";
+            }
+          } else {
+            style.color = isActive ? "#FFFFFF" : "rgba(255,255,255,0.6)";
+          }
+        } else if (t.treatment === "stacked") {
+          if (isHighlightWord) {
+            style.color = t.accent;
+            className += " block w-full mt-0.5";
+            if (isActive) {
+              style.transform = "scale(1.08)";
+            }
+          } else {
+            style.color = isActive ? "#FFFFFF" : "rgba(255,255,255,0.6)";
+          }
+        } else {
+          if (isHighlightWord) {
+            style.color = "#FFFFFF";
+          } else {
+            style.color = isActive ? "#FFFFFF" : "rgba(255,255,255,0.4)";
+          }
+        }
+
+        return (
+          <span key={idx} className={className} style={style}>
+            {word}
+          </span>
+        );
+      })}
     </div>
   );
 }
@@ -685,6 +723,16 @@ export function StylePanel({
 
   return (
     <div className="flex h-full flex-col bg-white" style={{ fontFamily: "'Outfit', sans-serif" }}>
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes pulseScale {
+          0%, 100% { transform: scale(0.95); opacity: 0.9; }
+          50% { transform: scale(1.12); opacity: 1; }
+        }
+        @keyframes glowPulse {
+          0%, 100% { text-shadow: 0 0 4px var(--glow-color), 0 0 10px var(--glow-color); }
+          50% { text-shadow: 0 0 12px var(--glow-color), 0 0 25px var(--glow-color); }
+        }
+      `}} />
       {showTabsHeader && (
         <div className="flex flex-shrink-0 border-b border-[#e8e4de]">
           {tabs.map((t) => {
