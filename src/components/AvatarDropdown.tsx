@@ -1,5 +1,5 @@
 import { useRef, useState } from "react";
-import { LogOut, Settings } from "lucide-react";
+import { LogOut, Settings, CreditCard } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/hooks/useAuth";
 import { useAvatar, buildSpriteStyle } from "@/hooks/useAvatar";
@@ -102,6 +102,14 @@ export function AvatarDropdown() {
 
               {/* Menu items */}
               <div className="py-1">
+                <MenuItem
+                  icon={CreditCard}
+                  label="Manage Subscription"
+                  onClick={() => {
+                    setOpen(false);
+                    navigate("/subscription");
+                  }}
+                />
                 <MenuItem
                   icon={Settings}
                   label="Profile"
