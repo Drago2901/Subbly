@@ -18,6 +18,9 @@ import {
   Move,
   Upload,
   X,
+  Search,
+  Star,
+  ChevronDown,
 } from "lucide-react";
 import {
   FONT_OPTIONS,
@@ -149,6 +152,141 @@ const ANIM_STYLES = [
   },
 ];
 
+const CATEGORIES = [
+  "All Templates",
+  "Trending",
+  "Minimal",
+  "Bold",
+  "Dynamic",
+  "Elegant",
+  "Gaming",
+  "Social Media",
+];
+
+// Mockup details for the 8 featured templates matching your screenshot
+const FEATURED_DETAILS: Record<string, { badge: "New" | "Pro" | null; categories: string[]; tags: string[] }> = {
+  "modern-clean": { badge: "New", categories: ["Trending", "Minimal", "Social Media"], tags: ["Text", "Accent", "Fade"] },
+  "gradient-pop": { badge: "Pro", categories: ["Trending", "Bold", "Dynamic"], tags: ["Text", "Accent", "Scale"] },
+  "bold-impact": { badge: "Pro", categories: ["Trending", "Bold", "Social Media"], tags: ["Text", "Accent", "Pop"] },
+  "neon-glow-premium": { badge: "Pro", categories: ["Dynamic", "Gaming"], tags: ["Text", "Accent", "Glow"] },
+  "minimal-box": { badge: "New", categories: ["Minimal"], tags: ["Text", "Accent", "Slide"] },
+  "wave-style-premium": { badge: "Pro", categories: ["Elegant", "Social Media"], tags: ["Text", "Accent", "Wave"] },
+  "street-vibe-premium": { badge: "Pro", categories: ["Bold", "Gaming"], tags: ["Text", "Accent", "Shake"] },
+  "luxury-gold-premium": { badge: "Pro", categories: ["Elegant"], tags: ["Text", "Accent", "Fade"] },
+};
+
+function TemplateCardPreview({ template }: { template: CaptionTemplate }) {
+  switch (template.id) {
+    case "modern-clean":
+      return (
+        <div className="w-full h-full bg-[#0d0d0f] relative overflow-hidden flex flex-col items-center justify-center p-2 select-none">
+          <div className="absolute inset-0 opacity-10 bg-[radial-gradient(#F59E0B_1px,transparent_1px)] [background-size:12px_12px] pointer-events-none" />
+          <div className="text-center font-sans tracking-tight">
+            <span className="block text-[11px] font-semibold text-white">Your captions</span>
+            <span className="inline-block mt-1 px-2.5 py-0.5 text-[10px] font-extrabold bg-[#FF5C3A] text-white rounded-[3px] shadow-sm">here</span>
+          </div>
+        </div>
+      );
+      
+    case "gradient-pop":
+      return (
+        <div className="w-full h-full bg-gradient-to-br from-indigo-950 via-purple-950 to-indigo-950 relative overflow-hidden flex items-center justify-center p-2 select-none">
+          <div className="text-center">
+            <span className="block text-[10px] font-black tracking-wider text-white uppercase">YOUR CAPTIONS</span>
+            <span className="inline-block mt-1 px-2 py-0.5 text-[10px] font-black uppercase text-white bg-gradient-to-r from-purple-500 to-pink-500 rounded-[4px] shadow-sm">HERE</span>
+          </div>
+        </div>
+      );
+      
+    case "bold-impact":
+      return (
+        <div className="w-full h-full bg-[#0a0a0b] relative overflow-hidden flex items-center justify-center p-2 select-none">
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none overflow-hidden select-none">
+            <span className="font-extrabold text-[28px] text-zinc-900 tracking-wider uppercase opacity-35 select-none scale-125">BOLD</span>
+          </div>
+          <div className="text-center relative z-10">
+            <span className="block text-[12px] font-black italic text-white uppercase [text-shadow:_1px_1px_0_#000,-1px_-1px_0_#000,1px_-1px_0_#000,-1px_1px_0_#000]">Your captions</span>
+            <span className="inline-block text-[13px] font-black italic text-[#FACC15] uppercase [text-shadow:_1px_1px_0_#000,-1px_-1px_0_#000,1px_-1px_0_#000,-1px_1px_0_#000] transform -rotate-2">here</span>
+          </div>
+        </div>
+      );
+      
+    case "neon-glow-premium":
+      return (
+        <div className="w-full h-full bg-[#09090b] relative overflow-hidden flex items-center justify-center p-2 select-none">
+          <div className="text-center">
+            <span className="block text-[10px] font-bold tracking-wide text-white uppercase drop-shadow-[0_0_4px_rgba(6,182,212,0.8)]">Your Captions</span>
+            <span className="inline-block mt-0.5 text-[12px] font-bold text-cyan-400 uppercase drop-shadow-[0_0_6px_rgba(34,211,238,0.9)]">Here</span>
+          </div>
+        </div>
+      );
+      
+    case "minimal-box":
+      return (
+        <div className="w-full h-full bg-[#0c0c0d] relative overflow-hidden flex items-center justify-center p-2 select-none">
+          <div className="border border-pink-500/80 px-2.5 py-1 relative bg-black/45">
+            <span className="absolute -top-1.5 -left-0.5 text-[7px] font-bold text-pink-500">+</span>
+            <span className="absolute -top-1.5 -right-0.5 text-[7px] font-bold text-pink-500">+</span>
+            <span className="absolute -bottom-1.5 -left-0.5 text-[7px] font-bold text-pink-500">+</span>
+            <span className="absolute -bottom-1.5 -right-0.5 text-[7px] font-bold text-pink-500">+</span>
+            <span className="text-[8px] font-bold tracking-widest text-white uppercase">YOUR CAPTIONS HERE</span>
+          </div>
+        </div>
+      );
+      
+    case "wave-style-premium":
+      return (
+        <div className="w-full h-full bg-[#07080a] relative overflow-hidden flex items-center justify-center p-2 select-none">
+          <div className="text-center">
+            <span className="block text-[10px] font-semibold text-white">Your captions</span>
+            <span className="inline-block mt-0.5 px-2 py-0.5 text-[9px] font-bold bg-cyan-500 text-white rounded-[2px]">here</span>
+          </div>
+        </div>
+      );
+      
+    case "street-vibe-premium":
+      return (
+        <div className="w-full h-full bg-[#0a0a0b] relative overflow-hidden flex items-center justify-center p-2 select-none">
+          <div className="text-center relative z-10 font-mono">
+            <span className="block text-[10px] font-extrabold text-yellow-400 uppercase tracking-tight">YOUR CAPTIONS</span>
+            <span className="inline-block px-1.5 py-0.5 bg-white text-black text-[9px] font-black uppercase transform rotate-1">HERE</span>
+          </div>
+        </div>
+      );
+      
+    case "luxury-gold-premium":
+      return (
+        <div className="w-full h-full bg-[#080809] border border-amber-500/10 relative overflow-hidden flex items-center justify-center p-2 select-none">
+          <div className="absolute inset-0.5 border border-amber-500/10 pointer-events-none" />
+          <div className="text-center font-serif">
+            <span className="block text-[11px] italic text-[#FCD34D] font-medium">Your captions</span>
+            <span className="inline-block mt-0.5 px-2 py-0.5 text-[9px] uppercase border border-amber-500/40 text-amber-400 font-semibold bg-amber-950/20">here</span>
+          </div>
+        </div>
+      );
+      
+    default:
+      const s = template.style || {};
+      const fontFamily = s.fontFamily || "Inter";
+      const uppercase = s.uppercase || false;
+      return (
+        <div className="w-full h-full bg-gradient-to-tr from-[#0e0f12] to-[#16171c] relative overflow-hidden flex items-center justify-center p-2 select-none">
+          <span 
+            className="text-[9px] text-center font-bold px-1.5 py-0.5 rounded"
+            style={{ 
+              fontFamily: `"${fontFamily}", sans-serif`,
+              color: s.color || "#FFFFFF",
+              backgroundColor: s.bgColor ? `${s.bgColor}${Math.round((s.bgOpacity ?? 1) * 255).toString(16).padStart(2, "0")}` : "transparent",
+              textShadow: s.strokeWidth ? `0 0 ${s.strokeWidth}px ${s.strokeColor || "#000"}` : "none",
+            }}
+          >
+            {uppercase ? "YOUR CAPTIONS" : "Your captions"}
+          </span>
+        </div>
+      );
+  }
+}
+
 export function StylePanel({
   style,
   onChange,
@@ -177,6 +315,33 @@ export function StylePanel({
   // Rotating preview text shared across template cards
   const [previewIdx, setPreviewIdx] = useState(0);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  const [activeCategory, setActiveCategory] = useState("All Templates");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const [loadMoreCount, setLoadMoreCount] = useState(8);
+
+  // Load favorites from localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem("subbly.favoriteTemplates");
+      if (stored) {
+        setFavorites(JSON.parse(stored));
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }, []);
+
+  const toggleFavorite = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    const next = favorites.includes(id) 
+      ? favorites.filter(f => f !== id) 
+      : [...favorites, id];
+    setFavorites(next);
+    localStorage.setItem("subbly.favoriteTemplates", JSON.stringify(next));
+    toast.success(favorites.includes(id) ? "Removed from favorites" : "Added to favorites");
+  };
 
   const set = <K extends keyof CaptionStyle>(k: K, v: CaptionStyle[K]) =>
     onChange({ ...style, [k]: v });
@@ -221,10 +386,67 @@ export function StylePanel({
     [],
   );
 
-  const allTemplates = useMemo(
-    () => [NONE_TEMPLATE, ...customTemplates, ...CAPTION_TEMPLATES],
-    [NONE_TEMPLATE, customTemplates],
-  );
+  const allTemplates = useMemo(() => {
+    const list: CaptionTemplate[] = [NONE_TEMPLATE];
+
+    const featuredIds = [
+      "modern-clean",
+      "gradient-pop",
+      "bold-impact",
+      "neon-glow-premium",
+      "minimal-box",
+      "wave-style-premium",
+      "street-vibe-premium",
+      "luxury-gold-premium",
+    ];
+
+    featuredIds.forEach((fid) => {
+      const existing = CAPTION_TEMPLATES.find(t => t.id === fid || t.id === fid.replace("-premium", ""));
+      const details = FEATURED_DETAILS[fid] || { badge: null, categories: ["Trending"], tags: ["Text"] };
+      
+      if (existing) {
+        list.push({
+          ...existing,
+          id: fid,
+          badge: details.badge as any,
+          categories: details.categories,
+          tags: details.tags
+        });
+      } else {
+        list.push({
+          id: fid,
+          name: fid.split("-").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
+          description: "Stunning template designed for professional look",
+          badge: details.badge as any,
+          categories: details.categories,
+          tags: details.tags,
+          style: { fontFamily: "Inter", fontSize: 50, color: "#FFFFFF" }
+        });
+      }
+    });
+
+    CAPTION_TEMPLATES.forEach((t) => {
+      if (!featuredIds.some(fid => fid === t.id || fid.replace("-premium", "") === t.id)) {
+        list.push({
+          ...t,
+          badge: null,
+          categories: ["Trending", "Social Media"],
+          tags: ["Text", "Accent"]
+        });
+      }
+    });
+
+    customTemplates.forEach((ct) => {
+      list.push({
+        ...ct,
+        badge: "New",
+        categories: ["Social Media"],
+        tags: ["Custom"]
+      });
+    });
+
+    return list;
+  }, [NONE_TEMPLATE, customTemplates]);
 
   const isTemplateActive = (t: CaptionTemplate) => {
     if (t.id === "none") {
@@ -245,6 +467,29 @@ export function StylePanel({
       return style[key as keyof CaptionStyle] === value;
     });
   };
+
+  const filteredTemplates = useMemo(() => {
+    return allTemplates.filter((t) => {
+      // 1. Search Query Filter
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase();
+        const matchesName = t.name.toLowerCase().includes(query);
+        const matchesDesc = t.description.toLowerCase().includes(query);
+        if (!matchesName && !matchesDesc) return false;
+      }
+
+      // 2. Category Filter
+      if (activeCategory !== "All Templates") {
+        if (!t.categories?.includes(activeCategory)) return false;
+      }
+
+      return true;
+    });
+  }, [allTemplates, activeCategory, searchQuery]);
+
+  const displayedTemplates = useMemo(() => {
+    return filteredTemplates.slice(0, loadMoreCount);
+  }, [filteredTemplates, loadMoreCount]);
 
   const applyTemplate = (t: CaptionTemplate) => {
     onChange({ ...style, ...t.style });
@@ -727,7 +972,7 @@ export function StylePanel({
                 <ColorField
                   label="Cursor Color"
                   value={style.typewriterCursorColor || "#ff5c3a"}
-                  onChange={(v) => set("typewriterCursorColor", v)}
+                          onChange={(v) => set("typewriterCursorColor", v)}
                 />
               </div>
             )}
@@ -736,67 +981,157 @@ export function StylePanel({
 
         {tab === "tmpl" && (
           <div className="space-y-4">
-            <TemplateLibraryDialog
-              currentStyle={style}
-              onApplyTemplate={applyTemplate}
-              customTemplates={customTemplates}
-              onImportClick={() => setImportOpen(true)}
-            />
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="text-[13px] font-semibold text-[#1a1a1a]">Caption Templates</div>
+                <button
+                  onClick={() => setImportOpen(true)}
+                  className="inline-flex h-7 items-center gap-1 rounded-lg border border-[#e8e4de] bg-white px-2.5 text-[11.5px] font-semibold text-zinc-600 hover:text-[#ff5c3a] hover:border-[#ff5c3a]/50 transition-all cursor-pointer shadow-sm"
+                >
+                  <Upload className="h-3.5 w-3.5" strokeWidth={2} />
+                  Import
+                </button>
+              </div>
 
-            <div className="mb-0.5 flex items-center justify-between pt-3 border-t border-[#f0ede8]">
-              <div className="text-[13px] font-semibold text-[#1a1a1a]">Quick presets</div>
-              <button
-                onClick={() => setImportOpen(true)}
-                className="inline-flex items-center gap-1 rounded-[7px] border border-[#e8e4de] bg-white px-2.5 py-1.5 text-[11.5px] font-medium text-[#555] transition hover:border-[#ff5c3a] hover:text-[#ff5c3a]"
-              >
-                <Upload className="h-3 w-3" strokeWidth={2} />
-                Import
-              </button>
-            </div>
-            <div className="text-[11.5px] leading-relaxed text-[#aaa]">
-              Each template shows its name in its own effect — click to apply.
+              <div className="relative w-full">
+                <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-400" />
+                <input
+                  type="text"
+                  placeholder="Search templates..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full h-8.5 rounded-lg border border-[#e8e4de] bg-[#f5f3ee]/40 pl-8.5 pr-3 text-[12px] text-zinc-800 placeholder-zinc-400 outline-none transition focus:border-[#ff5c3a] focus:ring-0 focus:bg-white"
+                />
+              </div>
+
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                {CATEGORIES.map((cat) => {
+                  const active = activeCategory === cat;
+                  return (
+                    <button
+                      key={cat}
+                      type="button"
+                      onClick={() => {
+                        setActiveCategory(cat);
+                        setLoadMoreCount(8);
+                      }}
+                      className={`flex-shrink-0 px-3 py-1 text-[11px] font-semibold rounded-md transition-all cursor-pointer ${
+                        active
+                          ? "bg-[#ff5c3a] text-white shadow-sm"
+                          : "bg-[#f5f3ee] text-zinc-500 hover:text-zinc-800 hover:bg-[#ebd2cc]/10"
+                      }`}
+                    >
+                      {cat}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            <div className="mb-4 grid grid-cols-1 gap-2.5">
-              {allTemplates.map((t) => {
-                const previewStyle = { ...DEFAULT_STYLE, ...t.style } as CaptionStyle;
-                const isCustom = t.id.startsWith("custom-");
+            <div className="space-y-2.5">
+              {displayedTemplates.map((t) => {
                 const active = isTemplateActive(t);
+                const isFav = favorites.includes(t.id);
+                const isCustom = t.id.startsWith("custom-");
+
                 return (
                   <div
                     key={t.id}
-                    className={`group relative overflow-hidden rounded-[9px] border bg-white text-left transition ${
+                    onClick={() => applyTemplate(t)}
+                    className={`flex h-[88px] rounded-xl overflow-hidden bg-white border transition-all cursor-pointer relative ${
                       active
-                        ? "border-[#ff5c3a] ring-1 ring-[#ff5c3a]"
-                        : "border-[#e8e4de] hover:border-[#ffd5cc]"
+                        ? "border-[#ff5c3a] ring-1 ring-[#ff5c3a]/30 shadow-[0_2px_12px_rgba(255,92,58,0.06)]"
+                        : "border-[#e8e4de] hover:border-zinc-300 hover:bg-neutral-50/40"
                     }`}
                   >
-                    {isCustom && (
-                      <button
-                        onClick={() => deleteCustomTemplate(t.id)}
-                        aria-label={`Delete ${t.name}`}
-                        className="absolute right-1.5 top-1.5 z-10 flex h-5 w-5 items-center justify-center rounded-full bg-black/55 text-white opacity-0 transition group-hover:opacity-100 hover:bg-red-500"
-                      >
-                        <X className="h-3 w-3" strokeWidth={2.5} />
-                      </button>
-                    )}
-                    <button onClick={() => applyTemplate(t)} className="block w-full text-left">
-                      <TemplatePreview style={previewStyle} text={t.id === "none" ? "🚫" : t.name} cycle={previewIdx} />
-                      <div className="relative px-3 py-2 text-center">
-                        <div className="truncate text-[12px] font-semibold text-[#1a1a1a]">{t.name}</div>
-                        {active && (
-                          <div className="absolute right-3 top-1/2 -translate-y-1/2 flex h-4 w-4 items-center justify-center rounded-full bg-[#ff5c3a] text-white">
-                            <Check className="h-2.5 w-2.5" strokeWidth={3.5} />
+                    <div className="w-[110px] h-full border-r border-[#e8e4de] flex-shrink-0 overflow-hidden bg-black">
+                      <TemplateCardPreview template={t} />
+                    </div>
+
+                    <div className="flex-1 p-2 flex flex-col justify-between min-w-0">
+                      <div className="space-y-0.5">
+                        <div className="flex items-start justify-between gap-1.5">
+                          <div className="flex items-center gap-1 min-w-0">
+                            <span className="font-semibold text-[12px] text-zinc-800 truncate">{t.name}</span>
+                            {t.badge && (
+                              <span className={`px-1 rounded text-[8px] font-black tracking-wide uppercase select-none ${
+                                t.badge === "New" 
+                                  ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/10" 
+                                  : "bg-purple-500/10 text-purple-600 border border-purple-500/10"
+                              }`}>
+                                {t.badge}
+                              </span>
+                            )}
                           </div>
-                        )}
+
+                          {isCustom ? (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                deleteCustomTemplate(t.id);
+                              }}
+                              className="text-zinc-400 hover:text-red-500 p-0.5"
+                              title="Delete template"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          ) : (
+                            <button
+                              onClick={(e) => toggleFavorite(t.id, e)}
+                              className="text-zinc-400 hover:text-amber-500 transition-colors p-0.5"
+                              title={isFav ? "Remove from favorites" : "Favorite template"}
+                            >
+                              <Star className={`h-3.5 w-3.5 ${isFav ? "fill-amber-500 text-amber-500" : ""}`} />
+                            </button>
+                          )}
+                        </div>
+
+                        <p className="text-[10px] text-zinc-400 line-clamp-2 leading-tight">
+                          {t.description}
+                        </p>
                       </div>
-                    </button>
+
+                      <div className="flex items-center gap-1 overflow-hidden mt-0.5">
+                        {t.tags?.map((tag) => (
+                          <span 
+                            key={tag} 
+                            className="px-1 py-0.5 rounded bg-zinc-100 text-zinc-500 text-[8px] font-medium"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+
+                    {active && (
+                      <div className="absolute top-1.5 left-1.5 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-[#ff5c3a] text-white border border-white shadow-sm">
+                        <Check className="h-2.5 w-2.5" strokeWidth={3.5} />
+                      </div>
+                    )}
                   </div>
                 );
               })}
             </div>
 
+            {filteredTemplates.length > loadMoreCount && (
+              <div className="pt-2 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setLoadMoreCount((prev) => prev + 6)}
+                  className="inline-flex h-8 items-center gap-1 rounded-lg border border-[#e8e4de] bg-[#f5f3ee]/40 px-3.5 text-[11.5px] font-semibold text-zinc-500 hover:text-zinc-800 hover:border-zinc-300 hover:bg-neutral-50 transition-all cursor-pointer"
+                >
+                  Load More Templates
+                  <ChevronDown className="h-3 w-3" />
+                </button>
+              </div>
+            )}
 
+            {filteredTemplates.length === 0 && (
+              <div className="py-8 flex flex-col items-center justify-center text-center">
+                <span className="font-semibold text-zinc-400 text-[12px]">No templates found</span>
+                <span className="text-[10.5px] text-zinc-500 mt-0.5">Try searching for something else.</span>
+              </div>
+            )}
 
             <div className="mb-2.5 border-t border-[#f0ede8] pt-3.5 text-[10px] font-semibold tracking-wider text-[#bbb]">
               MY PRESETS
