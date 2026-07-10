@@ -367,7 +367,7 @@ const Index = () => {
 
       {/* Footer */}
       <footer className="flex flex-col items-center justify-between gap-3 border-t border-[#e8e4de] bg-white px-6 py-5 text-xs text-[#b0aba4] md:flex-row md:px-12">
-        <div>© 2025 Subbly</div>
+        <div>© 2026 Subbly</div>
         <div className="flex gap-[22px]">
           <Link to="/privacy" className="transition hover:text-[#1a1a1a]">Privacy</Link>
           <Link to="/terms" className="transition hover:text-[#1a1a1a]">Terms</Link>
