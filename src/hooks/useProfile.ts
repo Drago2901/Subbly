@@ -173,7 +173,7 @@ export function useProfile() {
             if (localUsersStr) {
               const localUsers = JSON.parse(localUsersStr);
               if (Array.isArray(localUsers)) {
-                const updated = localUsers.map((u: { email: string; name: string }) =>
+                const updated = (localUsers as { email: string; [key: string]: unknown }[]).map((u) =>
                   u.email === user.email ? { ...u, name: displayName } : u
                 );
                 localStorage.setItem("rbac_users", JSON.stringify(updated));

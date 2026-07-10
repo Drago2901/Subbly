@@ -76,7 +76,7 @@ export function Timeline({
 }: Props) {
   const [zoomPct, setZoomPct] = useState(40); // 5–100
   const selected = selectedId ?? null;
-  const setSelected = useMemo(() => onSelect ?? (() => {}), [onSelect]);
+  const setSelected = onSelect ?? (() => {});
   const [drag, setDrag] = useState<DragState>(null);
   const [snap, setSnap] = useState(true);
 
@@ -226,7 +226,7 @@ export function Timeline({
       onChange(captions.filter((cap) => cap.id !== id));
       if (selected === id) setSelected(null);
     },
-    [captions, onChange, selected, lockedTracks, setSelected],
+    [captions, onChange, selected, lockedTracks],
   );
 
   const selectedCaption = captions.find((c) => c.id === selected) ?? null;
@@ -263,7 +263,7 @@ export function Timeline({
     const next = [...captions, newCap].sort((a, b) => a.start - b.start);
     onChange(next);
     setSelected(newCap.id);
-  }, [captions, currentTime, duration, onChange, numTracks, lockedTracks, setSelected]);
+  }, [captions, currentTime, duration, onChange, numTracks, lockedTracks]);
 
   const handleDeleteTrack = useCallback((targetTrack: number) => {
     if (numTracks <= 2 || targetTrack <= 2) return;

@@ -4,16 +4,11 @@ import {
   ArrowRight,
   Check,
   ChevronDown,
-  Menu as MenuIcon,
-  Moon,
-  Sun,
   Sparkles,
-  ArrowLeft,
 } from "lucide-react";
-import { useTheme } from "@/hooks/useTheme";
 import { useAuth } from "@/hooks/useAuth";
-import { AvatarDropdown } from "@/components/AvatarDropdown";
 import { Seo } from "@/components/Seo";
+import { NavBar } from "@/components/NavBar";
 
 const PRICING_DESCRIPTION =
   "Pricing that scales with your content. Start free and upgrade when you're ready. Every plan includes AI captions and styling.";
@@ -130,11 +125,9 @@ const FAQS = [
 
 export default function Pricing() {
   const { user } = useAuth();
-  const { theme, toggle } = useTheme();
   const navigate = useNavigate();
   const [period, setPeriod] = useState<Period>("monthly");
   const [openFaq, setOpenFaq] = useState<number | null>(0);
-  const [mobileOpen, setMobileOpen] = useState(false);
 
   const faqJsonLd = {
     "@context": "https://schema.org",
@@ -153,87 +146,7 @@ export default function Pricing() {
     >
       <Seo title="Pricing — Subbly" description={PRICING_DESCRIPTION} path="/pricing" jsonLd={faqJsonLd} />
       
-      {/* Nav */}
-      <nav className="relative sticky top-0 z-[200] flex h-[62px] items-center justify-between border-b border-[#e8e4de] bg-white/95 px-6 backdrop-blur-xl md:px-12 text-[#1a1a1a]">
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => {
-              if (window.history.length > 1) {
-                navigate(-1);
-              } else {
-                navigate("/");
-              }
-            }}
-            aria-label="Go back"
-            className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#e8e4de] bg-white text-[#666] transition hover:text-[#1a1a1a]"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <Link to="/" className="flex items-center gap-2.5">
-            <img
-              src="/logo.png"
-              alt="Subbly Logo"
-              className="h-9 w-9 object-contain rounded-[9px] shadow-[0_2px_8px_rgba(255,92,58,0.15)]"
-            />
-            <span className="font-serif-display text-[18px] tracking-[-0.2px] text-[#1a1a1a]">
-              Subbly
-            </span>
-          </Link>
-        </div>
-        <div className="hidden items-center gap-[30px] md:flex md:absolute md:left-1/2 md:-translate-x-1/2 md:top-1/2 md:-translate-y-1/2">
-          <Link to="/#features" className="text-[13.5px] text-[#666] hover:text-[#1a1a1a] transition-colors">
-            Features
-          </Link>
-          <Link to="/#how" className="text-[13.5px] text-[#666] hover:text-[#1a1a1a] transition-colors">
-            How it works
-          </Link>
-          <span className="text-[13.5px] font-medium text-[#1a1a1a]">Pricing</span>
-        </div>
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={toggle}
-            aria-label="Toggle dark mode"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#e8e4de] bg-white text-[#666] transition hover:text-[#1a1a1a]"
-          >
-            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </button>
-          {user ? (
-            <AvatarDropdown />
-          ) : (
-            <Link
-              to="/auth"
-              className="hidden items-center gap-1.5 rounded-lg border border-[#e8e4de] bg-white px-[14px] py-2 text-[13px] text-[#666] transition hover:text-[#1a1a1a] sm:inline-flex"
-            >
-              Sign in
-            </Link>
-          )}
-          <Link
-            to="/editor"
-            className="hidden items-center gap-1.5 rounded-lg bg-[#ff5c3a] px-[18px] py-2 text-[13px] font-medium text-white transition hover:bg-[#ff7558] md:inline-flex"
-          >
-            Get started free <ArrowRight className="h-3 w-3" strokeWidth={2.2} />
-          </Link>
-          <button
-            onClick={() => setMobileOpen((v) => !v)}
-            aria-label="Menu"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#e8e4de] bg-white text-[#666] md:hidden"
-          >
-            <MenuIcon className="h-4 w-4" />
-          </button>
-        </div>
-      </nav>
-
-      {mobileOpen && (
-        <div className="border-b border-[#e8e4de] bg-white px-4 py-3 md:hidden">
-          <div className="flex flex-col gap-1">
-            <Link to="/#features" className="rounded-lg px-3 py-2.5 text-[14px] text-[#666] hover:bg-[#f5f3ee]">Features</Link>
-            <Link to="/#how" className="rounded-lg px-3 py-2.5 text-[14px] text-[#666] hover:bg-[#f5f3ee]">How it works</Link>
-            <div className="my-2 h-px bg-[#e8e4de]" />
-            <Link to="/auth" className="rounded-lg border border-[#e8e4de] px-3 py-2.5 text-center text-[14px] text-[#666]">Sign in</Link>
-            <Link to="/editor" className="rounded-lg bg-[#ff5c3a] px-3 py-2.5 text-center text-[14px] font-medium text-white">Get started free</Link>
-          </div>
-        </div>
-      )}
+      <NavBar isPublic activeView="Pricing" />
 
       {/* Hero */}
       <section className="border-b border-[#e8e4de] bg-white px-6 py-16 text-center md:py-20">

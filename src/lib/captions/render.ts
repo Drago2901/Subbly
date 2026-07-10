@@ -245,14 +245,6 @@ export async function burnCaptions(opts: {
     renderFrame();
     onProgress?.({ progress: 1, message: "Finalizing export" });
 
-    // Disconnect audio nodes immediately to prevent trailing clicking/beeping/popping sounds
-    try {
-      audioSource?.disconnect();
-      audioDestination?.disconnect();
-    } catch (e) {
-      console.warn("Failed to disconnect audio nodes:", e);
-    }
-
     if (recorder.state !== "inactive") {
       recorder.stop();
     }

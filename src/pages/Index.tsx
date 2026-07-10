@@ -8,13 +8,10 @@ import {
   Check,
   Download,
   User,
-  Moon,
-  Sun,
 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
-import { useTheme } from "@/hooks/useTheme";
 import { Seo } from "@/components/Seo";
-import { AvatarDropdown } from "@/components/AvatarDropdown";
+import { NavBar } from "@/components/NavBar";
 import {
   Dialog,
   DialogContent,
@@ -59,54 +56,11 @@ const HOME_JSONLD = [
 
 const Index = () => {
   const { user, loading } = useAuth();
-  const { theme, toggle } = useTheme();
-
-
 
   return (
     <div className="min-h-screen bg-[#f5f3ee] text-[#1a1a1a]" style={{ fontFamily: "'Outfit', sans-serif" }}>
       <Seo title="Subbly — AI Video Caption Editor" description={HOME_DESCRIPTION} path="/" jsonLd={HOME_JSONLD} />
-      {/* Nav */}
-      <nav className="relative sticky top-0 z-[200] flex h-[62px] items-center justify-between border-b border-[#e8e4de] bg-white/95 px-6 backdrop-blur-xl md:px-12">
-        <Link to="/" className="flex items-center gap-2.5">
-          <img
-            src="/logo.png"
-            alt="Subbly Logo"
-            className="h-9 w-9 object-contain rounded-[9px] shadow-[0_2px_8px_rgba(255,92,58,0.15)]"
-          />
-          <span className="font-serif-display text-[18px] tracking-[-0.2px]">Subbly</span>
-        </Link>
-        <div className="hidden items-center gap-[30px] md:flex md:absolute md:left-1/2 md:-translate-x-1/2 md:top-1/2 md:-translate-y-1/2">
-          <a href="#features" className="text-[13.5px] text-[#666] transition hover:text-[#1a1a1a]">Features</a>
-          <a href="#how" className="text-[13.5px] text-[#666] transition hover:text-[#1a1a1a]">How it works</a>
-          <Link to="/pricing" className="text-[13.5px] text-[#666] transition hover:text-[#1a1a1a]">Pricing</Link>
-        </div>
-        <div className="flex items-center gap-2.5">
-          <button
-            onClick={toggle}
-            aria-label="Toggle dark mode"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#e8e4de] bg-white text-[#666] transition hover:text-[#1a1a1a]"
-          >
-            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </button>
-          <Link
-            to="/editor"
-            className="inline-flex items-center gap-1.5 rounded-lg bg-[#ff5c3a] px-[18px] py-2 text-[13px] font-medium text-white shadow-[0_2px_8px_rgba(255,92,58,0.2)] transition hover:-translate-y-px hover:bg-[#ff7558] hover:shadow-[0_4px_16px_rgba(255,92,58,0.3)]"
-          >
-            Open editor <ArrowRight className="h-3 w-3" strokeWidth={2.2} />
-          </Link>
-          {user ? (
-            <AvatarDropdown />
-          ) : (
-            <Link
-              to="/auth"
-              className="inline-flex items-center rounded-lg border border-[#e8e4de] bg-white px-[16px] py-2 text-[13px] font-medium text-[#666] transition hover:text-[#1a1a1a] hover:border-[#b0aba4]"
-            >
-              Sign In
-            </Link>
-          )}
-        </div>
-      </nav>
+      <NavBar isPublic />
 
       <main>
       {/* Hero */}

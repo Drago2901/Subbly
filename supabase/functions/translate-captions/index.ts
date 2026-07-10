@@ -100,7 +100,6 @@ Deno.serve(async (req) => {
     }
 
     const numbered = texts.map((t: string, i: number) => `${i}: ${t}`).join("\n");
-    const fullTranscript = texts.join(" ");
 
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -114,11 +113,8 @@ Deno.serve(async (req) => {
           {
             role: "system",
             content:
-              `You are a professional subtitle editor and translator. Here is the full continuous transcript of the video for your context:\n` +
-              `"""\n${fullTranscript}\n"""\n\n` +
-              `Your task is to translate or enhance each numbered caption line below into ${targetName}.\n` +
-              `CRITICAL: Analyze the full transcript context above to understand the overall story/topic of the video. Use this context to add highly cohesive and contextually relevant emojis or translations to the words.\n` +
-              `Keep each line concise so it still fits as a subtitle. Do NOT paraphrase, summarize, or rewrite the original words. Preserve casing, spelling, punctuation, and wording exactly unless translating.\n` +
+              `You are a professional subtitle translator. Translate each numbered caption line into ${targetName}. ` +
+              `Preserve meaning, tone, slang and emojis. Keep each translation concise so it still fits as a subtitle. ` +
               `Return ONLY a JSON object of the form {"translations":[{"index":0,"text":"..."}, ...]} with one entry per input line, in the same order. Do not add commentary.`,
           },
           { role: "user", content: numbered },

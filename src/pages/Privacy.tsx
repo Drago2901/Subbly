@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { Seo } from "@/components/Seo";
+import { NavBar } from "@/components/NavBar";
 
 export default function Privacy() {
   return (
@@ -11,23 +12,7 @@ export default function Privacy() {
         path="/privacy"
       />
 
-      {/* Header / Nav */}
-      <nav className="sticky top-0 z-[100] flex h-[64px] items-center justify-between border-b border-[#e8e4de] bg-white/90 px-6 backdrop-blur-xl md:px-12">
-        <Link to="/" className="flex items-center gap-2.5">
-          <img
-            src="/logo.png"
-            alt="Subbly Logo"
-            className="h-9 w-9 object-contain rounded-[9px] shadow-[0_2px_8px_rgba(255,92,58,0.15)]"
-          />
-          <span className="font-serif text-[18px] font-semibold tracking-[-0.2px]">Subbly</span>
-        </Link>
-        <Link
-          to="/auth"
-          className="text-[13.5px] text-[#666] transition hover:text-[#1a1a1a]"
-        >
-          Sign In
-        </Link>
-      </nav>
+      <NavBar isPublic />
 
       {/* Content Container */}
       <main className="mx-auto w-full max-w-[800px] px-6 py-12 md:py-20">

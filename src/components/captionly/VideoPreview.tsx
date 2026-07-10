@@ -36,7 +36,6 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
   },
   ref,
 ) {
-  console.log("[VideoPreview] quality prop value:", quality);
   const innerRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLDivElement>(null);

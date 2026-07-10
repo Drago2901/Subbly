@@ -52,7 +52,6 @@ import { CaptionList } from "@/components/captionly/CaptionList";
 import { StylePanel } from "@/components/captionly/StylePanel";
 import { Timeline } from "@/components/captionly/Timeline";
 import { ExportProgressDialog } from "@/components/captionly/ExportProgressDialog";
-import { ExportSuccessDialog } from "@/components/captionly/ExportSuccessDialog";
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 import { AvatarDropdown } from "@/components/AvatarDropdown";
 import { wordsToCaptions } from "@/lib/captions/segment";
@@ -126,7 +125,10 @@ const FRAME_PRESETS: FramePreset[] = [
 ];
 
 // Helper to safely invoke a Supabase Edge Function and parse details from non-2xx errors
-const invokeEdgeFunction = async (name: string, options?: { headers?: Record<string, string>; body?: unknown }) => {
+const invokeEdgeFunction = async (
+  name: string,
+  options?: Parameters<typeof supabase.functions.invoke>[1],
+) => {
   const { data, error } = await supabase.functions.invoke(name, options);
   if (error) {
     let message = error.message || "An error occurred calling the edge function";
@@ -250,27 +252,6 @@ const Editor = () => {
   const [framePreset, setFramePreset] = useState<FramePreset>(FRAME_PRESETS[0]);
   const [exporting, setExporting] = useState(false);
   const [exportProgress, setExportProgress] = useState(0);
-  const [exportResult, setExportResult] = useState<{
-    fileName: string;
-    fileSize: number;
-    duration: number;
-    videoUrl: string;
-  } | null>(null);
-
-  const closeExportResult = () => {
-    if (exportResult?.videoUrl) {
-      URL.revokeObjectURL(exportResult.videoUrl);
-    }
-    setExportResult(null);
-  };
-
-  const handleExportAnother = () => {
-    if (exportResult?.videoUrl) {
-      URL.revokeObjectURL(exportResult.videoUrl);
-    }
-    setExportResult(null);
-    navigate(user ? "/projects" : "/");
-  };
   const [saving, setSaving] = useState(false);
   const [autoSaveState, setAutoSaveState] = useState<"idle" | "saving" | "saved">("idle");
   const [loadingProject, setLoadingProject] = useState(false);
@@ -966,7 +947,6 @@ const Editor = () => {
       toast.error("Upload a video first.");
       return;
     }
-    const exportStartTime = performance.now();
     const controller = new AbortController();
     exportAbortRef.current = controller;
     setExporting(true);
@@ -1028,56 +1008,17 @@ const Editor = () => {
 
       const ext = "mp4";
       const url = URL.createObjectURL(blob);
-      const finalFileName = `captioned-${(title || "video").replace(/[^a-z0-9-_]+/gi, "_")}.${ext}`;
-
-      // Calculate final resolution
-      let exportW = 1280;
-      let exportH = 720;
-      if (framePreset && framePreset.id !== "original") {
-        const targetShortDim = quality === "high" ? 1080 : 720;
-        const targetAR = framePreset.width / framePreset.height;
-        if (targetAR >= 1) {
-          exportH = targetShortDim;
-          exportW = Math.round(targetShortDim * targetAR);
-        } else {
-          exportW = targetShortDim;
-          exportH = Math.round(targetShortDim / targetAR);
-        }
-        if (exportW % 2 !== 0) exportW += 1;
-        if (exportH % 2 !== 0) exportH += 1;
-      } else if (meta) {
-        const targetShortDim = quality === "high" ? 1080 : 720;
-        const ar = meta.width / meta.height;
-        if (ar >= 1) {
-          exportH = targetShortDim;
-          exportW = Math.round(targetShortDim * ar);
-        } else {
-          exportW = targetShortDim;
-          exportH = Math.round(targetShortDim / ar);
-        }
-        if (exportW % 2 !== 0) exportW += 1;
-        if (exportH % 2 !== 0) exportH += 1;
-      }
-
-      const totalTimeSec = Math.round((performance.now() - exportStartTime) / 1000);
-
-      toast.success("Export complete!");
-
-      setExportResult({
-        fileName: finalFileName,
-        fileSize: blob.size,
-        duration: meta?.duration || 0,
-        encodingTime: Math.max(1, totalTimeSec),
-        resolution: `${exportW} × ${exportH}`,
-        videoUrl: url,
-      });
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `captioned-${(title || "video").replace(/[^a-z0-9-_]+/gi, "_")}.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 5000);
+      toast.success("Export ready — downloading.");
 
       // Auto-save the project + the exported video
-      try {
-        await saveProject({ exportedBlob: blob });
-      } catch (saveErr) {
-        console.warn("Failed to auto-save exported video to project database:", saveErr);
-      }
+      await saveProject({ exportedBlob: blob });
     } catch (e) {
       const isAbort = e instanceof ExportCancelledError || controller.signal.aborted;
       if (isAbort) {
@@ -1373,7 +1314,6 @@ const Editor = () => {
                   }
                   frame={frame}
                   lockedTracks={lockedTracks}
-                  quality={quality}
                 />
               </div>
             </div>
@@ -1721,76 +1661,17 @@ const Editor = () => {
                     </div>
                   )}
 
+                  {/* 5. Caption List / Empty State */}
                   <div className="flex-1 bg-white">
                     {captions.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center text-center py-6 px-6 bg-white border border-[#e8e4de]/60 rounded-xl my-4 mx-4 shadow-sm">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#fff5f3] text-[#ff5c3a] mb-3">
-                          <Wand2 className="h-6 w-6" strokeWidth={2} />
+                      <div className="flex flex-col items-center justify-center text-center py-8 px-6 bg-white border border-[#e8e4de]/60 rounded-xl my-4 mx-4 shadow-sm">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#fff5f3] text-[#ff5c3a] mb-4">
+                          <FileText className="h-6 w-6" strokeWidth={2} />
                         </div>
-                        <h3 className="text-[15px] font-bold text-[#1a1a1a] mb-1">Generate Captions</h3>
-                        <p className="text-[12px] text-neutral-400 mb-5 max-w-[280px] leading-relaxed">
-                          Follow the steps below to automatically transcribe your video.
+                        <h3 className="text-[14px] font-semibold text-[#1a1a1a] mb-1">No captions yet</h3>
+                        <p className="text-[12.5px] text-neutral-400 mb-5 max-w-[280px] leading-relaxed">
+                          Auto-transcribe your speech or manually add captions to this video.
                         </p>
-                        
-                        <div className="w-full space-y-4 mb-6 text-left">
-                          {/* Step 1: Select Language */}
-                          <div className="space-y-1.5">
-                            <label className="text-[11.5px] font-semibold text-[#555] uppercase tracking-wider block">
-                              1. Select Caption Language
-                            </label>
-                            <Select value={language} onValueChange={setLanguage} disabled={transcribing}>
-                              <SelectTrigger className="w-full h-10 rounded-lg border-[#e8e4de] bg-[#f9f8f6] px-3 text-[12.5px] text-[#1a1a1a] focus:ring-0">
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                {LANGUAGES.map((l) => (
-                                  <SelectItem key={l.code} value={l.code} className="text-[13px]">
-                                    {l.label}
-                                  </SelectItem>
-                                ))}
-                              </SelectContent>
-                            </Select>
-                          </div>
-
-                          {/* Step 2: Add Emojis */}
-                          <div className="flex items-center justify-between py-1 border-t border-[#f0ede8] pt-3">
-                            <div className="flex flex-col">
-                              <span className="text-[11.5px] font-semibold text-[#555] uppercase tracking-wider">
-                                2. Emojis in Captions
-                              </span>
-                              <span className="text-[11px] text-neutral-400">
-                                Add viral emojis automatically
-                              </span>
-                            </div>
-                            <div className="flex rounded-[7px] bg-[#f5f3ee] p-0.5 border border-[#e8e4de] flex-shrink-0">
-                              <button
-                                type="button"
-                                disabled={transcribing}
-                                onClick={() => setStyle((prev) => ({ ...prev, emojiEnabled: true }))}
-                                className={`px-3 py-1 text-[11px] font-semibold rounded-[5px] transition-all cursor-pointer ${
-                                  style.emojiEnabled
-                                    ? "bg-[#ff5c3a] text-white shadow-sm"
-                                    : "text-[#888] hover:text-[#555] bg-transparent"
-                                }`}
-                              >
-                                On
-                              </button>
-                              <button
-                                type="button"
-                                disabled={transcribing}
-                                onClick={() => setStyle((prev) => ({ ...prev, emojiEnabled: false }))}
-                                className={`px-3 py-1 text-[11px] font-semibold rounded-[5px] transition-all cursor-pointer ${
-                                  !style.emojiEnabled
-                                    ? "bg-white text-[#1a1a1a] border border-[#e8e4de]/60 shadow-sm"
-                                    : "text-[#888] hover:text-[#555] bg-transparent"
-                                }`}
-                              >
-                                Off
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-
                         <div className="flex flex-col w-full gap-2">
                           <button
                             onClick={transcribe}
@@ -1805,17 +1686,16 @@ const Editor = () => {
                             ) : (
                               <>
                                 <Wand2 className="h-3.5 w-3.5" />
-                                <span>3. Auto-transcribe</span>
+                                <span>Auto-transcribe</span>
                               </>
                             )}
                           </button>
                           <button
                             onClick={handleAddCaptionMobile}
-                            disabled={transcribing}
                             className="w-full flex h-11 items-center justify-center gap-2 rounded-lg border border-[#e8e4de] bg-white text-xs font-semibold text-neutral-600 hover:bg-[#faf9f6] active:scale-98 transition min-h-[44px] cursor-pointer"
                           >
                             <Plus className="h-3.5 w-3.5" />
-                            <span>Or manually add caption</span>
+                            <span>Add caption</span>
                           </button>
                         </div>
                       </div>
@@ -1876,19 +1756,19 @@ const Editor = () => {
 
                 {/* 7. Bottom Navigation Tab Bar (Fixed at the absolute bottom of the viewport) */}
                 <div className="fixed bottom-0 left-0 right-0 z-50 h-16 bg-white border-t border-[#e8e4de] flex items-center justify-around px-2 pb-safe shadow-[0_-2px_10px_rgba(0,0,0,0.03)]">
-                  {[
+                  {([
                     { id: "captions", label: "Captions", icon: FileText },
                     { id: "style", label: "Style", icon: Type },
                     { id: "anim", label: "Anim", icon: Sparkles },
                     { id: "tmpl", label: "Templates", icon: Layers },
                     { id: "brand", label: "Brand", icon: Palette },
-                  ].map((tabItem) => {
+                  ] as const).map((tabItem) => {
                     const Icon = tabItem.icon;
                     const active = activeMobileTab === tabItem.id;
                     return (
                       <button
                         key={tabItem.id}
-                        onClick={() => setActiveMobileTab(tabItem.id as "captions" | "style" | "anim" | "tmpl" | "brand")}
+                        onClick={() => setActiveMobileTab(tabItem.id)}
                         className={`flex flex-col items-center justify-center flex-1 h-full min-h-[44px] min-w-[44px] gap-1 transition cursor-pointer ${
                           active ? "text-[#ff5c3a]" : "text-neutral-400 hover:text-neutral-600"
                         }`}
@@ -1911,17 +1791,6 @@ const Editor = () => {
         progress={exportProgress}
         format="mp4"
         onCancel={cancelExport}
-      />
-      <ExportSuccessDialog
-        open={exportResult !== null}
-        onClose={closeExportResult}
-        onExportAnother={handleExportAnother}
-        fileName={exportResult?.fileName || ""}
-        fileSize={exportResult?.fileSize || 0}
-        duration={exportResult?.duration || 0}
-        encodingTime={exportResult?.encodingTime || 0}
-        resolution={exportResult?.resolution || ""}
-        videoUrl={exportResult?.videoUrl || ""}
       />
     </div>
   );

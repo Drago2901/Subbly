@@ -45,6 +45,12 @@ import {
 } from "@/components/ui/table";
 import { DEFAULT_ROLES, DEFAULT_PERMISSIONS, type RoleDefinition, useAuth } from "@/hooks/useAuth";
 
+interface CustomUser {
+  email: string;
+  name: string;
+  role: string;
+}
+
 interface RbacSectionProps {
   profiles: {
     id: string;
@@ -106,7 +112,7 @@ export default function RbacSection({ profiles, currentUserEmail, onRefresh }: R
 
   // User list generation (mirroring Admin.tsx user rows calculation)
   const overrides = JSON.parse(localStorage.getItem("rbac_user_roles") || "{}");
-  const customUsers = JSON.parse(localStorage.getItem("rbac_users") || "[]");
+  const customUsers = JSON.parse(localStorage.getItem("rbac_users") || "[]") as CustomUser[];
 
   const systemUsers = profiles.map((pr) => {
     const roleId = overrides[pr.user_id] || "customer";
@@ -120,7 +126,7 @@ export default function RbacSection({ profiles, currentUserEmail, onRefresh }: R
   });
 
   const allUsers = [...systemUsers];
-  customUsers.forEach((cu: { email: string; name: string; role: string }) => {
+  customUsers.forEach((cu) => {
     const roleId = overrides[cu.email] || cu.role;
     allUsers.push({
       id: cu.email,
@@ -183,13 +189,13 @@ export default function RbacSection({ profiles, currentUserEmail, onRefresh }: R
   };
 
   const handleDeleteMockUser = (email: string) => {
-    const existingUsers = JSON.parse(localStorage.getItem("rbac_users") || "[]");
-    const targetUser = existingUsers.find((u: { email: string; role: string }) => u.email === email);
+    const existingUsers = JSON.parse(localStorage.getItem("rbac_users") || "[]") as CustomUser[];
+    const targetUser = existingUsers.find((u) => u.email === email);
     if (targetUser?.role === "super_admin" && userRole !== "super_admin") {
       toast.error("Access Denied: Only a Super Admin can delete a Super Admin account.");
       return;
     }
-    const updated = existingUsers.filter((u: { email: string }) => u.email !== email);
+    const updated = existingUsers.filter((u) => u.email !== email);
     localStorage.setItem("rbac_users", JSON.stringify(updated));
 
     // Cleanup overrides
