@@ -425,7 +425,7 @@ export default function Pricing() {
         <div className="flex gap-5 text-[12px] text-[#b0aba4]">
           <Link to="/privacy" className="hover:text-[#1a1a1a] transition-colors">Privacy</Link>
           <Link to="/terms" className="hover:text-[#1a1a1a] transition-colors">Terms</Link>
-          <a href="#" className="hover:text-[#1a1a1a] transition-colors">Contact</a>
+          <Link to="/contact" className="hover:text-[#1a1a1a] transition-colors">Contact</Link>
         </div>
         <span className="text-[12px] text-[#b0aba4]">© 2026 Subbly</span>
       </footer>

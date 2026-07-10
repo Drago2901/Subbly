@@ -371,7 +371,7 @@ const Index = () => {
         <div className="flex gap-[22px]">
           <Link to="/privacy" className="transition hover:text-[#1a1a1a]">Privacy</Link>
           <Link to="/terms" className="transition hover:text-[#1a1a1a]">Terms</Link>
-          <a href="#" className="transition hover:text-[#1a1a1a]">Contact</a>
+          <Link to="/contact" className="transition hover:text-[#1a1a1a]">Contact</Link>
         </div>
       </footer>
     </div>
