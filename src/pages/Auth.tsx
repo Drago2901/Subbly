@@ -634,9 +634,11 @@ const Auth = () => {
       />
       <nav className="sticky top-0 z-[200] flex h-[62px] items-center justify-between border-b border-[#e8e4de] bg-white/95 px-6 backdrop-blur-xl md:px-12">
         <Link to="/" className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-[#ff5c3a]">
-            <span className="font-serif-display text-[22px] font-bold text-white leading-none select-none">S</span>
-          </div>
+          <img
+            src="/logo.png"
+            alt="Subbly Logo"
+            className="h-9 w-9 object-contain rounded-[9px] shadow-[0_2px_8px_rgba(255,92,58,0.15)]"
+          />
           <span className="font-serif-display text-[18px] tracking-[-0.2px]">Subbly</span>
         </Link>
         <div className="flex items-center gap-3">
@@ -664,11 +666,12 @@ const Auth = () => {
 
       <main className="flex flex-1 items-center justify-center px-6 py-12">
         <div className="w-full max-w-[420px] rounded-[20px] border border-[#e8e4de] bg-white p-10 shadow-[0_4px_40px_rgba(26,26,26,0.07)] md:p-12">
-          <div className="mb-8 flex items-center justify-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-[#ff5c3a]">
-              <span className="font-serif-display text-[22px] font-bold text-white leading-none select-none">S</span>
-            </div>
-            <span className="font-serif-display text-[18px]">Subbly</span>
+          <div className="mb-6 flex flex-col items-center justify-center">
+            <img
+              src="/logo.png"
+              alt="Subbly Logo"
+              className="h-16 w-16 object-contain rounded-[14px] shadow-[0_4px_16px_rgba(255,92,58,0.12)]"
+            />
           </div>
 
           <h1 className="font-serif-display mb-2 text-center text-[30px] font-normal tracking-[-0.5px]">

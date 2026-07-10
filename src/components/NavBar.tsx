@@ -28,9 +28,11 @@ export function NavBar({ activeView }: NavBarProps) {
     >
       {/* Brand Logo */}
       <Link to="/" className="flex items-center gap-2.5 group">
-        <div className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-[#ff5c3a] shadow-[0_2px_8px_rgba(255,92,58,0.2)] transition-transform duration-300 group-hover:scale-105">
-          <span className="font-serif text-[22px] font-bold text-white leading-none select-none">S</span>
-        </div>
+        <img
+          src="/logo.png"
+          alt="Subbly Logo"
+          className="h-9 w-9 object-contain rounded-[9px] shadow-[0_2px_8px_rgba(255,92,58,0.15)] transition-transform duration-300 group-hover:scale-105"
+        />
         <span className="font-serif text-[18px] font-semibold tracking-[-0.2px] text-zinc-900 dark:text-white transition-colors duration-200 group-hover:text-[#ff5c3a]">
           Subbly
         </span>

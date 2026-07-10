@@ -170,9 +170,11 @@ export default function Pricing() {
             <ArrowLeft className="h-4 w-4" />
           </button>
           <Link to="/" className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-[#ff5c3a]">
-              <span className="font-serif-display text-[22px] font-bold text-white leading-none select-none">S</span>
-            </div>
+            <img
+              src="/logo.png"
+              alt="Subbly Logo"
+              className="h-9 w-9 object-contain rounded-[9px] shadow-[0_2px_8px_rgba(255,92,58,0.15)]"
+            />
             <span className="font-serif-display text-[18px] tracking-[-0.2px] text-[#1a1a1a]">
               Subbly
             </span>
@@ -417,9 +419,11 @@ export default function Pricing() {
       {/* Footer */}
       <footer className="mx-auto flex max-w-[1080px] flex-col items-center justify-between gap-3 border-t border-[#e8e4de] bg-white px-8 py-5 md:flex-row text-[#b0aba4]">
         <Link to="/" className="flex items-center gap-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-[8px] bg-[#ff5c3a]">
-            <span className="font-serif-display text-[19px] font-bold text-white leading-none select-none">S</span>
-          </div>
+          <img
+            src="/logo.png"
+            alt="Subbly Logo"
+            className="h-7 w-7 object-contain rounded-[8px] shadow-[0_1px_4px_rgba(255,92,58,0.15)]"
+          />
           <span className="font-serif-display text-[16px] text-[#1a1a1a]">Subbly</span>
         </Link>
         <div className="flex gap-5 text-[12px] text-[#b0aba4]">

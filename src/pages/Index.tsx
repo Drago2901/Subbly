@@ -69,9 +69,11 @@ const Index = () => {
       {/* Nav */}
       <nav className="relative sticky top-0 z-[200] flex h-[62px] items-center justify-between border-b border-[#e8e4de] bg-white/95 px-6 backdrop-blur-xl md:px-12">
         <Link to="/" className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-[#ff5c3a]">
-            <span className="font-serif-display text-[22px] font-bold text-white leading-none select-none">S</span>
-          </div>
+          <img
+            src="/logo.png"
+            alt="Subbly Logo"
+            className="h-9 w-9 object-contain rounded-[9px] shadow-[0_2px_8px_rgba(255,92,58,0.15)]"
+          />
           <span className="font-serif-display text-[18px] tracking-[-0.2px]">Subbly</span>
         </Link>
         <div className="hidden items-center gap-[30px] md:flex md:absolute md:left-1/2 md:-translate-x-1/2 md:top-1/2 md:-translate-y-1/2">
