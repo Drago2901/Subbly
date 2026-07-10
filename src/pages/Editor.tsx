@@ -1383,7 +1383,25 @@ const Editor = () => {
             <div className="flex items-center gap-4">
               {meta && (
                 <div className="text-[11.5px] font-medium text-[#888] font-mono">
-                  {meta.width}×{meta.height} · {meta.duration.toFixed(1)}s
+                  {(() => {
+                    if (framePreset.id === "original") {
+                      return `${meta.width}×${meta.height}`;
+                    }
+                    const targetShortDim = quality === "high" ? 1080 : 720;
+                    const targetAR = framePreset.width / framePreset.height;
+                    let w: number;
+                    let h: number;
+                    if (targetAR >= 1) {
+                      h = targetShortDim;
+                      w = Math.round(targetShortDim * targetAR);
+                    } else {
+                      w = targetShortDim;
+                      h = Math.round(targetShortDim / targetAR);
+                    }
+                    if (w % 2 !== 0) w += 1;
+                    if (h % 2 !== 0) h += 1;
+                    return `${w}×${h}`;
+                  })()} · {meta.duration.toFixed(1)}s
                 </div>
               )}
               <button
