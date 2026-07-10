@@ -19,15 +19,24 @@ export default function Contact() {
     }
     
     setSending(true);
-    // Simulate sending email
-    setTimeout(() => {
-      setSending(false);
-      toast.success("Message sent successfully! We will get back to you soon.");
+    
+    try {
+      const su = encodeURIComponent(subject);
+      const body = encodeURIComponent(`From: ${name} (${email})\n\nMessage:\n${message}`);
+      const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&to=subbly.info@gmail.com&su=${su}&body=${body}`;
+      
+      window.open(gmailUrl, "_blank");
+      toast.success("Redirecting to Gmail...");
+      
       setName("");
       setEmail("");
       setSubject("");
       setMessage("");
-    }, 1200);
+    } catch (err) {
+      toast.error("Could not open Gmail redirect.");
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -157,7 +166,9 @@ export default function Contact() {
                   <div>
                     <h4 className="text-[11px] font-semibold uppercase tracking-widest text-[#b0aba4]">Email Us</h4>
                     <a
-                      href="mailto:Subbly.info@gmail.com"
+                      href="https://mail.google.com/mail/?view=cm&fs=1&to=subbly.info@gmail.com"
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="mt-0.5 block text-sm font-medium text-[#1a1a1a] hover:text-[#ff5c3a] transition-colors"
                     >
                       Subbly.info@gmail.com
