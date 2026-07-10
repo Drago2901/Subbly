@@ -283,7 +283,7 @@ const Auth = () => {
         if (error) throw error;
         toast.success("Welcome back!");
       } else if (tab === "signup") {
-        const { error: signUpError } = await supabase.auth.signUp({
+        const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
           email,
           password,
           options: {
@@ -291,11 +291,34 @@ const Auth = () => {
             data: { full_name: name || undefined },
           },
         });
-        if (signUpError) throw signUpError;
+        
+        const userExistsByLink = signUpData?.user && (!signUpData.user.identities || signUpData.user.identities.length === 0);
+        
+        if (signUpError || userExistsByLink) {
+          const isRegisteredError = signUpError && (
+            signUpError.message.toLowerCase().includes("already") || 
+            signUpError.message.toLowerCase().includes("registered") || 
+            signUpError.message.toLowerCase().includes("exists")
+          );
+          
+          if (isRegisteredError || userExistsByLink) {
+            try {
+              const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+              if (signInError) {
+                throw new Error("This email is already registered, and auto-login failed (incorrect password).");
+              }
+              toast.success("Welcome back! Logged in automatically.");
+              return;
+            } catch (loginErr) {
+              throw loginErr instanceof Error ? loginErr : (signUpError || new Error("Auto-login failed"));
+            }
+          }
+          if (signUpError) throw signUpError;
+        }
         
         try {
-          const existingUsers = JSON.parse(localStorage.getItem("rbac_users") || "[]");
-          if (!existingUsers.some((u: { email: string }) => u.email === email)) {
+          const existingUsers = JSON.parse(localStorage.getItem("rbac_users") || "[]") as { email: string }[];
+          if (!existingUsers.some((u) => u.email === email)) {
             const newUser = {
               name: name || email.split("@")[0],
               email: email,
@@ -364,8 +387,8 @@ const Auth = () => {
     try {
       // Check database/localStorage for user existence
       const localUsersStr = localStorage.getItem("rbac_users");
-      const localUsers = localUsersStr ? JSON.parse(localUsersStr) : [];
-      const userExists = Array.isArray(localUsers) && localUsers.some((u: { email: string }) => u.email.toLowerCase() === email.toLowerCase());
+      const localUsers = localUsersStr ? JSON.parse(localUsersStr) as { email: string }[] : [];
+      const userExists = Array.isArray(localUsers) && localUsers.some((u) => u.email.toLowerCase() === email.toLowerCase());
 
       if (!userExists) {
         // Expose no account found message as requested by user specs
@@ -514,9 +537,9 @@ const Auth = () => {
     try {
       // Check old password
       const localUsersStr = localStorage.getItem("rbac_users");
-      const localUsers = localUsersStr ? JSON.parse(localUsersStr) : [];
+      const localUsers = localUsersStr ? JSON.parse(localUsersStr) as { email: string; password?: string }[] : [];
       const userIndex = Array.isArray(localUsers) 
-        ? localUsers.findIndex((u: { email: string }) => u.email.toLowerCase() === otpData.email.toLowerCase())
+        ? localUsers.findIndex((u) => u.email.toLowerCase() === otpData.email.toLowerCase())
         : -1;
 
       if (userIndex !== -1) {
