@@ -16,6 +16,8 @@ import Projects from "./pages/Projects.tsx";
 import Editor from "./pages/Editor.tsx";
 import Admin from "./pages/Admin.tsx";
 import Profile from "./pages/Profile.tsx";
+import Terms from "./pages/Terms.tsx";
+import Privacy from "./pages/Privacy.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import TypewriterDemo from "./pages/TypewriterDemo.tsx";
 
@@ -68,6 +70,8 @@ const App = () => (
                 }
               />
               <Route path="/typewriter-demo" element={<TypewriterDemo />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/privacy" element={<Privacy />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>

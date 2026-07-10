@@ -1085,8 +1085,8 @@ const Auth = () => {
 
           <p className="mt-5 text-center text-xs text-[#b0aba4]">
             By continuing you agree to our{" "}
-            <a href="#" className="text-[#ff5c3a] hover:underline">Terms</a> and{" "}
-            <a href="#" className="text-[#ff5c3a] hover:underline">Privacy Policy</a>
+            <Link to="/terms" className="text-[#ff5c3a] hover:underline">Terms</Link> and{" "}
+            <Link to="/privacy" className="text-[#ff5c3a] hover:underline">Privacy Policy</Link>
           </p>
         </div>
       </main>

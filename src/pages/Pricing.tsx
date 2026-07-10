@@ -423,8 +423,8 @@ export default function Pricing() {
           <span className="font-serif-display text-[16px] text-[#1a1a1a]">Subbly</span>
         </Link>
         <div className="flex gap-5 text-[12px] text-[#b0aba4]">
-          <a href="#" className="hover:text-[#1a1a1a] transition-colors">Privacy</a>
-          <a href="#" className="hover:text-[#1a1a1a] transition-colors">Terms</a>
+          <Link to="/privacy" className="hover:text-[#1a1a1a] transition-colors">Privacy</Link>
+          <Link to="/terms" className="hover:text-[#1a1a1a] transition-colors">Terms</Link>
           <a href="#" className="hover:text-[#1a1a1a] transition-colors">Contact</a>
         </div>
         <span className="text-[12px] text-[#b0aba4]">© 2026 Subbly</span>
