@@ -39,6 +39,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { BrandKitDialog, type BrandKit } from "./BrandKitDialog";
+import { TemplateLibraryDialog } from "./TemplateLibraryDialog";
 
 type Props = {
   style: CaptionStyle;
@@ -734,9 +735,16 @@ export function StylePanel({
         )}
 
         {tab === "tmpl" && (
-          <div>
-            <div className="mb-0.5 flex items-center justify-between">
-              <div className="text-[13px] font-semibold text-[#1a1a1a]">Caption templates</div>
+          <div className="space-y-4">
+            <TemplateLibraryDialog
+              currentStyle={style}
+              onApplyTemplate={applyTemplate}
+              customTemplates={customTemplates}
+              onImportClick={() => setImportOpen(true)}
+            />
+
+            <div className="mb-0.5 flex items-center justify-between pt-3 border-t border-[#f0ede8]">
+              <div className="text-[13px] font-semibold text-[#1a1a1a]">Quick presets</div>
               <button
                 onClick={() => setImportOpen(true)}
                 className="inline-flex items-center gap-1 rounded-[7px] border border-[#e8e4de] bg-white px-2.5 py-1.5 text-[11.5px] font-medium text-[#555] transition hover:border-[#ff5c3a] hover:text-[#ff5c3a]"
@@ -745,7 +753,7 @@ export function StylePanel({
                 Import
               </button>
             </div>
-            <div className="mb-4 text-[11.5px] leading-relaxed text-[#aaa]">
+            <div className="text-[11.5px] leading-relaxed text-[#aaa]">
               Each template shows its name in its own effect — click to apply.
             </div>
 
