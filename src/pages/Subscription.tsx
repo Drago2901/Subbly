@@ -16,6 +16,8 @@ import {
 } from "lucide-react";
 import { NavBar } from "@/components/NavBar";
 import { Seo } from "@/components/Seo";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 
 type TabKey = "overview" | "plans" | "payment" | "billing";
 
@@ -210,6 +212,62 @@ function EmptyTab({
 export default function Subscription() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { user } = useAuth();
+  const [usage, setUsage] = useState({
+    storageBytes: 0,
+    transcriptionSeconds: 0,
+    audioCleans: 0,
+    loading: true,
+  });
+
+  useEffect(() => {
+    if (!user) return;
+    (async () => {
+      try {
+        const { data: projects, error: projectsError } = await supabase
+          .from("projects")
+          .select("duration_seconds")
+          .eq("user_id", user.id);
+
+        let totalSeconds = 0;
+        if (projects && !projectsError) {
+          totalSeconds = projects.reduce((acc, p) => acc + (p.duration_seconds || 0), 0);
+        }
+
+        let totalBytes = 0;
+        const { data: videos, error: videosError } = await supabase.storage
+          .from("project-videos")
+          .list(user.id);
+        
+        if (videos && !videosError) {
+          videos.forEach((v) => {
+            totalBytes += v.metadata?.size || 0;
+          });
+        }
+
+        const { data: exports, error: exportsError } = await supabase.storage
+          .from("project-exports")
+          .list(user.id);
+        
+        if (exports && !exportsError) {
+          exports.forEach((e) => {
+            totalBytes += e.metadata?.size || 0;
+          });
+        }
+
+        setUsage({
+          storageBytes: totalBytes,
+          transcriptionSeconds: totalSeconds,
+          audioCleans: 0,
+          loading: false
+        });
+      } catch (err) {
+        console.error("Error fetching usage stats:", err);
+        setUsage((prev) => ({ ...prev, loading: false }));
+      }
+    })();
+  }, [user]);
+
   const [tab, setTab] = useState<TabKey>(() => {
     const t = searchParams.get("tab") as TabKey;
     if (t && ["overview", "plans", "payment", "billing"].includes(t)) {
@@ -218,6 +276,16 @@ export default function Subscription() {
     return "overview";
   });
   const [period, setPeriod] = useState<"monthly" | "yearly">("monthly");
+
+  const storageGB = usage.storageBytes / (1024 * 1024 * 1024);
+  const storageText = storageGB < 0.1 ? "< 0.1 GB" : `${storageGB.toFixed(2)} GB`;
+  const storagePct = Math.min(100, Math.max(1.4, (storageGB / 5.0) * 100));
+  const storageLeft = Math.max(0, 5.0 - storageGB).toFixed(2);
+
+  const transMins = usage.transcriptionSeconds / 60;
+  const transText = transMins === 0 ? "0 mins" : transMins < 0.1 ? "0.1 mins" : `${transMins.toFixed(1)} mins`;
+  const transPct = Math.min(100, (transMins / 5.0) * 100);
+  const transLeft = Math.max(0, 5.0 - transMins).toFixed(1);
 
   useEffect(() => {
     const t = searchParams.get("tab") as TabKey;
@@ -350,24 +418,24 @@ export default function Subscription() {
                   icon={HardDrive}
                   iconColor="text-[#ff5c3a]"
                   label="Storage"
-                  current="< 0.1 GB"
+                  current={storageText}
                   total="5.0 GB"
-                  pct={1.4}
+                  pct={storagePct}
                   barColor="#ff5c3a"
-                  leftNote="1.4% used"
-                  rightNote="4.9 GB left"
+                  leftNote={`${storagePct.toFixed(1)}% used`}
+                  rightNote={`${storageLeft} GB left`}
                 />
                 <UsageStat
                   icon={Clock}
                   iconColor="text-sky-400"
                   label="Transcription"
-                  current="4.5 mins"
+                  current={transText}
                   total="5.0 mins"
-                  pct={89}
+                  pct={transPct}
                   barColor="#fbbf24"
-                  leftNote="89% used"
-                  rightNote="0.6 mins left"
-                  noteColor="text-amber-400"
+                  leftNote={`${transPct.toFixed(1)}% used`}
+                  rightNote={`${transLeft} mins left`}
+                  noteColor={transPct > 80 ? "text-amber-500" : "text-zinc-400"}
                 />
                 <UsageStat
                   icon={Mic}

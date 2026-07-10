@@ -613,11 +613,9 @@ const Editor = () => {
     }
     setTranscribing(true);
     setTranscribeStage("Extracting audio...");
-    console.time("Caption Generation: Total Time");
     try {
-      console.time("Caption Generation: Audio Extraction (In-Browser)");
+      // Extract audio natively in-browser (no WASM download — near-instant)
       const audioBlob = await extractAudioNative(file);
-      console.timeEnd("Caption Generation: Audio Extraction (In-Browser)");
 
       setTranscribeStage("Uploading audio...");
       const fd = new FormData();
@@ -625,12 +623,9 @@ const Editor = () => {
       if (language && language !== "auto") fd.append("language", language);
 
       setTranscribeStage("Transcribing speech...");
-      console.time("Caption Generation: Edge Function Call & STT API Processing");
       const data = await invokeEdgeFunction("transcribe-video", {
         body: fd,
       });
-      console.timeEnd("Caption Generation: Edge Function Call & STT API Processing");
-      console.timeEnd("Caption Generation: Total Time");
       const words: Word[] = data?.words ?? [];
       if (!words.length) {
         toast.error("No speech detected in this video.");
