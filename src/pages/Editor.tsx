@@ -1302,6 +1302,7 @@ const Editor = () => {
       {file && videoUrl && (() => {
         const captionsPanel = (
           <CaptionList
+            key={`${language}_${captions.length}`}
             captions={captions}
             currentTime={currentTime}
             onChange={setCaptions}
