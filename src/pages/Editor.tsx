@@ -694,9 +694,50 @@ const Editor = () => {
     }
   };
 
-  // Language only controls transcription — no translation is performed.
-  const handleLanguageChange = (next: string) => {
+  const [translating, setTranslating] = useState(false);
+
+  // Language controls both transcription AND translation (via Gemini 2.5 Flash).
+  const handleLanguageChange = async (next: string) => {
+    const prev = language;
     setLanguage(next);
+
+    // No translation needed when resetting to auto or re-selecting same language
+    if (next === "auto" || next === prev || captions.length === 0) return;
+
+    if (!user) {
+      toast.info("Sign in to translate your captions into different languages.", {
+        action: { label: "Sign In", onClick: () => navigate("/auth") },
+      });
+      setLanguage(prev);
+      return;
+    }
+
+    setTranslating(true);
+    try {
+      await toast.promise(
+        (async () => {
+          const data = await invokeEdgeFunction("translate-captions", {
+            body: { texts: captions.map((c) => c.text), language: next },
+          });
+          const translations: string[] = data?.translations ?? [];
+          if (translations.length !== captions.length) {
+            throw new Error("Translation response mismatch — please try again.");
+          }
+          setCaptions((cur) =>
+            cur.map((c, i) => ({ ...c, text: translations[i] ?? c.text, words: undefined })),
+          );
+        })(),
+        {
+          loading: "Translating captions with Gemini…",
+          success: "Captions translated!",
+          error: (e) => `Translation failed: ${e instanceof Error ? e.message : String(e)}`,
+        },
+      );
+    } catch {
+      setLanguage(prev);
+    } finally {
+      setTranslating(false);
+    }
   };
 
 
@@ -1384,6 +1425,12 @@ const Editor = () => {
                       ))}
                     </SelectContent>
                   </Select>
+                  {translating && (
+                    <span className="inline-flex items-center gap-1 text-[11px] text-[#aaa]">
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                      Translating…
+                    </span>
+                  )}
                 </div>
               )}
             </div>
