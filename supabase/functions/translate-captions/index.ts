@@ -1,4 +1,4 @@
-// Translate caption texts using MyMemory (free, no API key needed).
+// translate-captions — stub (translation removed, endpoint kept for emoji enhancement only)
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -7,66 +7,24 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// MyMemory language code mappings (ISO 639-1)
-const MYMEMORY_LANG: Record<string, string> = {
-  en: "en", es: "es", fr: "fr", de: "de", it: "it", pt: "pt",
-  nl: "nl", ru: "ru", hi: "hi", hinglish: "hi", ja: "ja", ko: "ko",
-  zh: "zh", ar: "ar", tr: "tr", pl: "pl", id: "id", bn: "bn",
-  ta: "ta", te: "te", gu: "gu", ml: "ml", pa: "pa", ur: "ur",
-  mr: "mr", kn: "kn",
-};
-
 function localAddEmojis(text: string): string {
   const emojiMap: Record<string, string> = {
     love: "❤️", like: "👍", happy: "😊", sad: "😢", angry: "😠", fire: "🔥",
     cool: "😎", work: "💼", money: "💵", time: "⏰", music: "🎵", video: "🎥",
     camera: "📷", phone: "📱", computer: "💻", game: "🎮", food: "🍔", coffee: "☕",
     dog: "🐶", cat: "🐱", car: "🚗", plane: "✈️", travel: "✈️", world: "🌐",
-    star: "⭐", idea: "💡", check: "✅", cross: "❌", warning: "⚠️", info: "ℹ️",
-    question: "❓", success: "🏆", winner: "🏆", fail: "👎", start: "🚀", go: "🚀",
-    launch: "🚀", build: "🛠️", code: "💻", dev: "💻", design: "🎨", art: "🎨",
-    sound: "🔊", audio: "🔊", microphone: "🎤", speak: "🗣️", talk: "🗣️",
-    people: "👥", user: "👤", friend: "👥", family: "👨‍👩‍👧‍👦", home: "🏠",
-    school: "🏫", office: "🏢", shop: "🛒", buy: "🛒", sell: "📈",
+    star: "⭐", idea: "💡", check: "✅", success: "🏆", winner: "🏆", start: "🚀",
+    go: "🚀", launch: "🚀", build: "🛠️", code: "💻", design: "🎨", art: "🎨",
+    sound: "🔊", audio: "🔊", speak: "🗣️", talk: "🗣️", people: "👥", home: "🏠",
     perfect: "👌", absolute: "💯", hundred: "💯", wow: "😮", omg: "😱",
-    magic: "✨", sparkle: "✨", key: "🔑", lock: "🔒", unlock: "🔓",
-    great: "👏", awesome: "🤩", amazing: "🤩", beautiful: "😍", fun: "🎉",
-    party: "🎉", celebrate: "🎊", win: "🏆", best: "💪", strong: "💪",
-    new: "🆕", hot: "🔥", heart: "❤️", smile: "😊", laugh: "😂",
-    cry: "😭", think: "🤔", money: "💰", cash: "💸", rich: "💎",
+    magic: "✨", sparkle: "✨", great: "👏", awesome: "🤩", amazing: "🤩",
+    fun: "🎉", party: "🎉", celebrate: "🎊", win: "🏆", best: "💪",
+    new: "🆕", hot: "🔥", heart: "❤️", smile: "😊", laugh: "😂", think: "🤔",
   };
   return text.split(/\b/).map((word) => {
     const clean = word.toLowerCase().trim();
     return clean && emojiMap[clean] ? `${word} ${emojiMap[clean]}` : word;
   }).join("");
-}
-
-async function translateWithMyMemory(texts: string[], targetLang: string): Promise<string[]> {
-  const langCode = MYMEMORY_LANG[targetLang] || targetLang;
-  return await Promise.all(
-    texts.map(async (txt) => {
-      if (!txt.trim()) return txt;
-      try {
-        const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(txt)}&langpair=en|${langCode}&de=subbly@app.com`;
-        const res = await fetch(url, { signal: AbortSignal.timeout(10000) });
-        if (res.ok) {
-          const data = await res.json();
-          if (data?.responseStatus === 200 && data?.responseData?.translatedText) {
-            return data.responseData.translatedText
-              .replace(/&quot;/g, '"')
-              .replace(/&#039;/g, "'")
-              .replace(/&amp;/g, "&")
-              .replace(/&lt;/g, "<")
-              .replace(/&gt;/g, ">")
-              .replace(/&nbsp;/g, " ");
-          }
-        }
-        return txt;
-      } catch {
-        return txt;
-      }
-    })
-  );
 }
 
 Deno.serve(async (req) => {
@@ -75,7 +33,6 @@ Deno.serve(async (req) => {
   }
 
   try {
-    // Require authenticated user
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
       return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -97,29 +54,17 @@ Deno.serve(async (req) => {
     }
 
     const body = await req.json();
-    const texts: string[] = body?.texts;
-    const language: string = body?.language;
+    const texts: string[] = body?.texts ?? [];
+    const language: string = body?.language ?? "";
 
-    if (!Array.isArray(texts) || texts.length === 0 || texts.length > 2000) {
-      return new Response(JSON.stringify({ error: "Invalid 'texts' array (must be 1–2000 items)" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    if (!texts.every((t) => typeof t === "string" && t.length <= 5000)) {
-      return new Response(JSON.stringify({ error: "Each caption must be a string under 5000 chars" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    if (!language || typeof language !== "string") {
-      return new Response(JSON.stringify({ error: "Missing 'language' field" }), {
+    if (!Array.isArray(texts) || texts.length === 0) {
+      return new Response(JSON.stringify({ error: "Invalid 'texts' array" }), {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
 
-    // Emoji mode — language is a long prompt string, not a short code
+    // Emoji enhancement mode (language is a long prompt string, not a short code)
     if (language.length > 10) {
       const translations = texts.map((t) => localAddEmojis(t));
       return new Response(JSON.stringify({ translations }), {
@@ -127,24 +72,13 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Translation mode via MyMemory
-    const langCode = MYMEMORY_LANG[language];
-    if (!langCode) {
-      return new Response(
-        JSON.stringify({ error: `Language code "${language}" is not supported.` }),
-        { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
-      );
-    }
-
-    console.info(`Translating ${texts.length} captions → ${language} (${langCode})`);
-    const translations = await translateWithMyMemory(texts, language);
-
-    return new Response(JSON.stringify({ translations }), {
+    // Translation removed — return originals unchanged
+    return new Response(JSON.stringify({ translations: texts }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
     console.error("translate-captions error:", err);
-    return new Response(JSON.stringify({ error: "Translation failed. Please try again." }), {
+    return new Response(JSON.stringify({ error: "Request failed." }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

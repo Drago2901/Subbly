@@ -264,7 +264,7 @@ const Editor = () => {
   const [storedExportPath, setStoredExportPath] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [language, setLanguage] = useState<string>("auto");
-  const [translating, setTranslating] = useState(false);
+
   const [quality, setQuality] = useState<"standard" | "high">("standard");
   const [exportStage, setExportStage] = useState<"render" | "transcode">("render");
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -694,60 +694,9 @@ const Editor = () => {
     }
   };
 
-  const handleLanguageChange = async (next: string) => {
-    const prev = language;
+  // Language only controls transcription — no translation is performed.
+  const handleLanguageChange = (next: string) => {
     setLanguage(next);
-    // Only translate existing captions when switching to a concrete non-auto language.
-    if (next === "auto" || next === prev || captions.length === 0) return;
-    // Switching back to English just resets — don't call the edge function.
-    if (next === "en") {
-      toast.info("Switch to English? Re-transcribe the video to get fresh English captions.");
-      setLanguage(prev);
-      return;
-    }
-
-    if (!user) {
-      toast.info("Sign in to translate your captions into different languages.", {
-        action: {
-          label: "Sign In",
-          onClick: () => navigate("/auth"),
-        },
-      });
-      setLanguage(prev);
-      return;
-    }
-
-    setTranslating(true);
-    try {
-      await toast.promise(
-        (async () => {
-          const data = await invokeEdgeFunction("translate-captions", {
-            body: { texts: captions.map((c) => c.text), language: next },
-          });
-          const translations: string[] = data?.translations ?? [];
-          if (translations.length !== captions.length) {
-            throw new Error("Translation response mismatch — please try again.");
-          }
-          setCaptions((cur) =>
-            cur.map((c, i) => ({ ...c, text: translations[i] ?? c.text, words: undefined })),
-          );
-          // If server returned a warning (e.g. MyMemory used), surface it
-          if (data?.warning) {
-            toast.info(data.warning, { duration: 6000 });
-          }
-        })(),
-        {
-          loading: "Translating captions…",
-          success: "Captions translated!",
-          error: (e) => `Translation failed: ${e instanceof Error ? e.message : String(e)}`,
-        }
-      );
-    } catch (e) {
-      console.error("handleLanguageChange error:", e);
-      setLanguage(prev);
-    } finally {
-      setTranslating(false);
-    }
   };
 
 
@@ -1423,7 +1372,7 @@ const Editor = () => {
                 <div className="flex items-center gap-2">
                   <Globe className="h-3.5 w-3.5 text-[#888]" strokeWidth={1.8} />
                   <span className="hidden text-[11.5px] font-medium text-[#666] sm:inline">Caption language</span>
-                  <Select value={language} onValueChange={handleLanguageChange} disabled={translating}>
+                  <Select value={language} onValueChange={handleLanguageChange}>
                     <SelectTrigger className="h-7 w-[130px] rounded-[6px] border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 px-2 text-[12px] font-medium text-zinc-850 dark:text-zinc-100 focus:ring-0 focus:ring-offset-0 transition hover:bg-zinc-100 dark:hover:bg-zinc-900 cursor-pointer">
                       <SelectValue />
                     </SelectTrigger>
@@ -1435,12 +1384,6 @@ const Editor = () => {
                       ))}
                     </SelectContent>
                   </Select>
-                  {translating && (
-                    <span className="inline-flex items-center gap-1 text-[11px] text-[#aaa]">
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                      Translating…
-                    </span>
-                  )}
                 </div>
               )}
             </div>
