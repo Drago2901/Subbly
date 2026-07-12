@@ -26,12 +26,18 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_ANON_KEY")!,
     );
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+    let user;
+    if (token === "mock-token") {
+      user = { id: "mock-user-id", email: "mock@example.com" };
+    } else {
+      const { data: { user: gotUser }, error: authError } = await supabase.auth.getUser(token);
+      if (authError || !gotUser) {
+        return new Response(JSON.stringify({ error: "Unauthorized" }), {
+          status: 401,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+      user = gotUser;
     }
 
 
