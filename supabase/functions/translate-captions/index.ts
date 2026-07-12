@@ -1,4 +1,5 @@
-// Translate an array of caption texts into a target language via Lovable AI Gateway.
+// Translate an array of caption texts into a target language.
+// Priority: 1) Sarvam AI (Indian langs), 2) OpenAI direct, 3) Lovable AI gateway, 4) MyMemory (free)
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -8,32 +9,22 @@ const corsHeaders = {
 };
 
 const LANGUAGE_NAMES: Record<string, string> = {
-  en: "English",
-  es: "Spanish",
-  fr: "French",
-  de: "German",
-  it: "Italian",
-  pt: "Portuguese",
-  nl: "Dutch",
-  ru: "Russian",
-  hi: "Hindi",
-  hinglish: "Hinglish (Hindi written in Roman/Latin script, mixed casually with English the way young Indians text — NOT Devanagari)",
-  ja: "Japanese",
-  ko: "Korean",
-  zh: "Chinese",
-  ar: "Arabic",
-  tr: "Turkish",
-  pl: "Polish",
-  id: "Indonesian",
-  bn: "Bengali",
-  mr: "Marathi",
-  ta: "Tamil",
-  te: "Telugu",
-  gu: "Gujarati",
-  kn: "Kannada",
-  ml: "Malayalam",
-  pa: "Punjabi",
-  ur: "Urdu",
+  en: "English", es: "Spanish", fr: "French", de: "German", it: "Italian",
+  pt: "Portuguese", nl: "Dutch", ru: "Russian", hi: "Hindi",
+  hinglish: "Hinglish (Hindi written in Roman/Latin script, mixed casually with English — NOT Devanagari)",
+  ja: "Japanese", ko: "Korean", zh: "Chinese (Simplified)", ar: "Arabic",
+  tr: "Turkish", pl: "Polish", id: "Indonesian", bn: "Bengali",
+  mr: "Marathi", ta: "Tamil", te: "Telugu", gu: "Gujarati",
+  kn: "Kannada", ml: "Malayalam", pa: "Punjabi", ur: "Urdu",
+};
+
+// MyMemory language code mappings (ISO 639-1)
+const MYMEMORY_LANG: Record<string, string> = {
+  en: "en", es: "es", fr: "fr", de: "de", it: "it", pt: "pt",
+  nl: "nl", ru: "ru", hi: "hi", ja: "ja", ko: "ko", zh: "zh",
+  ar: "ar", tr: "tr", pl: "pl", id: "id", bn: "bn",
+  ta: "ta", te: "te", gu: "gu", ml: "ml", pa: "pa", ur: "ur",
+  mr: "mr", kn: "kn",
 };
 
 function localAddEmojis(text: string): string {
@@ -50,6 +41,11 @@ function localAddEmojis(text: string): string {
     school: "🏫", office: "🏢", shop: "🛒", buy: "🛒", sell: "📈",
     perfect: "👌", absolute: "💯", hundred: "💯", wow: "😮", omg: "😱",
     magic: "✨", sparkle: "✨", key: "🔑", lock: "🔒", unlock: "🔓",
+    great: "👏", awesome: "🤩", amazing: "🤩", beautiful: "😍", fun: "🎉",
+    party: "🎉", celebrate: "🎊", win: "🏆", best: "💪", strong: "💪",
+    new: "🆕", hot: "🔥", trending: "📈", viral: "🔥", share: "🔗",
+    heart: "❤️", smile: "😊", laugh: "😂", cry: "😭", think: "🤔",
+    money: "💰", cash: "💸", rich: "💎", diamond: "💎", gem: "💎",
   };
   
   return text.split(/\b/).map(word => {
@@ -61,273 +57,69 @@ function localAddEmojis(text: string): string {
   }).join("");
 }
 
-async function translateMyMemory(texts: string[], targetLang: string): Promise<string[]> {
+async function translateWithMyMemory(texts: string[], targetLang: string): Promise<string[]> {
+  const langCode = MYMEMORY_LANG[targetLang] || targetLang;
   const sourceLang = "en";
+  
   return await Promise.all(
     texts.map(async (txt) => {
+      if (!txt.trim()) return txt;
       try {
-        const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(txt)}&langpair=${sourceLang}|${targetLang}`;
-        const res = await fetch(url);
+        const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(txt)}&langpair=${sourceLang}|${langCode}&de=subbly@app.com`;
+        const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
         if (res.ok) {
           const data = await res.json();
-          const trans = data?.responseData?.translatedText || txt;
-          return trans
-            .replace(/&quot;/g, '"')
-            .replace(/&#039;/g, "'")
-            .replace(/&amp;/g, "&")
-            .replace(/&lt;/g, "<")
-            .replace(/&gt;/g, ">");
+          if (data?.responseStatus === 200 && data?.responseData?.translatedText) {
+            const trans = data.responseData.translatedText;
+            // MyMemory returns HTML entities, decode them
+            return trans
+              .replace(/&quot;/g, '"')
+              .replace(/&#039;/g, "'")
+              .replace(/&amp;/g, "&")
+              .replace(/&lt;/g, "<")
+              .replace(/&gt;/g, ">")
+              .replace(/&nbsp;/g, " ");
+          }
         }
         return txt;
-      } catch {
+      } catch (e) {
+        console.warn("MyMemory translation error for text:", txt.substring(0, 30), e);
         return txt;
       }
     })
   );
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
-
+async function translateWithLLM(texts: string[], targetName: string, apiUrl: string, apiKey: string, model: string): Promise<string[] | null> {
   try {
-    // Require an authenticated user — prevents anonymous callers from draining AI credits.
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const token = authHeader.replace("Bearer ", "");
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-    );
-    let user;
-    if (token === "mock-token") {
-      user = { id: "mock-user-id", email: "mock@example.com" };
-    } else {
-      const { data: { user: gotUser }, error: authError } = await supabase.auth.getUser(token);
-      if (authError || !gotUser) {
-        return new Response(JSON.stringify({ error: "Unauthorized" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      user = gotUser;
-    }
-
-    const body = await req.json();
-    const texts = body?.texts;
-    const language = body?.language;
-
-    if (!Array.isArray(texts) || texts.length === 0 || texts.length > 2000) {
-      return new Response(JSON.stringify({ error: "Invalid 'texts' array" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    if (!texts.every((t) => typeof t === "string" && t.length <= 5000)) {
-      return new Response(JSON.stringify({ error: "Invalid caption text" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const targetName = typeof language === "string" ? (LANGUAGE_NAMES[language] || language) : "";
-    if (!targetName) {
-      return new Response(JSON.stringify({ error: "Missing 'language'" }), {
-        status: 400,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-
-    const sarvamApiKey = Deno.env.get("SARVAM_API_KEY");
-    const SARVAM_LANGS: Record<string, string> = {
-      hi: "hi-IN",
-      hinglish: "hi-IN",
-      bn: "bn-IN",
-      mr: "mr-IN",
-      ta: "ta-IN",
-      te: "te-IN",
-      gu: "gu-IN",
-      kn: "kn-IN",
-      ml: "ml-IN",
-      pa: "pa-IN",
-      ur: "ur-IN",
-    };
-
-    if (sarvamApiKey && typeof language === "string" && SARVAM_LANGS[language]) {
-      console.info(`Using Sarvam AI for translating to: ${language}`);
-      try {
-        const targetLangCode = SARVAM_LANGS[language];
-        const isHinglish = language === "hinglish";
-        const model = isHinglish ? "mayura:v1" : "sarvam-translate:v1";
-
-        const translations = await Promise.all(
-          texts.map(async (txt) => {
-            try {
-              const res = await fetch("https://api.sarvam.ai/translate", {
-                method: "POST",
-                headers: {
-                  "api-subscription-key": sarvamApiKey,
-                  "Content-Type": "application/json",
-                },
-                body: JSON.stringify({
-                  input: txt,
-                  source_language_code: "auto",
-                  target_language_code: targetLangCode,
-                  model: model,
-                }),
-              });
-              if (res.ok) {
-                const data = await res.json();
-                return data?.translated_text ?? txt;
-              }
-              const errText = await res.text();
-              console.warn(`Sarvam translation line error: ${res.status} ${errText}`);
-              return txt;
-            } catch (lineErr) {
-              console.warn("Sarvam translation line connection error:", lineErr);
-              return txt;
-            }
-          })
-        );
-
-        return new Response(JSON.stringify({ translations }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      } catch (err) {
-        console.error("Sarvam translation global error:", err);
-        // Fall through to other APIs
-      }
-    }
-
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!apiKey) {
-      const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
-      if (openaiApiKey) {
-        console.info("Using configured OPENAI_API_KEY for direct translation/emojis.");
-        const numbered = texts.map((t: string, i: number) => `${i}: ${t}`).join("\n");
-        const res = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${openaiApiKey}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: "gpt-4o-mini",
-            messages: [
-              {
-                role: "system",
-                content:
-                  `You are a professional subtitle translator. Translate each numbered caption line into ${targetName}. ` +
-                  `Preserve meaning, tone, slang and emojis. Keep each translation concise so it still fits as a subtitle. ` +
-                  `Return ONLY a JSON object of the form {"translations":[{"index":0,"text":"..."}, ...]} with one entry per input line, in the same order. Do not add commentary.`,
-              },
-              { role: "user", content: numbered },
-            ],
-            response_format: { type: "json_object" },
-          }),
-        });
-
-        if (res.ok) {
-          const data = await res.json();
-          const content = data?.choices?.[0]?.message?.content ?? "{}";
-          let parsed: { translations?: { index: number; text: string }[] };
-          try {
-            parsed = JSON.parse(content);
-          } catch {
-            parsed = {};
-          }
-
-          const out = [...texts];
-          for (const item of parsed.translations ?? []) {
-            if (typeof item.index === "number" && item.index >= 0 && item.index < out.length && typeof item.text === "string") {
-              out[item.index] = item.text;
-            }
-          }
-
-          return new Response(JSON.stringify({ translations: out }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        } else {
-          const errText = await res.text();
-          console.error("OpenAI API direct error:", res.status, errText);
-        }
-      }
-
-      console.warn("LOVABLE_API_KEY and OPENAI_API_KEY not configured, using local emoji processing / keyless translation.");
-      const isEmojiRequest = typeof language === "string" && language.includes("emojis");
-      if (isEmojiRequest) {
-        const translations = texts.map((t) => localAddEmojis(t));
-        return new Response(JSON.stringify({ translations }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      } else {
-        const langCode = typeof language === "string" ? language : "en";
-        const translations = await translateMyMemory(texts, langCode);
-        return new Response(JSON.stringify({ translations }), {
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-    }
-
     const numbered = texts.map((t: string, i: number) => `${i}: ${t}`).join("\n");
-
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const res = await fetch(apiUrl, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${apiKey}`,
+        "Authorization": `Bearer ${apiKey}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.0-flash",
+        model,
         messages: [
           {
             role: "system",
             content:
               `You are a professional subtitle translator. Translate each numbered caption line into ${targetName}. ` +
-              `Preserve meaning, tone, slang and emojis. Keep each translation concise so it still fits as a subtitle. ` +
-              `Return ONLY a JSON object of the form {"translations":[{"index":0,"text":"..."}, ...]} with one entry per input line, in the same order. Do not add commentary.`,
+              `Preserve meaning, tone, slang and emojis. Keep each translation concise. ` +
+              `Return ONLY a JSON object: {"translations":[{"index":0,"text":"..."}, ...]} with one entry per line.`,
           },
           { role: "user", content: numbered },
         ],
         response_format: { type: "json_object" },
+        temperature: 0.3,
       }),
     });
 
-    if (res.status === 429) {
-      return new Response(JSON.stringify({ error: "Rate limit exceeded. Please try again shortly." }), {
-        status: 429,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    if (res.status === 402) {
-      return new Response(JSON.stringify({ error: "AI credits exhausted. Please add credits to continue." }), {
-        status: 402,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
     if (!res.ok) {
       const errText = await res.text();
-      console.error("AI gateway error:", res.status, errText);
-      let errMsg = "Translation failed. Please try again.";
-      try {
-        const parsed = JSON.parse(errText);
-        if (parsed?.error?.message) {
-          errMsg = parsed.error.message;
-        } else if (parsed?.message) {
-          errMsg = parsed.message;
-        }
-      } catch {
-        // Not JSON
-      }
-      return new Response(JSON.stringify({ error: errMsg }), {
-        status: 502,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
+      console.warn(`LLM API error (${apiUrl}): ${res.status} ${errText.substring(0, 200)}`);
+      return null;
     }
 
     const data = await res.json();
@@ -345,12 +137,197 @@ Deno.serve(async (req) => {
         out[item.index] = item.text;
       }
     }
+    return out;
+  } catch (e) {
+    console.warn(`LLM translation error (${apiUrl}):`, e);
+    return null;
+  }
+}
 
-    return new Response(JSON.stringify({ translations: out }), {
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    // Require authenticated user
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    const token = authHeader.replace("Bearer ", "");
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+    );
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const body = await req.json();
+    const texts: string[] = body?.texts;
+    const language: string = body?.language;
+
+    if (!Array.isArray(texts) || texts.length === 0 || texts.length > 2000) {
+      return new Response(JSON.stringify({ error: "Invalid 'texts' array (must be 1-2000 items)" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!texts.every((t) => typeof t === "string" && t.length <= 5000)) {
+      return new Response(JSON.stringify({ error: "Each caption text must be a string under 5000 chars" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+    if (!language || typeof language !== "string") {
+      return new Response(JSON.stringify({ error: "Missing 'language' field" }), {
+        status: 400,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // --- EMOJI MODE (special pseudo-language used internally) ---
+    const isEmojiRequest = language.length > 10; // emoji prompt is a long string, not a code
+    if (isEmojiRequest) {
+      const sarvamApiKey = Deno.env.get("SARVAM_API_KEY");
+      const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
+      const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+
+      if (openaiApiKey) {
+        const result = await translateWithLLM(texts, language, "https://api.openai.com/v1/chat/completions", openaiApiKey, "gpt-4o-mini");
+        if (result) {
+          return new Response(JSON.stringify({ translations: result }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+
+      if (lovableApiKey) {
+        const result = await translateWithLLM(texts, language, "https://ai.gateway.lovable.dev/v1/chat/completions", lovableApiKey, "google/gemini-2.0-flash");
+        if (result) {
+          return new Response(JSON.stringify({ translations: result }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        }
+      }
+
+      // Local emoji fallback
+      console.info("Using local emoji processing (no LLM API key configured)");
+      const translations = texts.map((t) => localAddEmojis(t));
+      return new Response(JSON.stringify({ translations }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    // --- TRANSLATION MODE ---
+    const targetName = LANGUAGE_NAMES[language] || language;
+    console.info(`Translating ${texts.length} captions to: ${language} (${targetName})`);
+
+    // 1. Sarvam AI — best for Indian languages
+    const sarvamApiKey = Deno.env.get("SARVAM_API_KEY");
+    const SARVAM_LANGS: Record<string, string> = {
+      hi: "hi-IN", hinglish: "hi-IN", bn: "bn-IN", mr: "mr-IN", ta: "ta-IN",
+      te: "te-IN", gu: "gu-IN", kn: "kn-IN", ml: "ml-IN", pa: "pa-IN", ur: "ur-IN",
+    };
+
+    if (sarvamApiKey && SARVAM_LANGS[language]) {
+      console.info(`Attempting Sarvam AI for: ${language}`);
+      try {
+        const targetLangCode = SARVAM_LANGS[language];
+        const isHinglish = language === "hinglish";
+        const model = isHinglish ? "mayura:v1" : "sarvam-translate:v1";
+
+        const translations = await Promise.all(
+          texts.map(async (txt) => {
+            if (!txt.trim()) return txt;
+            try {
+              const res = await fetch("https://api.sarvam.ai/translate", {
+                method: "POST",
+                headers: {
+                  "api-subscription-key": sarvamApiKey,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  input: txt,
+                  source_language_code: "auto",
+                  target_language_code: targetLangCode,
+                  model,
+                }),
+                signal: AbortSignal.timeout(10000),
+              });
+              if (res.ok) {
+                const data = await res.json();
+                return data?.translated_text ?? txt;
+              }
+              const errText = await res.text();
+              console.warn(`Sarvam error ${res.status}: ${errText.substring(0, 100)}`);
+              return txt;
+            } catch (lineErr) {
+              console.warn("Sarvam line error:", lineErr);
+              return txt;
+            }
+          })
+        );
+
+        return new Response(JSON.stringify({ translations }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (err) {
+        console.error("Sarvam global error:", err);
+        // Fall through to next provider
+      }
+    }
+
+    // 2. OpenAI direct
+    const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
+    if (openaiApiKey) {
+      console.info("Attempting OpenAI for translation");
+      const result = await translateWithLLM(texts, targetName, "https://api.openai.com/v1/chat/completions", openaiApiKey, "gpt-4o-mini");
+      if (result) {
+        return new Response(JSON.stringify({ translations: result }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // 3. Lovable AI Gateway
+    const lovableApiKey = Deno.env.get("LOVABLE_API_KEY");
+    if (lovableApiKey) {
+      console.info("Attempting Lovable AI Gateway for translation");
+      const result = await translateWithLLM(texts, targetName, "https://ai.gateway.lovable.dev/v1/chat/completions", lovableApiKey, "google/gemini-2.0-flash");
+      if (result) {
+        return new Response(JSON.stringify({ translations: result }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+    }
+
+    // 4. MyMemory free API — always works for standard languages, no key needed
+    console.info(`Using MyMemory free API for: ${language}`);
+    const mymemoryCode = MYMEMORY_LANG[language];
+    if (!mymemoryCode) {
+      // Language not supported by MyMemory — return originals
+      console.warn(`Language ${language} not supported by MyMemory, returning originals`);
+      return new Response(JSON.stringify({ translations: texts, warning: `Translation to ${targetName} is not available without an API key. Configure OPENAI_API_KEY or SARVAM_API_KEY in your Supabase project settings.` }), {
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
+    const translations = await translateWithMyMemory(texts, language);
+    return new Response(JSON.stringify({ translations }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
+
   } catch (err) {
-    console.error("translate-captions error:", err);
+    console.error("translate-captions unhandled error:", err);
     return new Response(JSON.stringify({ error: "Translation failed. Please try again." }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },

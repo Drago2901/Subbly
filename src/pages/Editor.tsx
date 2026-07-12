@@ -697,8 +697,14 @@ const Editor = () => {
   const handleLanguageChange = async (next: string) => {
     const prev = language;
     setLanguage(next);
-    // Only translate existing captions when switching to a concrete language.
+    // Only translate existing captions when switching to a concrete non-auto language.
     if (next === "auto" || next === prev || captions.length === 0) return;
+    // Switching back to English just resets — don't call the edge function.
+    if (next === "en") {
+      toast.info("Switch to English? Re-transcribe the video to get fresh English captions.");
+      setLanguage(prev);
+      return;
+    }
 
     if (!user) {
       toast.info("Sign in to translate your captions into different languages.", {
@@ -713,26 +719,36 @@ const Editor = () => {
 
     setTranslating(true);
     try {
-      const data = await invokeEdgeFunction("translate-captions", {
-        body: { texts: captions.map((c) => c.text), language: next },
-      });
-      const translations: string[] = data?.translations ?? [];
-      if (translations.length !== captions.length) {
-        throw new Error("Translation response did not match captions");
-      }
-      setCaptions((cur) =>
-        cur.map((c, i) => ({ ...c, text: translations[i] ?? c.text, words: undefined })),
+      await toast.promise(
+        (async () => {
+          const data = await invokeEdgeFunction("translate-captions", {
+            body: { texts: captions.map((c) => c.text), language: next },
+          });
+          const translations: string[] = data?.translations ?? [];
+          if (translations.length !== captions.length) {
+            throw new Error("Translation response mismatch — please try again.");
+          }
+          setCaptions((cur) =>
+            cur.map((c, i) => ({ ...c, text: translations[i] ?? c.text, words: undefined })),
+          );
+          // If server returned a warning (e.g. MyMemory used), surface it
+          if (data?.warning) {
+            toast.info(data.warning, { duration: 6000 });
+          }
+        })(),
+        {
+          loading: "Translating captions…",
+          success: "Captions translated!",
+          error: (e) => `Translation failed: ${e instanceof Error ? e.message : String(e)}`,
+        }
       );
-      toast.success("Captions translated");
     } catch (e) {
-      console.error(e);
-      toast.error(e instanceof Error ? e.message : "Translation failed");
+      console.error("handleLanguageChange error:", e);
       setLanguage(prev);
     } finally {
       setTranslating(false);
     }
   };
-
 
 
   const seek = (t: number) => {
