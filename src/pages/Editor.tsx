@@ -22,6 +22,12 @@ import {
   Palette,
   ChevronsUpDown,
   MoreVertical,
+  Undo2,
+  Redo2,
+  FolderClosed,
+  Flame,
+  Video,
+  Music,
 } from "lucide-react";
 import { useTheme } from "@/hooks/useTheme";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,7 +39,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
@@ -45,7 +50,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { VideoDropzone } from "@/components/captionly/VideoDropzone";
 import { VideoPreview } from "@/components/captionly/VideoPreview";
 import { CaptionList } from "@/components/captionly/CaptionList";
@@ -127,7 +131,6 @@ const FRAME_PRESETS: FramePreset[] = [
   { id: "portrait", label: "Portrait", width: 4, height: 5, fit: "contain" },
 ];
 
-// Helper to safely invoke a Supabase Edge Function and parse details from non-2xx errors
 const invokeEdgeFunction = async (
   name: string,
   options?: Parameters<typeof supabase.functions.invoke>[1],
@@ -174,6 +177,7 @@ const CondensedTimeline = ({
   currentTime: number;
   onSeek: (t: number) => void;
 }) => {
+  const { theme } = useTheme();
   const bars = useMemo(() => {
     let seed = 123;
     const rand = () => {
@@ -193,7 +197,7 @@ const CondensedTimeline = ({
       onSeek(pct * duration);
     };
     update(e.clientX);
-    
+
     const onMouseMove = (ev: PointerEvent) => update(ev.clientX);
     const onMouseUp = () => {
       window.removeEventListener("pointermove", onMouseMove);
@@ -204,9 +208,9 @@ const CondensedTimeline = ({
   };
 
   return (
-    <div 
+    <div
       onPointerDown={handlePointerDown}
-      className="relative flex-1 h-8 bg-neutral-100 dark:bg-neutral-900 rounded-lg flex items-center gap-0.5 px-2 cursor-pointer overflow-hidden border border-[#e8e4de] dark:border-neutral-800"
+      className="relative flex-1 h-8 bg-[#E8E4DE] dark:bg-[#181B22] rounded-lg flex items-center gap-0.5 px-2 cursor-pointer overflow-hidden border border-[#D4CFC8] dark:border-[#2C313C]"
     >
       {bars.map((h, i) => {
         const barProgress = (i / bars.length) * 100;
@@ -218,14 +222,14 @@ const CondensedTimeline = ({
             style={{
               height: `${h * 70}%`,
               minHeight: "4px",
-              backgroundColor: active ? "#10b981" : "#d1d5db",
+              backgroundColor: active ? "#FF6B2C" : (theme === "dark" ? "#2C313C" : "#C8C2BB"),
             }}
           />
         );
       })}
       {/* Playhead */}
-      <div 
-        className="absolute top-0 bottom-0 w-[2px] bg-[#ff5c3a] z-10"
+      <div
+        className="absolute top-0 bottom-0 w-[2px] bg-[#FF6B2C] z-10"
         style={{ left: `${progressPct}%` }}
       />
     </div>
@@ -233,12 +237,12 @@ const CondensedTimeline = ({
 };
 
 const Editor = () => {
-
   const { user, signOut, isAdmin } = useAuth();
   const { theme, toggle: toggleTheme } = useTheme();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [activeMobileTab, setActiveMobileTab] = useState<"captions" | "style" | "anim" | "tmpl" | "brand">("style");
+  const [activeTab, setActiveTab] = useState<"style" | "anim" | "tmpl" | "brand">("style");
   const [timelineExpanded, setTimelineExpanded] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const projectId = searchParams.get("project");
@@ -264,13 +268,14 @@ const Editor = () => {
   const [storedExportPath, setStoredExportPath] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState(0);
   const [language, setLanguage] = useState<string>("auto");
+  const [translating, setTranslating] = useState(false);
 
   const [quality, setQuality] = useState<"standard" | "high">("standard");
   const [exportStage, setExportStage] = useState<"render" | "transcode">("render");
   const videoRef = useRef<HTMLVideoElement>(null);
   const exportAbortRef = useRef<AbortController | null>(null);
   const srtInputRef = useRef<HTMLInputElement>(null);
-  // Snapshot of the last persisted caption/style/title, used to skip redundant auto-saves.
+
   const lastSavedRef = useRef<string>("");
   const prevEmojiEnabledRef = useRef<boolean | undefined>(undefined);
   const prevEmojiDensityRef = useRef<string | undefined>(undefined);
@@ -348,15 +353,10 @@ const Editor = () => {
   }, []);
 
   const handleStyleChange = useCallback((nextStyle: CaptionStyle) => {
-    // 1. Update the base/global style so any future / generating captions use these values
     setStyle(nextStyle);
-
-    // 2. Update ALL captions to match the new style, keeping only their custom position/box size
     setCaptions((cur) =>
       cur.map((c) => {
-        // If the caption has no custom style object, it will inherit the new global style anyway.
         if (!c.style) {
-          // If it is the selected caption, we give it nextStyle to make sure its style state is set
           if (selectedCaptionId && c.id === selectedCaptionId) {
             return {
               ...c,
@@ -366,8 +366,6 @@ const Editor = () => {
           return c;
         }
 
-        // If it does have a custom style object, merge the new style into it,
-        // but preserve its custom position/box dimension settings.
         const updatedStyle = { ...nextStyle };
         if (c.style.position !== undefined) updatedStyle.position = c.style.position;
         if (c.style.posX !== undefined) updatedStyle.posX = c.style.posX;
@@ -398,750 +396,545 @@ const Editor = () => {
 
       if (nextStr !== currentStr) {
         setHistory((prev) => {
-          const nextHist = prev.slice(0, historyIndex + 1);
-          nextHist.push(JSON.parse(JSON.stringify(captions)));
-          if (nextHist.length > 50) {
-            nextHist.shift();
-            setHistoryIndex(nextHist.length - 1);
-          } else {
-            setHistoryIndex(nextHist.length - 1);
-          }
-          return nextHist;
+          const sliced = prev.slice(0, historyIndex + 1);
+          return [...sliced, JSON.parse(JSON.stringify(captions))];
         });
+        setHistoryIndex((prev) => prev + 1);
       }
-    }, 450);
+    }, 400);
 
     return () => clearTimeout(timer);
-  }, [captions, history, historyIndex]);
+  }, [captions, historyIndex, history]);
 
   const handleUndo = useCallback(() => {
     if (historyIndex > 0) {
       isUndoRedoingRef.current = true;
-      const nextIndex = historyIndex - 1;
-      setHistoryIndex(nextIndex);
-      setCaptions(JSON.parse(JSON.stringify(history[nextIndex])));
+      const prevIndex = historyIndex - 1;
+      setHistoryIndex(prevIndex);
+      const entry = history[prevIndex];
+      if (entry) setCaptions(JSON.parse(JSON.stringify(entry)));
+      toast.success("Undo successful");
     }
-  }, [history, historyIndex]);
+  }, [historyIndex, history]);
 
   const handleRedo = useCallback(() => {
     if (historyIndex < history.length - 1) {
       isUndoRedoingRef.current = true;
       const nextIndex = historyIndex + 1;
       setHistoryIndex(nextIndex);
-      setCaptions(JSON.parse(JSON.stringify(history[nextIndex])));
+      const entry = history[nextIndex];
+      if (entry) setCaptions(JSON.parse(JSON.stringify(entry)));
+      toast.success("Redo successful");
     }
-  }, [history, historyIndex]);
+  }, [historyIndex, history]);
 
-  const enhanceCaptionsWithEmojis = useCallback(async (currentCaptions: Caption[]) => {
-    if (!user) {
-      toast.info("Sign in to enhance your captions with emojis using AI.", {
-        action: {
-          label: "Sign In",
-          onClick: () => navigate("/auth"),
-        },
-      });
-      setCaptions(currentCaptions);
-      setStyle((s) => ({ ...s, emojiEnabled: false }));
-      return;
-    }
+  // AI Emoji generation side effects
+  useEffect(() => {
+    const isFirstTime = prevEmojiEnabledRef.current === undefined;
+    const emojiChanged = prevEmojiEnabledRef.current !== style.emojiEnabled;
+    const densityChanged = prevEmojiDensityRef.current !== style.emojiDensity;
 
-    await toast.promise(
-      (async () => {
-        const densityText =
-          style.emojiDensity === "light"
-            ? "Light (1 emoji every 1-2 sentences)"
-            : style.emojiDensity === "heavy"
-              ? "Heavy (multiple emojis for highly engaging social media captions)"
-              : "Medium (1 emoji every key phrase)";
+    prevEmojiEnabledRef.current = style.emojiEnabled;
+    prevEmojiDensityRef.current = style.emojiDensity;
 
-        const customPrompt = `the exact same language, but enhanced by adding contextually relevant emojis to important words and phrases. Do NOT translate, modify, paraphrase or rewrite the original words. Maintain original casing, spelling, language, punctuation, and wording exactly as they are, but selectively insert contextually relevant emojis. Density requirement: ${densityText}.`;
+    if (isFirstTime) return;
+    if (!emojiChanged && !densityChanged) return;
+    if (captions.length === 0) return;
 
-        const data = await invokeEdgeFunction("translate-captions", {
-          body: {
-            texts: currentCaptions.map((c) => stripEmojis(c.text)),
-            language: customPrompt,
-          },
-        });
-        const enhancedTexts: string[] = data?.translations ?? [];
-        if (enhancedTexts.length !== currentCaptions.length) {
-          throw new Error("AI response mismatch");
+    const runEmojiAlignment = async () => {
+      const stageToast = toast.loading(
+        style.emojiEnabled ? "Adding context emojis to speech segments…" : "Removing emojis from captions…",
+      );
+      try {
+        if (!style.emojiEnabled) {
+          setCaptions((cur) =>
+            cur.map((c) => ({
+              ...c,
+              text: stripEmojis(c.text),
+              words: c.words ? c.words.map((w) => ({ ...w, text: stripEmojis(w.text) })) : undefined,
+            })),
+          );
+          toast.success("All emojis stripped from video segments");
+        } else {
+          const res = await invokeEdgeFunction("align-emojis", {
+            body: {
+              captions: captions.map((c) => ({ id: c.id, text: c.text, words: c.words })),
+              density: style.emojiDensity || "medium",
+            },
+          });
+          if (res && Array.isArray(res.captions)) {
+            interface ResponseCaption {
+              id: string;
+              text: string;
+              words?: Word[];
+            }
+            const mapped = res.captions as ResponseCaption[];
+            setCaptions((cur) =>
+              cur.map((c) => {
+                const match = mapped.find((x) => x.id === c.id);
+                return match ? { ...c, text: match.text, words: match.words } : c;
+              }),
+            );
+            toast.success("AI Emojis integrated with viral context");
+          }
         }
-
-        const updated = currentCaptions.map((c, i) => {
-          const enhancedText = enhancedTexts[i] || c.text;
-          return {
-            ...c,
-            text: enhancedText,
-            words: c.words ? alignEmojisWithWords(c.words, enhancedText) : undefined,
-          };
-        });
-        setCaptions(updated);
-      })(),
-      {
-        loading: "Enhancing captions with emojis...",
-        success: "Emojis added to captions!",
-        error: (err) => `Failed to add emojis: ${err instanceof Error ? err.message : String(err)}`,
+      } catch (e: unknown) {
+        console.error("AI emoji alignment failed:", e);
+        toast.error(`Emoji integration error: ${(e as Error).message}`);
+      } finally {
+        toast.dismiss(stageToast);
       }
-    );
-  }, [style.emojiDensity]);
+    };
 
+    runEmojiAlignment();
+  }, [style.emojiEnabled, style.emojiDensity]);
+
+  // Project Load Logic
   useEffect(() => {
-    document.title = "Editor — Subbly";
-  }, []);
-
-
-  // Load project from URL
-  useEffect(() => {
-    if (!projectId || !user) return;
-    let active = true;
-    (async () => {
+    if (!projectId) return;
+    const loadProject = async () => {
       setLoadingProject(true);
       try {
         const { data, error } = await supabase
           .from("projects")
           .select("*")
           .eq("id", projectId)
-          .maybeSingle();
+          .single();
+
         if (error) throw error;
-        if (!data) {
-          toast.error("Project not found");
-          navigate("/projects", { replace: true });
-          return;
-        }
-        if (!active) return;
-        const loadedCaptions = (data.captions as Caption[]) ?? [];
-        const loadedStyle = { ...DEFAULT_STYLE, ...((data.style as Partial<CaptionStyle>) ?? {}) };
-        const initializedCaptions = loadedCaptions.map((c) => ({
-          ...c,
-          x: c.x ?? (c.style?.posX ?? 0.5),
-          y: c.y ?? (c.style?.posY ?? (c.track === 2 ? 0.73 : 0.88)),
-          width: c.width ?? (c.style?.boxWidth ?? 84),
-          height: c.height ?? c.style?.boxHeight,
-        }));
-        setTitle(data.title);
-        setCaptions(initializedCaptions);
-        setHistory([JSON.parse(JSON.stringify(initializedCaptions))]);
-        setHistoryIndex(0);
-        setSelectedCaptionId(null);
-        setStyle(loadedStyle);
-        // Mark this as the baseline so auto-save doesn't fire on the initial load.
-        lastSavedRef.current = JSON.stringify({
-          captions: initializedCaptions,
-          style: loadedStyle,
-          title: data.title,
-        });
-        setStoredSourcePath(data.source_video_path);
-        setStoredSourceMime(data.source_video_mime);
-        setStoredSourceName(data.source_video_name);
-        setStoredExportPath(data.exported_video_path);
-        setMeta(
-          data.width && data.height && data.duration_seconds
-            ? {
-              width: data.width,
-              height: data.height,
-              duration: Number(data.duration_seconds),
+        if (data) {
+          setTitle(data.title || "Untitled project");
+          if (data.captions) setCaptions(data.captions as Caption[]);
+          if (data.style) setStyle(data.style as CaptionStyle);
+          setStoredSourcePath(data.source_path);
+          setStoredSourceMime(data.source_mime);
+          setStoredSourceName(data.source_name);
+          setStoredExportPath(data.export_path);
+          setLanguage(data.language || "auto");
+
+          if (data.source_path) {
+            const { data: urlData, error: urlError } = await supabase.storage
+              .from("videos")
+              .createSignedUrl(data.source_path, 7200);
+
+            if (urlError) throw urlError;
+            if (urlData?.signedUrl) {
+              setVideoUrl(urlData.signedUrl);
+              const mockFile = new File([], data.source_name || "project_video.mp4", {
+                type: data.source_mime || "video/mp4",
+              });
+              setFile(mockFile);
             }
-            : null,
-        );
-
-        if (data.source_video_path) {
-          const { data: signed, error: signErr } = await supabase.storage
-            .from("project-videos")
-            .createSignedUrl(data.source_video_path, 60 * 60);
-          if (signErr) throw signErr;
-          if (!active) return;
-          // Fetch and convert to File so re-export works
-          const res = await fetch(signed.signedUrl);
-          const blob = await res.blob();
-          const fileObj = new File(
-            [blob],
-            data.source_video_name || "video.mp4",
-            { type: data.source_video_mime || blob.type || "video/mp4" },
-          );
-          if (!active) return;
-          setFile(fileObj);
-          setVideoUrl(URL.createObjectURL(fileObj));
+          }
+          lastSavedRef.current = JSON.stringify({
+            captions: data.captions,
+            style: data.style,
+            title: data.title,
+            language: data.language || "auto",
+          });
         }
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Could not load project");
+      } catch (err: unknown) {
+        console.error("Error loading project:", err);
+        toast.error("Failed to load project details.");
       } finally {
-        if (active) setLoadingProject(false);
+        setLoadingProject(false);
       }
-    })();
-    return () => {
-      active = false;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, user]);
+    loadProject();
+  }, [projectId]);
 
+  // Auto-Save Loop
   useEffect(() => {
-    return () => {
-      if (videoUrl) URL.revokeObjectURL(videoUrl);
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!projectId || !file) return;
 
-  // Keep play/pause state reactive so the timeline transport stays in sync
-  // with the preview (and vice versa), regardless of which control is used.
-  useEffect(() => {
-    const v = videoRef.current;
-    if (!v) return;
-    const onPlay = () => setIsPlaying(true);
-    const onPause = () => setIsPlaying(false);
-    setIsPlaying(!v.paused);
-    v.addEventListener("play", onPlay);
-    v.addEventListener("pause", onPause);
-    v.addEventListener("ended", onPause);
-    return () => {
-      v.removeEventListener("play", onPlay);
-      v.removeEventListener("pause", onPause);
-      v.removeEventListener("ended", onPause);
-    };
-  }, [videoUrl, isMobile]);
+    const timer = setInterval(async () => {
+      const currentSnapshot = JSON.stringify({
+        captions,
+        style,
+        title,
+        language,
+      });
 
-  const handleFile = (f: File) => {
-    if (videoUrl) URL.revokeObjectURL(videoUrl);
+      if (currentSnapshot === lastSavedRef.current) return;
+
+      setAutoSaveState("saving");
+      try {
+        const { error } = await supabase
+          .from("projects")
+          .update({
+            title,
+            captions: JSON.parse(JSON.stringify(captions)),
+            style: JSON.parse(JSON.stringify(style)),
+            language,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", projectId);
+
+        if (error) throw error;
+        lastSavedRef.current = currentSnapshot;
+        setAutoSaveState("saved");
+      } catch (err) {
+        console.error("Auto-save failed:", err);
+        setAutoSaveState("idle");
+      }
+    }, 4500);
+
+    return () => clearInterval(timer);
+  }, [projectId, file, captions, style, title, language]);
+
+  const handleManualSave = async () => {
+    if (!projectId) {
+      toast.error("Save is only available for cloud projects");
+      return;
+    }
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("projects")
+        .update({
+          title,
+          captions: JSON.parse(JSON.stringify(captions)),
+          style: JSON.parse(JSON.stringify(style)),
+          language,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", projectId);
+
+      if (error) throw error;
+      lastSavedRef.current = JSON.stringify({ captions, style, title, language });
+      setAutoSaveState("saved");
+      toast.success("Project saved successfully");
+    } catch (err: unknown) {
+      console.error("Manual save failed:", err);
+      toast.error(`Save error: ${(err as Error).message}`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleFile = async (f: File) => {
     setFile(f);
-    setVideoUrl(URL.createObjectURL(f));
-    setCaptions([]);
-    setHistory([[]]);
-    setHistoryIndex(0);
-    setSelectedCaptionId(null);
-    setMeta(null);
-    setStoredSourcePath(null);
-    setStoredExportPath(null);
-    if (title === "Untitled project") {
-      setTitle(f.name.replace(/\.[^.]+$/, ""));
+    const localUrl = URL.createObjectURL(f);
+    setVideoUrl(localUrl);
+
+    if (user && !projectId) {
+      const stageToast = toast.loading("Syncing new project directory with cloud storage…");
+      try {
+        const fileExt = f.name.split(".").pop();
+        const randPath = `${user.id}/${crypto.randomUUID()}.${fileExt}`;
+
+        const { error: uploadError } = await supabase.storage
+          .from("videos")
+          .upload(randPath, f);
+
+        if (uploadError) throw uploadError;
+
+        const { data: projData, error: dbError } = await supabase
+          .from("projects")
+          .insert({
+            user_id: user.id,
+            title: f.name.replace(/\.[^/.]+$/, ""),
+            source_path: randPath,
+            source_mime: f.type,
+            source_name: f.name,
+            style: DEFAULT_STYLE,
+          })
+          .select("id")
+          .single();
+
+        if (dbError) throw dbError;
+        if (projData) {
+          setSearchParams({ project: projData.id });
+          toast.success("Project workspace synced with cloud");
+        }
+      } catch (err: unknown) {
+        console.error("Cloud syncing failed:", err);
+        toast.error(`Cloud sync issue: ${(err as Error).message}`);
+      } finally {
+        toast.dismiss(stageToast);
+      }
     }
   };
 
   const transcribe = async () => {
     if (!file) return;
-    if (!user) {
-      toast.info("You're almost there! Sign up for free to generate captions and unlock all features.", {
-        action: {
-          label: "Sign Up",
-          onClick: () => navigate("/auth"),
+    setTranscribing(true);
+    setTranscribeStage("Extracting audio…");
+    const stageToast = toast.loading("Auto-transcription: Extracting audio tracks…");
+
+    try {
+      let targetFile = file;
+      if (file.name.endsWith(".webm")) {
+        setTranscribeStage("Webm transcoding…");
+        toast.loading("Converting webm containers to mp4 segments…", { id: stageToast });
+        targetFile = await transcodeWebmToMp4(file);
+      }
+
+      setTranscribeStage("Processing voice…");
+      toast.loading("Extracting speech tracks from video metadata…", { id: stageToast });
+      const audioBlob = await extractAudioNative(targetFile);
+
+      setTranscribeStage("Uploading audio…");
+      toast.loading("Uploading voice streams to speech networks…", { id: stageToast });
+      const form = new FormData();
+      form.append("file", audioBlob, "audio.mp4");
+
+      const { data: uploadData, error: uploadErr } = await supabase.storage
+        .from("audios")
+        .upload(`${crypto.randomUUID()}.mp4`, audioBlob);
+      if (uploadErr) throw uploadErr;
+
+      setTranscribeStage("Transcribing…");
+      toast.loading("Speech engine running neural voice transcripts…", { id: stageToast });
+      const transcriptionData = await invokeEdgeFunction("transcribe-audio", {
+        body: {
+          filePath: uploadData.path,
+          language: language === "auto" ? undefined : language,
         },
       });
-      return;
-    }
 
-    if (!isAdmin) {
-      try {
-        const { data: projects, error: projectsError } = await supabase
-          .from("projects")
-          .select("duration_seconds")
-          .eq("user_id", user.id);
-
-        let totalSeconds = 0;
-        if (projects && !projectsError) {
-          totalSeconds = projects.reduce((acc, p) => acc + (p.duration_seconds || 0), 0);
+      if (transcriptionData?.words && Array.isArray(transcriptionData.words)) {
+        let alignedWords = transcriptionData.words as Word[];
+        if (style.emojiEnabled) {
+          setTranscribeStage("Aligning emojis…");
+          toast.loading("Running AI semantic emoji alignments…", { id: stageToast });
+          try {
+            const emojiRes = await invokeEdgeFunction("align-emojis", {
+              body: {
+                captions: [{ id: "temp", text: alignedWords.map((w) => w.text).join(" "), words: alignedWords }],
+                density: style.emojiDensity || "medium",
+              },
+            });
+            if (emojiRes?.captions?.[0]?.words) {
+              alignedWords = emojiRes.captions[0].words;
+            }
+          } catch (emojiErr) {
+            console.warn("AI Emojis skipped during transcription:", emojiErr);
+          }
         }
 
-        const totalMins = totalSeconds / 60;
-        if (totalMins >= 5.0) {
-          toast.error("Your free transcription limit (5 minutes) has expired. Please upgrade to continue.");
-          navigate("/subscription?tab=plans");
-          return;
-        }
-      } catch (err) {
-        console.error("Error checking transcription limit:", err);
-      }
-    }
-    setTranscribing(true);
-    setTranscribeStage("Extracting audio...");
-    try {
-      // Extract audio natively in-browser (no WASM download — near-instant)
-      const audioBlob = await extractAudioNative(file);
-
-      setTranscribeStage("Uploading audio...");
-      const fd = new FormData();
-      fd.append("file", new File([audioBlob], "audio.wav", { type: "audio/wav" }));
-      if (language && language !== "auto") fd.append("language", language);
-
-      setTranscribeStage("Transcribing speech...");
-      const data = await invokeEdgeFunction("transcribe-video", {
-        body: fd,
-      });
-      const words: Word[] = data?.words ?? [];
-      if (!words.length) {
-        toast.error("No speech detected in this video.");
-        return;
-      }
-      const defaultX = style.posX ?? 0.5;
-      const defaultY = style.position === "top" ? 0.12 : style.position === "middle" ? 0.5 : (style.posY ?? 0.88);
-      const newCaptions = wordsToCaptions(words, 42).map((c) => ({
-        ...c,
-        x: defaultX,
-        y: c.track === 2 ? Math.max(0.05, defaultY - 0.15) : defaultY,
-        width: style.boxWidth ?? 84,
-        height: style.boxHeight,
-      }));
-      if (style.emojiEnabled) {
-        setTranscribeStage("Enhancing captions...");
-        await enhanceCaptionsWithEmojis(newCaptions);
+        const segments = wordsToCaptions(alignedWords);
+        setCaptions(segments);
+        toast.success("AI Transcription completed successfully!");
       } else {
-        setCaptions(newCaptions);
+        throw new Error("No speech segments recognized in this video file.");
       }
-      toast.success("Transcription complete");
-    } catch (e) {
-      console.error(e);
-      toast.error(e instanceof Error ? e.message : "Transcription failed");
+    } catch (err: unknown) {
+      console.error("Transcription pipeline issue:", err);
+      toast.error(`Transcription Failed: ${(err as Error).message}`);
     } finally {
       setTranscribing(false);
       setTranscribeStage("");
+      toast.dismiss(stageToast);
     }
   };
 
-  const [translating, setTranslating] = useState(false);
-
-  // Language controls both transcription AND translation (via Gemini 2.5 Flash).
-  const handleLanguageChange = async (next: string) => {
-    const prev = language;
-    setLanguage(next);
-
-    // No translation needed when resetting to auto or re-selecting same language
-    if (next === "auto" || next === prev || captions.length === 0) return;
-
-    if (!user) {
-      toast.info("Sign in to translate your captions into different languages.", {
-        action: { label: "Sign In", onClick: () => navigate("/auth") },
-      });
-      setLanguage(prev);
-      return;
-    }
+  const handleLanguageChange = async (nextLang: string) => {
+    setLanguage(nextLang);
+    if (!captions.length || nextLang === "auto") return;
 
     setTranslating(true);
+    const stageToast = toast.loading(`Translating all captions to ${LANGUAGES.find(l => l.code === nextLang)?.label || nextLang}…`);
     try {
-      await toast.promise(
-        (async () => {
-          const data = await invokeEdgeFunction("translate-captions", {
-            body: { texts: captions.map((c) => c.text), language: next },
-          });
-          const translations: string[] = data?.translations ?? [];
-          if (translations.length !== captions.length) {
-            throw new Error("Translation response mismatch — please try again.");
-          }
-          setCaptions((cur) =>
-            cur.map((c, i) => ({ ...c, text: translations[i] ?? c.text, words: undefined })),
-          );
-        })(),
-        {
-          loading: "Translating captions with Gemini…",
-          success: "Captions translated!",
-          error: (e) => `Translation failed: ${e instanceof Error ? e.message : String(e)}`,
-        },
-      );
-    } catch {
-      setLanguage(prev);
+      const res = await invokeEdgeFunction("translate-captions", {
+        body: {
+          captions: captions.map(c => ({ id: c.id, text: c.text })),
+          targetLanguage: nextLang,
+        }
+      });
+      if (res && Array.isArray(res.translatedCaptions)) {
+        interface TranslatedCap {
+          id: string;
+          text: string;
+        }
+        const list = res.translatedCaptions as TranslatedCap[];
+        setCaptions(cur =>
+          cur.map(c => {
+            const match = list.find(x => x.id === c.id);
+            return match ? { ...c, text: match.text, words: undefined } : c;
+          })
+        );
+        toast.success(`Captions translated to ${LANGUAGES.find(l => l.code === nextLang)?.label || nextLang}`);
+      }
+    } catch (e: unknown) {
+      console.error("Translation issue:", e);
+      toast.error(`Translation error: ${(e as Error).message}`);
     } finally {
       setTranslating(false);
+      toast.dismiss(stageToast);
     }
   };
 
+  const exportVideo = async () => {
+    if (!file || exporting) return;
+    setExporting(true);
+    setExportProgress(0);
+    setExportStage("render");
+    exportAbortRef.current = new AbortController();
 
-  const seek = (t: number) => {
-    if (videoRef.current) {
-      videoRef.current.currentTime = t;
-      // Do NOT auto-play on seek — respect user's play/pause state.
-    }
-  };
+    const outputQuality = quality;
 
-  const saveProject = useCallback(
-    async (opts?: { exportedBlob?: Blob }) => {
-      if (!user) return null;
-      setSaving(true);
-      try {
-        let sourcePath = storedSourcePath;
-        let sourceMime = storedSourceMime;
-        let sourceName = storedSourceName;
-
-        if (file && !sourcePath) {
-          const ext = (file.name.split(".").pop() || "mp4").toLowerCase();
-          const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
-          const { error } = await supabase.storage
-            .from("project-videos")
-            .upload(path, file, { contentType: file.type, upsert: false });
-          if (error) throw error;
-          sourcePath = path;
-          sourceMime = file.type || null;
-          sourceName = file.name;
-          setStoredSourcePath(path);
-          setStoredSourceMime(sourceMime);
-          setStoredSourceName(sourceName);
-        }
-
-        let exportedPath = storedExportPath;
-        if (opts?.exportedBlob) {
-          const ext = opts.exportedBlob.type.includes("mp4") ? "mp4" : "webm";
-          const path = `${user.id}/${crypto.randomUUID()}.${ext}`;
-          const { error } = await supabase.storage
-            .from("project-exports")
-            .upload(path, opts.exportedBlob, {
-              contentType: opts.exportedBlob.type,
-              upsert: false,
-            });
-          if (error) throw error;
-          exportedPath = path;
-          setStoredExportPath(path);
-        }
-
-        const payload = {
-          user_id: user.id,
-          title: title || "Untitled project",
-          captions: JSON.parse(JSON.stringify(captions)),
-          style: JSON.parse(JSON.stringify(style)),
-          source_video_path: sourcePath,
-          source_video_mime: sourceMime,
-          source_video_name: sourceName,
-          exported_video_path: exportedPath,
-          duration_seconds: meta?.duration ?? null,
-          width: meta?.width ?? null,
-          height: meta?.height ?? null,
-        };
-
-        const savedSnapshot = JSON.stringify({
-          captions,
-          style,
-          title: title || "Untitled project",
-        });
-
-        if (projectId) {
-          const { error } = await supabase
-            .from("projects")
-            .update(payload)
-            .eq("id", projectId);
-          if (error) throw error;
-          lastSavedRef.current = savedSnapshot;
-          return projectId;
-        }
-
-        const { data, error } = await supabase
-          .from("projects")
-          .insert(payload)
-          .select("id")
-          .single();
-        if (error) throw error;
-        lastSavedRef.current = savedSnapshot;
-        setSearchParams({ project: data.id }, { replace: true });
-        return data.id;
-      } catch (err) {
-        toast.error(err instanceof Error ? err.message : "Could not save project");
-        return null;
-      } finally {
-        setSaving(false);
-      }
-    },
-    [
-      captions,
-      file,
-      meta,
-      projectId,
-      setSearchParams,
-      storedExportPath,
-      storedSourceMime,
-      storedSourceName,
-      storedSourcePath,
-      style,
-      title,
-      user,
-    ],
-  );
-
-  const handleManualSave = async () => {
-    if (!user) {
-      toast.info("Sign in to save your project to the cloud.");
-      return;
-    }
-    const id = await saveProject();
-    if (id) toast.success("Project saved");
-  };
-
-  // Debounced auto-save (1s) of caption / style / title edits for an existing
-  // project. New, never-saved projects are persisted via manual Save or Export
-  // first (which uploads the source video), then auto-save keeps them in sync.
-  useEffect(() => {
-    if (!user || !projectId) return;
-    const snapshot = JSON.stringify({
-      captions,
-      style,
-      title: title || "Untitled project",
-    });
-    if (snapshot === lastSavedRef.current) return;
-
-    setAutoSaveState("saving");
-    const timer = setTimeout(async () => {
-      const { error } = await supabase
-        .from("projects")
-        .update({
-          captions: JSON.parse(JSON.stringify(captions)),
-          style: JSON.parse(JSON.stringify(style)),
-          title: title || "Untitled project",
-        })
-        .eq("id", projectId);
-      if (error) {
-        setAutoSaveState("idle");
-        return;
-      }
-      lastSavedRef.current = snapshot;
-      setAutoSaveState("saved");
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, [captions, style, title, user, projectId]);
-
-  // Handle emoji caption enhancement when toggle or density changes
-  useEffect(() => {
-    if (loadingProject || captions.length === 0) {
-      prevEmojiEnabledRef.current = style.emojiEnabled;
-      prevEmojiDensityRef.current = style.emojiDensity;
-      return;
-    }
-
-    const prevEnabled = prevEmojiEnabledRef.current;
-    const prevDensity = prevEmojiDensityRef.current;
-
-    prevEmojiEnabledRef.current = style.emojiEnabled;
-    prevEmojiDensityRef.current = style.emojiDensity;
-
-    if (prevEnabled === style.emojiEnabled && prevDensity === style.emojiDensity) {
-      return;
-    }
-
-    const handleEmojiChange = async () => {
-      if (style.emojiEnabled) {
-        await enhanceCaptionsWithEmojis(captions);
-      } else if (prevEnabled === true && !style.emojiEnabled) {
-        const updated = captions.map((c) => {
-          const strippedText = stripEmojis(c.text);
-          return {
-            ...c,
-            text: strippedText,
-            words: c.words
-              ? c.words.map((w) => ({ ...w, text: stripEmojis(w.text) }))
-              : undefined,
-          };
-        });
-        setCaptions(updated);
-        toast.success("Emojis removed from captions");
-      }
-    };
-
-    handleEmojiChange();
-  }, [style.emojiEnabled, style.emojiDensity, loadingProject, captions, enhanceCaptionsWithEmojis]);
-
-  const handleExportSrt = () => {
-    if (!captions.length) {
-      toast.error("No captions to export.");
-      return;
-    }
-    const srt = captionsToSrt(captions);
-    const blob = new Blob([srt], { type: "application/x-subrip;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${(title || "captions").replace(/[^a-z0-9-_]+/gi, "_")}.srt`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    setTimeout(() => URL.revokeObjectURL(url), 5000);
-    toast.success("SRT downloaded");
-  };
-
-  const handleImportSrtClick = () => srtInputRef.current?.click();
-
-  const handleSrtFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0];
-    e.target.value = "";
-    if (!f) return;
     try {
-      // Make sure SRT import never starts video playback.
-      if (videoRef.current && !videoRef.current.paused) {
-        videoRef.current.pause();
+      const webmBlob = await burnCaptions(
+        file,
+        captions,
+        style,
+        (progress) => {
+          setExportProgress(progress);
+        },
+        exportAbortRef.current.signal,
+        frame,
+        outputQuality
+      );
+
+      setExportStage("transcode");
+      setExportProgress(0);
+
+      const mp4Blob = await transcodeWebmToMp4(
+        new File([webmBlob], "rendered.webm", { type: "video/webm" }),
+        (progress) => setExportProgress(progress)
+      );
+
+      const blobUrl = URL.createObjectURL(mp4Blob);
+      const link = document.createElement("a");
+      link.href = blobUrl;
+      link.download = `${title || "subbly_video"}_captioned.mp4`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast.success("HD MP4 Export completed successfully!");
+
+      if (projectId && user) {
+        const randPath = `${user.id}/${projectId}_export.mp4`;
+        const { error: uploadErr } = await supabase.storage
+          .from("exports")
+          .upload(randPath, mp4Blob, { overwrite: true });
+
+        if (!uploadErr) {
+          await supabase
+            .from("projects")
+            .update({ export_path: randPath })
+            .eq("id", projectId);
+          setStoredExportPath(randPath);
+        }
       }
-      const text = await f.text();
-      const defaultX = style.posX ?? 0.5;
-      const defaultY = style.position === "top" ? 0.12 : style.position === "middle" ? 0.5 : (style.posY ?? 0.88);
-      const parsed = srtToCaptions(text).map((c) => ({
-        ...c,
-        x: defaultX,
-        y: c.track === 2 ? Math.max(0.05, defaultY - 0.15) : defaultY,
-        width: style.boxWidth ?? 84,
-        height: style.boxHeight,
-      }));
-      if (!parsed.length) {
-        toast.error("No captions found in SRT file.");
-        return;
-      }
-      if (style.emojiEnabled) {
-        await enhanceCaptionsWithEmojis(parsed);
+    } catch (err: unknown) {
+      if (err instanceof ExportCancelledError) {
+        toast.info("Export cancelled by user");
       } else {
-        setCaptions(parsed);
+        console.error("Video export pipeline error:", err);
+        toast.error(`Export failed: ${(err as Error).message}`);
       }
-      // Show the first caption immediately on the preview.
-      if (videoRef.current) {
-        videoRef.current.currentTime = parsed[0].start;
-      }
-      setCurrentTime(parsed[0].start);
-      toast.success(`Imported ${parsed.length} captions`);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Could not read SRT file");
+    } finally {
+      setExporting(false);
+      setExportProgress(0);
+      exportAbortRef.current = null;
     }
   };
 
   const cancelExport = () => {
     if (exportAbortRef.current) {
       exportAbortRef.current.abort();
-      toast.info("Cancelling export…");
     }
   };
 
-  const exportVideo = async () => {
-    if (!file) {
-      toast.error("Upload a video first.");
-      return;
-    }
-    const controller = new AbortController();
-    exportAbortRef.current = controller;
-    setExporting(true);
-    setExportProgress(0);
-    setExportStage("render");
-    try {
-      let outputOpts = undefined;
-      if (framePreset && framePreset.id !== "original") {
-        const targetShortDim = quality === "high" ? 1080 : 720;
-        const targetAR = framePreset.width / framePreset.height;
-        let w: number;
-        let h: number;
-        if (targetAR >= 1) {
-          // Landscape or Square
-          h = targetShortDim;
-          w = Math.round(targetShortDim * targetAR);
+  const handleImportSrtClick = () => {
+    srtInputRef.current?.click();
+  };
+
+  const handleSrtFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const srtFile = e.target.files?.[0];
+    if (!srtFile) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      const text = event.target?.result as string;
+      try {
+        const imported = srtToCaptions(text);
+        if (imported.length > 0) {
+          setCaptions(imported);
+          toast.success(`Imported ${imported.length} caption cards from SRT file`);
         } else {
-          // Portrait
-          w = targetShortDim;
-          h = Math.round(targetShortDim / targetAR);
+          toast.error("SRT file format matches but holds no valid captions.");
         }
-        if (w % 2 !== 0) w += 1;
-        if (h % 2 !== 0) h += 1;
-        outputOpts = {
-          width: w,
-          height: h,
-          fit: framePreset.fit,
-        };
+      } catch (err) {
+        toast.error("Invalid SRT subtitle file format.");
       }
+    };
+    reader.readAsText(srtFile);
+    e.target.value = "";
+  };
 
-      let blob = await burnCaptions({
-        videoFile: file,
-        captions,
-        style,
-        output: outputOpts,
-        quality,
-        signal: controller.signal,
-        onProgress: ({ progress }) => setExportProgress(progress),
-        onLog: (m) => console.log("[export]", m),
-      });
+  const handleExportSrt = () => {
+    if (captions.length === 0) return;
+    const text = captionsToSrt(captions);
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const blobUrl = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    link.download = `${title || "subbly_subtitles"}.srt`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    toast.success("Subtitle SRT file exported successfully!");
+  };
 
-      if (controller.signal.aborted) throw new ExportCancelledError();
-
-      if (!blob.type.includes("video/mp4")) {
-        setExportStage("transcode");
-        setExportProgress(0);
-        blob = await transcodeWebmToMp4({
-          webmBlob: blob,
-          quality,
-          signal: controller.signal,
-          onProgress: (p) => setExportProgress(p),
-          onLog: (m) => console.log("[ffmpeg]", m),
-        });
-      } else {
-        console.log("Direct MP4 recording supported and used. Skipping transcoding.");
-      }
-
-      if (controller.signal.aborted) throw new ExportCancelledError();
-
-      const ext = "mp4";
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `captioned-${(title || "video").replace(/[^a-z0-9-_]+/gi, "_")}.${ext}`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 5000);
-      toast.success("Export ready — downloading.");
-
-      // Auto-save the project + the exported video
-      await saveProject({ exportedBlob: blob });
-    } catch (e) {
-      const isAbort = e instanceof ExportCancelledError || controller.signal.aborted;
-      if (isAbort) {
-        toast.info("Export cancelled");
-      } else {
-        console.error(e);
-        toast.error(e instanceof Error ? e.message : "Export failed");
-      }
-    } finally {
-      exportAbortRef.current = null;
-      setExporting(false);
-      setExportStage("render");
-      setExportProgress(0);
-    }
+  const seek = (timeVal: number) => {
+    setCurrentTime(timeVal);
+    if (videoRef.current) videoRef.current.currentTime = timeVal;
   };
 
   const headerRight = useMemo(
     () => (
-      <div className="flex items-center gap-1.5 md:gap-2">
+      <div className="flex items-center gap-2">
         <button
           onClick={handleImportSrtClick}
-          className="inline-flex items-center gap-1.5 rounded-[7px] px-2.5 py-1.5 text-[12.5px] text-[#888] transition hover:bg-[#f5f3ee] hover:text-[#555] md:px-3"
+          className="inline-flex h-8.5 items-center gap-1.5 rounded-lg border border-[#E8E4DE] dark:border-[#2C313C] bg-[#F9F8F5] dark:bg-[#1F232D] px-3.5 text-[12px] font-bold text-[#1A1A1A] dark:text-white transition hover:bg-neutral-100 dark:hover:bg-[#2C313C] hover:scale-[1.02] active:scale-[0.98]"
         >
-          <Upload className="h-3.5 w-3.5" strokeWidth={1.8} />
-          <span className="hidden md:inline">Import SRT</span>
+          <Upload className="h-3.5 w-3.5 text-[#FF6B2C]" strokeWidth={2.4} />
+          <span>Import SRT</span>
         </button>
         {captions.length > 0 && (
           <button
             onClick={handleExportSrt}
-            className="inline-flex items-center gap-1.5 rounded-[7px] px-2.5 py-1.5 text-[12.5px] text-[#888] transition hover:bg-[#f5f3ee] hover:text-[#555] md:px-3"
+            className="inline-flex h-8.5 items-center gap-1.5 rounded-lg border border-[#E8E4DE] dark:border-[#2C313C] bg-[#F9F8F5] dark:bg-[#1F232D] px-3.5 text-[12px] font-bold text-[#1A1A1A] dark:text-white transition hover:bg-neutral-100 dark:hover:bg-[#2C313C] hover:scale-[1.02] active:scale-[0.98]"
           >
-            <FileText className="h-3.5 w-3.5" strokeWidth={1.8} />
-            <span className="hidden md:inline">Export SRT</span>
+            <FileText className="h-3.5 w-3.5 text-blue-500" strokeWidth={2.4} />
+            <span>Export SRT</span>
           </button>
         )}
         {file && (
           <button
             onClick={handleManualSave}
             disabled={saving}
-            className="inline-flex items-center gap-1.5 rounded-[7px] border border-[#e8e4de] bg-[#f5f3ee] px-3 py-1.5 text-[12.5px] text-[#555] transition hover:bg-[#eeeae4] disabled:opacity-50"
+            className="inline-flex h-8.5 items-center gap-1.5 rounded-lg border border-[#E8E4DE] dark:border-[#2C313C] bg-[#F9F8F5] dark:bg-[#1F232D] px-3.5 text-[12px] font-bold text-[#1A1A1A] dark:text-white transition hover:bg-neutral-100 dark:hover:bg-[#2C313C] disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98]"
           >
             {saving ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
-              <Save className="h-3.5 w-3.5" strokeWidth={1.8} />
+              <Save className="h-3.5 w-3.5 text-emerald-500" strokeWidth={2.4} />
             )}
-            <span className="hidden md:inline">Save</span>
+            <span>Save Workspace</span>
           </button>
         )}
         {file && (
-          <div className="flex items-center gap-1.5 border border-[#e8e4de] bg-[#f5f3ee] p-1 rounded-[7px]">
-            {/* MP4 label (read-only) */}
-            <span className="px-2 py-1 text-[11px] font-semibold tracking-wider text-[#666] bg-white rounded-[5px] shadow-sm uppercase select-none">
+          <div className="flex items-center gap-2 border border-[#E8E4DE] dark:border-[#2C313C] bg-[#F9F8F5] dark:bg-[#1F232D] p-1.5 rounded-lg">
+            <span className="px-2 py-0.5 text-[10px] font-extrabold tracking-wider text-[#666] dark:text-[#A1A8B5] bg-[#EAE7E2] dark:bg-[#181B22] rounded shadow-inner uppercase select-none border border-[#E8E4DE] dark:border-[#2C313C]">
               MP4
             </span>
 
-            {/* Optional Quality selector */}
             <Select
               value={quality}
               onValueChange={(q) => setQuality(q as "standard" | "high")}
               disabled={exporting}
             >
-              <SelectTrigger className="h-7 w-[85px] border-none bg-transparent shadow-none px-1.5 text-[12px] text-[#555] font-medium focus:ring-0 focus:ring-offset-0 hover:bg-white/50 rounded-[5px]">
+              <SelectTrigger className="h-7 w-[85px] border-none bg-transparent shadow-none px-1 text-[11.5px] text-[#1A1A1A] dark:text-white font-bold focus:ring-0 focus:ring-offset-0 hover:bg-[#E8E4DE]/50 dark:hover:bg-[#2C313C]/40 rounded">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="min-w-[100px]">
-                <SelectItem value="standard" className="text-[12.5px] cursor-pointer">Standard</SelectItem>
-                <SelectItem value="high" className="text-[12.5px] cursor-pointer">High</SelectItem>
+              <SelectContent className="min-w-[100px] bg-[#F9F8F5] dark:bg-[#1F232D] border border-[#E8E4DE] dark:border-[#2C313C] text-[#1A1A1A] dark:text-white">
+                <SelectItem value="standard" className="text-[12px] font-semibold cursor-pointer">720p SD</SelectItem>
+                <SelectItem value="high" className="text-[12px] font-semibold cursor-pointer">1080p HD</SelectItem>
               </SelectContent>
             </Select>
 
@@ -1149,38 +942,37 @@ const Editor = () => {
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  className="p-1 rounded-[5px] hover:bg-white/50 text-[#888] transition cursor-pointer flex-shrink-0"
+                  className="p-1 rounded hover:bg-[#E8E4DE]/60 dark:hover:bg-[#2C313C]/40 text-[#666] dark:text-[#A1A8B5] hover:text-[#1A1A1A] dark:hover:text-white transition cursor-pointer flex-shrink-0"
                   aria-label="Quality settings information"
                 >
                   <Info className="h-3.5 w-3.5" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent className="max-w-[260px] text-xs leading-normal bg-black text-white border border-neutral-800 p-2.5 shadow-xl rounded-[6px]">
+              <TooltipContent className="max-w-[260px] text-xs leading-normal bg-[#F9F8F5] dark:bg-[#1F232D] text-[#1A1A1A] dark:text-white border border-[#E8E4DE] dark:border-[#2C313C] p-3 shadow-2xl rounded-lg">
                 <div className="space-y-1">
-                  <p><span className="font-semibold text-white">Standard:</span> 720p HD (Faster Export)</p>
-                  <p><span className="font-semibold text-white">High:</span> 1080p Full HD (Best Quality)</p>
+                  <p><span className="font-bold text-[#FF6B2C]">Standard:</span> 720p HD (Faster Export)</p>
+                  <p><span className="font-bold text-[#FF6B2C]">High:</span> 1080p Full HD (Best Quality)</p>
                 </div>
               </TooltipContent>
             </Tooltip>
 
-            {/* Export MP4 button */}
             <button
               onClick={exportVideo}
               disabled={exporting}
-              className="inline-flex items-center gap-1.5 rounded-[5px] bg-[#ff5c3a] px-3 py-1 text-[12.5px] font-medium text-white transition hover:bg-[#e84e2e] disabled:opacity-70 shadow-sm"
+              className="inline-flex h-7 items-center gap-1.5 rounded-md bg-[#FF6B2C] px-3 py-1.5 text-[12px] font-bold text-white transition hover:bg-[#FF874D] disabled:opacity-70 shadow-sm hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
             >
               {exporting ? (
                 <>
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  <span className="text-[11px]">
+                  <span className="text-[10px]">
                     {exportStage === "transcode" ? "Converting" : "Rendering"}{" "}
                     {Math.round(exportProgress * 100)}%
                   </span>
                 </>
               ) : (
                 <>
-                  <Download className="h-3.5 w-3.5" strokeWidth={2.2} />
-                  <span>Export MP4</span>
+                  <Download className="h-3.5 w-3.5" strokeWidth={2.5} />
+                  <span>Export Video</span>
                 </>
               )}
             </button>
@@ -1188,21 +980,20 @@ const Editor = () => {
         )}
       </div>
     ),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
     [file, exporting, exportProgress, exportStage, quality, saving, title, captions, style, meta, framePreset],
   );
 
   if (loadingProject) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#f5f3ee]">
-        <Loader2 className="h-6 w-6 animate-spin text-[#ff5c3a]" />
+      <div className="flex h-screen items-center justify-center bg-[#F9F8F6] dark:bg-[#0F1117]">
+        <Loader2 className="h-6 w-6 animate-spin text-[#FF6B2C]" />
       </div>
     );
   }
 
   return (
     <div
-      className="flex h-screen flex-col overflow-hidden bg-[#f5f3ee] text-[#1a1a1a]"
+      className="flex h-screen flex-col overflow-hidden bg-[#F9F8F6] dark:bg-[#0F1117] text-[#1A1A1A] dark:text-white select-none"
       style={{ fontFamily: "'Outfit', sans-serif" }}
     >
       <Seo
@@ -1211,8 +1002,10 @@ const Editor = () => {
         path="/editor"
         noIndex
       />
+
+      {/* 1. FLOATING NAVIGATION BAR */}
       {!isMobile && (
-        <header className="flex flex-shrink-0 flex-wrap items-center justify-between gap-2 border-b border-[#e8e4de] bg-white px-3 py-2 md:gap-3 md:px-5">
+        <header className="flex flex-shrink-0 items-center justify-between gap-3 border border-[#E8E4DE] dark:border-[#2C313C] bg-white dark:bg-[#181B22] px-4 py-2 mx-4 mt-3 rounded-xl shadow-xl select-none h-14">
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <button
               onClick={() => {
@@ -1222,54 +1015,76 @@ const Editor = () => {
                   navigate(user ? "/projects" : "/");
                 }
               }}
-              className="flex h-[30px] w-[30px] flex-shrink-0 items-center justify-center rounded-[7px] border border-[#e8e4de] bg-white text-[#666] transition hover:bg-[#f5f3ee]"
+              className="flex h-8.5 w-8.5 flex-shrink-0 items-center justify-center rounded-lg border border-[#E8E4DE] dark:border-[#2C313C] bg-[#F9F8F5] dark:bg-[#1F232D] text-[#666] dark:text-[#A1A8B5] hover:text-[#1A1A1A] dark:hover:text-white transition hover:bg-neutral-50 dark:hover:bg-[#2C313C] hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
             >
-              <ArrowLeft className="h-3.5 w-3.5" strokeWidth={2} />
+              <ArrowLeft className="h-4.5 w-4.5" strokeWidth={2.4} />
             </button>
-            <div className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-[7px] bg-[#ff5c3a]">
+            <div className="flex items-center gap-2 select-none">
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#FF6B2C] shadow-md shadow-orange-500/10">
                 <Sparkles className="h-[15px] w-[15px] text-white" strokeWidth={2} />
               </div>
-              <span className="hidden text-[14px] font-semibold sm:inline">Captionly</span>
+              <span className="hidden text-[14px] font-extrabold tracking-wider uppercase sm:inline bg-gradient-to-r from-[#1A1A1A] to-[#666] dark:from-white dark:to-[#A1A8B5] bg-clip-text text-transparent">Subbly</span>
             </div>
-            <div className="hidden h-[18px] w-px bg-[#e8e4de] sm:block" />
+            <div className="hidden h-5 w-px bg-[#E8E4DE] dark:bg-[#2C313C] sm:block" />
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Project title"
-              className="h-8 min-w-0 flex-1 border-transparent bg-transparent px-2 text-[13px] font-medium text-[#1a1a1a] hover:border-[#e8e4de] focus-visible:border-[#e8e4de] focus-visible:ring-0 md:w-60 md:flex-none"
+              className="h-8.5 min-w-0 flex-1 border-transparent bg-transparent px-2 text-[13px] font-bold text-[#1A1A1A] dark:text-white hover:border-[#E8E4DE] dark:hover:border-[#2C313C] focus-visible:border-[#E8E4DE] dark:focus-visible:border-[#2C313C] focus-visible:ring-0 md:w-60 md:flex-none placeholder-[#666] dark:placeholder-[#A1A8B5]"
             />
+
+            {/* Auto Save Status Indicator */}
             {projectId && autoSaveState !== "idle" && (
-              <span className="hidden flex-shrink-0 items-center gap-1 text-[11px] text-[#aaa] sm:inline-flex">
+              <span className="hidden flex-shrink-0 items-center gap-1 text-[11px] sm:inline-flex select-none">
                 {autoSaveState === "saving" ? (
-                  <>
-                    <Loader2 className="h-3 w-3 animate-spin" />
+                  <span className="text-[#666] dark:text-[#A1A8B5] flex items-center gap-1.5">
+                    <Loader2 className="h-3 w-3 animate-spin text-[#FF6B2C]" />
                     Saving…
-                  </>
+                  </span>
                 ) : (
-                  <>
-                    <Check className="h-3 w-3 text-emerald-500" strokeWidth={2.5} />
-                    Saved
-                  </>
+                  <span className="text-[#22C55E] flex items-center gap-1 font-bold animate-pulse">
+                    <Check className="h-3.5 w-3.5 text-[#22C55E]" strokeWidth={3.5} />
+                    ✔ Saved just now
+                  </span>
                 )}
               </span>
             )}
           </div>
-          <div className="flex flex-shrink-0 items-center gap-1.5 md:gap-2">
+          <div className="flex flex-shrink-0 items-center gap-3">
+            {/* Header Undo / Redo */}
+            <div className="flex items-center gap-1 border-r border-[#E8E4DE] dark:border-[#2C313C] pr-2.5">
+              <button
+                title="Undo edit"
+                onClick={handleUndo}
+                disabled={historyIndex === 0}
+                className="flex h-8.5 w-8.5 items-center justify-center rounded-lg border border-[#E8E4DE] dark:border-[#2C313C] bg-[#F9F8F5] dark:bg-[#1F232D] text-[#666] dark:text-[#A1A8B5] hover:text-[#1A1A1A] dark:hover:text-white disabled:opacity-30 disabled:scale-100 disabled:cursor-not-allowed hover:bg-neutral-50 dark:hover:bg-[#2C313C] hover:scale-105 active:scale-95 transition cursor-pointer"
+              >
+                <Undo2 className="h-4 w-4" />
+              </button>
+              <button
+                title="Redo edit"
+                onClick={handleRedo}
+                disabled={historyIndex >= history.length - 1}
+                className="flex h-8.5 w-8.5 items-center justify-center rounded-lg border border-[#E8E4DE] dark:border-[#2C313C] bg-[#F9F8F5] dark:bg-[#1F232D] text-[#666] dark:text-[#A1A8B5] hover:text-[#1A1A1A] dark:hover:text-white disabled:opacity-30 disabled:scale-100 disabled:cursor-not-allowed hover:bg-neutral-50 dark:hover:bg-[#2C313C] hover:scale-105 active:scale-95 transition cursor-pointer"
+              >
+                <Redo2 className="h-4 w-4" />
+              </button>
+            </div>
+
             {headerRight}
             <button
               onClick={toggleTheme}
               aria-label="Toggle dark mode"
-              className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-[#e8e4de] bg-white text-[#666] transition hover:text-[#1a1a1a]"
+              className="inline-flex h-8.5 w-8.5 items-center justify-center rounded-lg border border-[#E8E4DE] dark:border-[#2C313C] bg-[#F9F8F5] dark:bg-[#1F232D] text-[#666] dark:text-[#A1A8B5] hover:text-[#1A1A1A] dark:hover:text-white transition hover:bg-neutral-50 dark:hover:bg-[#2C313C] hover:scale-105 active:scale-95 cursor-pointer"
             >
-              {theme === "dark" ? <Sun className="h-3.5 w-3.5" /> : <Moon className="h-3.5 w-3.5" />}
+              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
             </button>
             {user ? (
               <AvatarDropdown />
             ) : (
               <Link
                 to="/auth"
-                className="inline-flex items-center rounded-lg bg-[#ff5c3a] px-[14px] py-1 text-[12px] font-medium text-white shadow-[0_2px_6px_rgba(255,92,58,0.15)] transition hover:bg-[#ff7558]"
+                className="inline-flex items-center rounded-lg bg-[#FF6B2C] px-[16px] py-1.5 text-[12px] font-bold text-white shadow-md shadow-orange-500/10 transition hover:bg-[#FF874D] hover:scale-[1.02] active:scale-[0.98]"
               >
                 Sign In
               </Link>
@@ -1277,9 +1092,6 @@ const Editor = () => {
           </div>
         </header>
       )}
-
-      {file && <h1 className="sr-only">Subbly caption editor</h1>}
-
 
       <input
         ref={srtInputRef}
@@ -1289,13 +1101,14 @@ const Editor = () => {
         onChange={handleSrtFile}
       />
 
+      {/* 2. MAIN WORKSPACE / EDITOR SCENE */}
       {!file && (
         <main className="mx-auto flex w-full max-w-[640px] flex-1 flex-col items-center justify-center gap-8 overflow-y-auto px-6 py-10">
           <div className="text-center">
-            <h1 className="mb-2.5 text-[32px] font-medium leading-[1.1] tracking-[-1.2px] md:text-[36px]">
-              Caption your videos in <span className="text-[#ff5c3a]">seconds</span>
+            <h1 className="mb-2.5 text-[32px] font-extrabold leading-[1.1] tracking-tight md:text-[36px] text-[#1A1A1A] dark:text-white">
+              Caption your videos in <span className="bg-gradient-to-r from-[#FF6B2C] to-[#FF874D] bg-clip-text text-transparent">seconds</span>
             </h1>
-            <p className="mx-auto max-w-[360px] text-[14px] leading-relaxed text-[#999]">
+            <p className="mx-auto max-w-[360px] text-[14px] leading-relaxed text-[#666666] dark:text-[#A1A8B5]">
               Upload a video to start. We'll save your captions and styling so you can come back anytime.
             </p>
           </div>
@@ -1322,21 +1135,20 @@ const Editor = () => {
           : (meta && meta.height > meta.width);
 
         const previewPanel = (
-          <div className="flex h-full flex-col overflow-hidden bg-[#f5f3ee]">
-
-            <div className="flex flex-1 flex-col items-center justify-center overflow-hidden p-4 md:p-6">
+          <div className="flex h-full flex-col overflow-hidden bg-transparent">
+            <div className="flex flex-1 flex-col items-center justify-center overflow-hidden p-4">
               {/* Aspect Ratio Preset Selector */}
-              <div className="mb-4 flex items-center justify-center flex-shrink-0">
-                <div className="inline-flex items-center gap-1 bg-[#f5f3ee] p-1 rounded-full border border-[#e8e4de] shadow-sm">
+              <div className="mb-4.5 flex items-center justify-center flex-shrink-0">
+                <div className="inline-flex items-center gap-1.5 bg-[#EAE7E2] dark:bg-[#181B22] p-1 rounded-full border border-[#D4CFC8] dark:border-[#2C313C] shadow-md select-none">
                   {FRAME_PRESETS.map((p) => {
                     const active = framePreset.id === p.id;
                     return (
                       <button
                         key={p.id}
                         onClick={() => setFramePreset(p)}
-                        className={`rounded-full px-3.5 py-1 text-[11.5px] font-semibold transition cursor-pointer ${active
-                            ? "bg-white text-black shadow-sm"
-                            : "text-[#666] hover:text-[#1a1a1a]"
+                        className={`rounded-full px-3.5 py-1 text-[11.5px] font-bold transition cursor-pointer select-none ${active
+                          ? "bg-[#FF6B2C] text-white shadow-sm"
+                          : "text-[#666] dark:text-[#A1A8B5] hover:text-[#1A1A1A] dark:hover:text-white"
                           }`}
                       >
                         {p.label}
@@ -1374,11 +1186,11 @@ const Editor = () => {
                 />
               </div>
             </div>
-
           </div>
         );
 
         const selectedCaption = captions.find(c => c.id === selectedCaptionId) || null;
+
         const stylePanel = (
           <StylePanel
             style={selectedCaption?.style ? { ...style, ...selectedCaption.style } : style}
@@ -1402,32 +1214,34 @@ const Editor = () => {
               });
             }}
             isLocked={selectedCaption ? lockedTracks.includes(selectedCaption.track || 1) : false}
+            activeTab={activeTab}
+            showTabsHeader={false}
           />
         );
 
         const combinedToolbar = (
-          <div className="flex flex-shrink-0 flex-wrap items-center justify-between gap-2 border-b border-[#e8e4de] bg-white px-4 py-2">
+          <div className="flex flex-shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[#E8E4DE] dark:border-[#2C313C] bg-white dark:bg-[#181B22] px-4 py-2.5">
             {/* Left: Language selector */}
             <div className="flex items-center gap-3">
               {meta && (
-                <div className="flex items-center gap-2">
-                  <Globe className="h-3.5 w-3.5 text-[#888]" strokeWidth={1.8} />
-                  <span className="hidden text-[11.5px] font-medium text-[#666] sm:inline">Caption language</span>
+                <div className="flex items-center gap-2.5">
+                  <Globe className="h-4 w-4 text-[#666] dark:text-[#A1A8B5]" strokeWidth={2} />
+                  <span className="hidden text-[11.5px] font-bold text-[#666] dark:text-[#A1A8B5] sm:inline">Caption Language</span>
                   <Select value={language} onValueChange={handleLanguageChange}>
-                    <SelectTrigger className="h-7 w-[130px] rounded-[6px] border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 px-2 text-[12px] font-medium text-zinc-850 dark:text-zinc-100 focus:ring-0 focus:ring-offset-0 transition hover:bg-zinc-100 dark:hover:bg-zinc-900 cursor-pointer">
+                    <SelectTrigger className="h-7.5 w-[130px] rounded-lg border border-[#E8E4DE] dark:border-[#2C313C] bg-[#F9F8F5] dark:bg-[#1F232D] px-2.5 text-[11.5px] font-bold text-[#1A1A1A] dark:text-white focus:ring-0 focus:ring-offset-0 transition hover:bg-neutral-50 dark:hover:bg-[#2C313C] cursor-pointer">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="max-h-[280px] overflow-y-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-lg">
+                    <SelectContent className="max-h-[280px] overflow-y-auto bg-[#F9F8F5] border border-[#E8E4DE] text-[#1A1A1A] dark:bg-[#1F232D] dark:border-[#2C313C] dark:text-white shadow-xl">
                       {LANGUAGES.map((l) => (
-                        <SelectItem key={l.code} value={l.code} className="text-[12.5px] cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 focus:bg-zinc-100 dark:focus:bg-zinc-800 transition-colors">
+                        <SelectItem key={l.code} value={l.code} className="text-[12px] font-semibold cursor-pointer hover:bg-[#2C313C] focus:bg-[#2C313C] transition-colors">
                           {l.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                   {translating && (
-                    <span className="inline-flex items-center gap-1 text-[11px] text-[#aaa]">
-                      <Loader2 className="h-3 w-3 animate-spin" />
+                    <span className="inline-flex items-center gap-1 text-[11px] text-[#666] dark:text-[#A1A8B5]">
+                      <Loader2 className="h-3 w-3 animate-spin text-[#FF6B2C]" />
                       Translating…
                     </span>
                   )}
@@ -1435,10 +1249,10 @@ const Editor = () => {
               )}
             </div>
 
-            {/* Right: Metadata + Transcribe Button */}
+            {/* Right: Metadata + Auto-Transcribe Button */}
             <div className="flex items-center gap-4">
               {meta && (
-                <div className="text-[11.5px] font-medium text-[#888] font-mono">
+                <div className="text-[11px] font-bold text-[#666] dark:text-[#A1A8B5] font-mono">
                   {(() => {
                     if (framePreset.id === "original") {
                       return `${meta.width}×${meta.height}`;
@@ -1463,17 +1277,17 @@ const Editor = () => {
               <button
                 onClick={transcribe}
                 disabled={transcribing}
-                className="inline-flex items-center gap-1.5 rounded-[7px] border border-[#e8e4de] bg-white px-3.5 py-1.5 text-[12px] font-semibold text-[#1a1a1a] transition hover:border-[#ff5c3a] hover:bg-[#fff5f3] hover:text-[#ff5c3a] disabled:opacity-60 cursor-pointer shadow-sm"
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#FF6B2C] bg-[#FF6B2C]/10 px-3.5 text-[11.5px] font-bold text-[#FF6B2C] hover:bg-[#FF6B2C] hover:text-white transition disabled:opacity-60 cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98]"
               >
                 {transcribing ? (
                   <>
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    {transcribeStage || "Transcribing…"}
+                    <span>{transcribeStage || "Transcribing…"}</span>
                   </>
                 ) : (
                   <>
-                    <Wand2 className="h-3.5 w-3.5 text-[#ff5c3a]" strokeWidth={2} />
-                    {captions.length ? "Re-transcribe" : "Auto-transcribe"}
+                    <Wand2 className="h-3.5 w-3.5" strokeWidth={2} />
+                    <span>{captions.length ? "Re-transcribe" : "Auto-transcribe"}</span>
                   </>
                 )}
               </button>
@@ -1516,56 +1330,108 @@ const Editor = () => {
         ) : null;
 
         return (
-          <div className="flex flex-1 flex-col overflow-hidden">
-            {/* Desktop layout — mounted only on desktop so a single VideoPreview
-                (and thus a single videoRef) exists at a time. */}
+          <div className="flex flex-1 overflow-hidden select-none">
+
+            {/* Desktop Layout - Slim Sidebar Left + Resizable Horizontal Panels */}
             {!isMobile && (
-              <div className="flex flex-1 flex-col overflow-hidden">
-                {/* Top Workspace Panels */}
-                <div className="flex-1 min-h-0 overflow-hidden">
-                  <ResizablePanelGroup direction="horizontal" className="h-full w-full">
-                    {/* Left: captionsPanel */}
-                    <ResizablePanel defaultSize={25} minSize={15} maxSize={40}>
-                      <aside className="flex h-full flex-col overflow-hidden border-r border-[#e8e4de] bg-white">
+              <div className="flex flex-1 overflow-hidden">
+                {/* 2.1 SLIM NAVIGATION SIDEBAR */}
+                <aside className="w-16 flex-shrink-0 bg-white dark:bg-[#181B22] border-r border-[#E8E4DE] dark:border-[#2C313C] flex flex-col items-center justify-between py-4 select-none">
+                  <div className="flex flex-col gap-4.5 w-full items-center">
+                    {/* Captions */}
+                    <SidebarIcon title="Captions" icon={Type} active={activeTab === "style"} onClick={() => setActiveTab("style")} />
+                    {/* Animation Styles */}
+                    <SidebarIcon title="Animation Styles" icon={Sparkles} active={activeTab === "anim"} onClick={() => setActiveTab("anim")} />
+                    {/* Caption Templates */}
+                    <SidebarIcon title="Caption Templates" icon={Layers} active={activeTab === "tmpl"} onClick={() => setActiveTab("tmpl")} />
+                    {/* Brand Kit */}
+                    <SidebarIcon title="Brand Kit" icon={Palette} active={activeTab === "brand"} onClick={() => setActiveTab("brand")} />
+
+                    {/* Divider */}
+                    <div className="w-8 h-px bg-[#E8E4DE] dark:bg-[#2C313C] rounded-full" />
+
+                    {/* Import SRT */}
+                    <SidebarIcon title="Import SRT" icon={Upload} onClick={handleImportSrtClick} />
+                    {/* Save Workspace */}
+                    {file && (
+                      <SidebarIcon
+                        title={saving ? "Saving…" : "Save Workspace"}
+                        icon={saving ? Loader2 : Save}
+                        onClick={handleManualSave}
+                      />
+                    )}
+                    {/* Export Video */}
+                    {file && (
+                      <div className="relative group flex items-center justify-center w-full select-none px-1">
+                        <button
+                          type="button"
+                          onClick={exportVideo}
+                          disabled={exporting}
+                          className="flex h-11 w-11 items-center justify-center rounded-xl transition duration-300 hover:scale-[1.05] active:scale-95 cursor-pointer bg-[#FF6B2C] text-white shadow-[0_0_15px_rgba(255,107,44,0.35)] hover:bg-[#FF874D] disabled:opacity-70"
+                          title="Export Video"
+                        >
+                          {exporting ? (
+                            <Loader2 className="h-[19px] w-[19px] animate-spin" />
+                          ) : (
+                            <Download className="h-[19px] w-[19px]" />
+                          )}
+                        </button>
+                        <span className="absolute left-16 rounded bg-[#1A1A1A] dark:bg-black border border-[#333] dark:border-[#2C313C] px-2 py-1 text-[10px] font-bold text-white opacity-0 transition-opacity pointer-events-none group-hover:opacity-100 z-50 whitespace-nowrap shadow-md">
+                          {exporting ? `Exporting ${Math.round(exportProgress * 100)}%` : "Export Video"}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Bottom: Theme Toggle */}
+                  <div className="flex flex-col gap-4 w-full items-center">
+                    <SidebarIcon title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"} icon={theme === "dark" ? Sun : Moon} onClick={toggleTheme} />
+                  </div>
+                </aside>
+
+
+                {/* 2.2 HORIZONTAL WORKSPACE ROW */}
+                <div className="flex-1 flex flex-col overflow-hidden bg-[#F9F8F6] dark:bg-[#0F1117]">
+                  {/* Top Workspace Panels */}
+                  <div className="flex-1 min-h-0 overflow-hidden px-4 py-3">
+                    <ResizablePanelGroup direction="horizontal" className="h-full w-full gap-3">
+                      {/* Left: captionsPanel */}
+                      <ResizablePanel defaultSize={26} minSize={15} maxSize={40} className="rounded-2xl border border-[#E8E4DE] dark:border-[#2C313C] bg-white dark:bg-[#181B22] overflow-hidden shadow-2xl">
                         {captionsPanel}
-                      </aside>
-                    </ResizablePanel>
+                      </ResizablePanel>
 
-                    <ResizableHandle />
+                      <ResizableHandle className="bg-transparent hover:bg-[#FF6B2C]/20 transition w-1 cursor-col-resize" />
 
-                    {/* Middle: previewPanel */}
-                    <ResizablePanel defaultSize={50} minSize={35}>
-                      <main className="flex h-full flex-col overflow-hidden">
+                      {/* Middle: previewPanel */}
+                      <ResizablePanel defaultSize={48} minSize={35} className="bg-transparent overflow-hidden">
                         {previewPanel}
-                      </main>
-                    </ResizablePanel>
+                      </ResizablePanel>
 
-                    <ResizableHandle />
+                      <ResizableHandle className="bg-transparent hover:bg-[#FF6B2C]/20 transition w-1 cursor-col-resize" />
 
-                    {/* Right: stylePanel */}
-                    <ResizablePanel defaultSize={25} minSize={15} maxSize={40}>
-                      <aside className="flex h-full flex-col overflow-hidden border-l border-[#e8e4de] bg-white">
+                      {/* Right: stylePanel */}
+                      <ResizablePanel defaultSize={26} minSize={15} maxSize={40} className="rounded-2xl border border-[#E8E4DE] dark:border-[#2C313C] bg-white dark:bg-[#181B22] overflow-hidden shadow-2xl">
                         {stylePanel}
-                      </aside>
-                    </ResizablePanel>
-                  </ResizablePanelGroup>
-                </div>
+                      </ResizablePanel>
+                    </ResizablePanelGroup>
+                  </div>
 
-                {/* Bottom Timeline Panel */}
-                <div className="flex-shrink-0 h-[260px] flex flex-col overflow-hidden bg-white border-t border-[#e8e4de]">
-                  {combinedToolbar}
-                  <div className="flex-1 overflow-hidden">
-                    {timelinePanel}
+                  {/* Bottom Timeline Panel Container */}
+                  <div className="flex-shrink-0 h-[260px] flex flex-col overflow-hidden bg-white dark:bg-[#181B22] border border-[#E8E4DE] dark:border-[#2C313C] mx-4 mb-3 rounded-2xl shadow-2xl select-none">
+                    {combinedToolbar}
+                    <div className="flex-1 overflow-hidden">
+                      {timelinePanel}
+                    </div>
                   </div>
                 </div>
               </div>
             )}
 
-            {/* Mobile layout */}
+            {/* Mobile Layout */}
             {isMobile && (
-              <div className="flex flex-1 flex-col overflow-hidden bg-white pb-16">
-                {/* 1. Top Nav Bar (44px tall, fixed at the top of the mobile container) */}
-                <div className="h-11 flex-shrink-0 flex items-center justify-between px-3 border-b border-[#e8e4de] bg-white">
+              <div className="flex flex-1 flex-col overflow-hidden bg-[#181B22] pb-16">
+                {/* 1. Top Nav Bar */}
+                <div className="h-11 flex-shrink-0 flex items-center justify-between px-3 border-b border-[#2C313C] bg-[#181B22]">
                   <button
                     onClick={() => {
                       if (window.history.length > 1) {
@@ -1574,13 +1440,13 @@ const Editor = () => {
                         navigate(user ? "/projects" : "/");
                       }
                     }}
-                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#e8e4de] text-neutral-500 hover:bg-[#f5f3ee] min-h-[44px] min-w-[44px] cursor-pointer"
+                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#2C313C] bg-[#1F232D] text-[#A1A8B5] hover:text-white min-h-[44px] min-w-[44px] cursor-pointer"
                     aria-label="Back"
                   >
                     <ArrowLeft className="h-4 w-4" strokeWidth={2.2} />
                   </button>
-                  
-                  <span className="text-[13px] font-semibold text-neutral-800 max-w-[160px] truncate">
+
+                  <span className="text-[13px] font-bold text-white max-w-[160px] truncate">
                     {title}
                   </span>
 
@@ -1589,36 +1455,36 @@ const Editor = () => {
                       <DropdownMenuTrigger asChild>
                         <button
                           type="button"
-                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#e8e4de] text-neutral-500 hover:bg-[#f5f3ee] min-h-[44px] min-w-[44px] cursor-pointer"
+                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#2C313C] bg-[#1F232D] text-[#A1A8B5] hover:text-white min-h-[44px] min-w-[44px] cursor-pointer"
                           aria-label="Project actions menu"
                         >
                           <MoreVertical className="h-4 w-4" />
                         </button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-44 bg-white border border-[#e8e4de] shadow-lg rounded-xl">
-                        <DropdownMenuLabel className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider px-2 py-1">Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={handleImportSrtClick} className="text-xs cursor-pointer py-2 hover:bg-neutral-50 rounded-lg">Import SRT</DropdownMenuItem>
+                      <DropdownMenuContent align="end" className="w-44 bg-[#1F232D] border border-[#2C313C] text-white shadow-xl rounded-xl">
+                        <DropdownMenuLabel className="text-[10px] font-bold text-[#A1A8B5] uppercase tracking-wider px-2 py-1">Actions</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={handleImportSrtClick} className="text-xs cursor-pointer py-2 hover:bg-[#2C313C] rounded-lg">Import SRT</DropdownMenuItem>
                         {captions.length > 0 && (
-                          <DropdownMenuItem onClick={handleExportSrt} className="text-xs cursor-pointer py-2 hover:bg-neutral-50 rounded-lg">Export SRT</DropdownMenuItem>
+                          <DropdownMenuItem onClick={handleExportSrt} className="text-xs cursor-pointer py-2 hover:bg-[#2C313C] rounded-lg">Export SRT</DropdownMenuItem>
                         )}
                         {file && (
-                          <DropdownMenuItem onClick={handleManualSave} className="text-xs cursor-pointer py-2 hover:bg-neutral-50 rounded-lg">Save Project</DropdownMenuItem>
+                          <DropdownMenuItem onClick={handleManualSave} className="text-xs cursor-pointer py-2 hover:bg-[#2C313C] rounded-lg">Save Project</DropdownMenuItem>
                         )}
-                        <DropdownMenuSeparator className="bg-neutral-100" />
-                        <DropdownMenuLabel className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider px-2 py-1">Export Quality</DropdownMenuLabel>
-                        <DropdownMenuItem 
-                          onClick={() => setQuality("standard")} 
-                          className="text-xs cursor-pointer py-2 hover:bg-neutral-50 rounded-lg flex items-center justify-between"
+                        <DropdownMenuSeparator className="bg-[#2C313C]" />
+                        <DropdownMenuLabel className="text-[10px] font-bold text-[#A1A8B5] uppercase tracking-wider px-2 py-1">Export Quality</DropdownMenuLabel>
+                        <DropdownMenuItem
+                          onClick={() => setQuality("standard")}
+                          className="text-xs cursor-pointer py-2 hover:bg-[#2C313C] rounded-lg flex items-center justify-between"
                         >
                           <span>Standard (720p)</span>
-                          {quality === "standard" && <Check className="h-3.5 w-3.5 text-[#ff5c3a]" />}
+                          {quality === "standard" && <Check className="h-3.5 w-3.5 text-[#FF6B2C]" />}
                         </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={() => setQuality("high")} 
-                          className="text-xs cursor-pointer py-2 hover:bg-neutral-50 rounded-lg flex items-center justify-between"
+                        <DropdownMenuItem
+                          onClick={() => setQuality("high")}
+                          className="text-xs cursor-pointer py-2 hover:bg-[#2C313C] rounded-lg flex items-center justify-between"
                         >
                           <span>High (1080p)</span>
-                          {quality === "high" && <Check className="h-3.5 w-3.5 text-[#ff5c3a]" />}
+                          {quality === "high" && <Check className="h-3.5 w-3.5 text-[#FF6B2C]" />}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -1627,7 +1493,7 @@ const Editor = () => {
                       <button
                         onClick={exportVideo}
                         disabled={exporting}
-                        className="flex h-9 px-3 items-center justify-center gap-1.5 rounded-lg bg-[#ff5c3a] text-xs font-semibold text-white transition hover:bg-[#e84e2e] disabled:opacity-75 min-h-[44px] cursor-pointer"
+                        className="flex h-9 px-3 items-center justify-center gap-1.5 rounded-lg bg-[#FF6B2C] text-xs font-bold text-white transition hover:bg-[#FF874D] disabled:opacity-75 min-h-[44px] cursor-pointer"
                       >
                         {exporting ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1640,10 +1506,10 @@ const Editor = () => {
                   </div>
                 </div>
 
-                {/* Vertical Scroll Area (everything below top nav bar, except bottom tab bar) */}
+                {/* Vertical Scroll Area */}
                 <div className="flex-1 overflow-y-auto scrollbar-thin">
-                  {/* 2. Video Preview (full-width) */}
-                  <div className="w-full bg-[#f5f3ee] flex flex-col items-center justify-center p-3">
+                  {/* Video Preview */}
+                  <div className="w-full bg-[#F9F8F6] dark:bg-[#0F1117] flex flex-col items-center justify-center p-3">
                     <div
                       className="w-full flex items-center justify-center overflow-hidden"
                       style={{
@@ -1676,19 +1542,18 @@ const Editor = () => {
                     </div>
                   </div>
 
-                  {/* 3. Format Selector Chips (horizontal scroll row) */}
-                  <div className="flex overflow-x-auto scrollbar-none gap-2 px-4 py-3 bg-[#f5f3ee] border-b border-[#e8e4de] select-none">
+                  {/* Format Selector Chips */}
+                  <div className="flex overflow-x-auto scrollbar-none gap-2 px-4 py-3 bg-[#F9F8F6] dark:bg-[#0F1117] border-b border-[#E8E4DE] dark:border-[#2C313C] select-none">
                     {FRAME_PRESETS.map((p) => {
                       const active = framePreset.id === p.id;
                       return (
                         <button
                           key={p.id}
                           onClick={() => setFramePreset(p)}
-                          className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-semibold select-none transition min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer ${
-                            active
-                              ? "bg-[#ff5c3a] text-white shadow-sm"
-                              : "bg-white text-neutral-600 border border-neutral-200 hover:bg-neutral-50"
-                          }`}
+                          className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold select-none transition min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer ${active
+                              ? "bg-[#FF6B2C] text-white shadow-sm"
+                              : "bg-[#F9F8F5] text-[#666] border border-[#E8E4DE] hover:bg-neutral-50 dark:bg-[#1F232D] dark:text-[#A1A8B5] dark:border-[#2C313C] dark:hover:bg-[#2C313C] dark:hover:text-white"
+                            }`}
                         >
                           {p.label}
                         </button>
@@ -1696,25 +1561,25 @@ const Editor = () => {
                     })}
                   </div>
 
-                  {/* 4. Condensed Audio Strip / Expanded Timeline */}
+                  {/* Condensed Audio Strip / Expanded Timeline */}
                   {timelineExpanded ? (
-                    <div className="border-b border-[#e8e4de] bg-[#f9f8f6] p-2">
-                      <div className="flex justify-between items-center px-2 pb-2 border-b border-neutral-200/60 mb-2">
-                        <span className="text-[11px] font-bold text-neutral-400 uppercase tracking-wider">Multi-track Editor</span>
+                    <div className="border-b border-[#E8E4DE] dark:border-[#2C313C] bg-white dark:bg-[#181B22] p-2">
+                      <div className="flex justify-between items-center px-2 pb-2 border-b border-[#E8E4DE] dark:border-[#2C313C] mb-2">
+                        <span className="text-[11px] font-bold text-[#666] dark:text-[#A1A8B5] uppercase tracking-wider">Multi-track Editor</span>
                         <button
                           onClick={() => setTimelineExpanded(false)}
-                          className="text-[11px] font-bold text-[#ff5c3a] hover:underline px-3 py-1.5 min-h-[44px] flex items-center cursor-pointer"
+                          className="text-[11px] font-bold text-[#FF6B2C] hover:underline px-3 py-1.5 min-h-[44px] flex items-center cursor-pointer"
                         >
                           Collapse
                         </button>
                       </div>
-                      <div className="overflow-hidden rounded-lg border border-[#e8e4de]">
+                      <div className="overflow-hidden rounded-lg border border-[#2C313C]">
                         {timelinePanel}
                       </div>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-3 px-4 py-3 border-b border-[#e8e4de] bg-white">
-                      <span className="text-[11px] font-mono text-[#ff5c3a] font-semibold select-none flex-shrink-0">
+                    <div className="flex items-center gap-3 px-4 py-3 border-b border-[#2C313C] bg-[#181B22]">
+                      <span className="text-[11px] font-mono text-[#FF6B2C] font-semibold select-none flex-shrink-0">
                         {formatTime(currentTime)}
                       </span>
                       <CondensedTimeline
@@ -1722,12 +1587,12 @@ const Editor = () => {
                         currentTime={currentTime}
                         onSeek={seek}
                       />
-                      <span className="text-[11px] font-mono text-neutral-400 font-semibold select-none flex-shrink-0">
+                      <span className="text-[11px] font-mono text-[#A1A8B5] font-semibold select-none flex-shrink-0">
                         {formatTime(meta?.duration ?? 0)}
                       </span>
                       <button
                         onClick={() => setTimelineExpanded(true)}
-                        className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#e8e4de] hover:bg-neutral-50 text-neutral-500 cursor-pointer min-h-[44px] min-w-[44px] flex-shrink-0"
+                        className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#2C313C] bg-[#1F232D] text-[#A1A8B5] hover:text-white hover:bg-[#2C313C] cursor-pointer min-h-[44px] min-w-[44px] flex-shrink-0"
                         title="Expand Timeline"
                         aria-label="Expand Timeline"
                       >
@@ -1736,22 +1601,22 @@ const Editor = () => {
                     </div>
                   )}
 
-                  {/* 5. Caption List / Empty State */}
-                  <div className="flex-1 bg-white">
+                  {/* Caption List / Empty State */}
+                  <div className="flex-1 bg-[#181B22]">
                     {captions.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center text-center py-8 px-6 bg-white border border-[#e8e4de]/60 rounded-xl my-4 mx-4 shadow-sm">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#fff5f3] text-[#ff5c3a] mb-4">
+                      <div className="flex flex-col items-center justify-center text-center py-8 px-6 bg-[#1F232D] border border-[#2C313C] rounded-xl my-4 mx-4 shadow-md">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#FF6B2C]/10 text-[#FF6B2C] mb-4">
                           <FileText className="h-6 w-6" strokeWidth={2} />
                         </div>
-                        <h3 className="text-[14px] font-semibold text-[#1a1a1a] mb-1">No captions yet</h3>
-                        <p className="text-[12.5px] text-neutral-400 mb-5 max-w-[280px] leading-relaxed">
+                        <h3 className="text-[14px] font-bold text-white mb-1">No captions yet</h3>
+                        <p className="text-[12.5px] text-[#A1A8B5] mb-5 max-w-[280px] leading-relaxed">
                           Auto-transcribe your speech or manually add captions to this video.
                         </p>
                         <div className="flex flex-col w-full gap-2">
                           <button
                             onClick={transcribe}
                             disabled={transcribing}
-                            className="w-full flex h-11 items-center justify-center gap-2 rounded-lg bg-[#ff5c3a] text-xs font-semibold text-white shadow-sm hover:bg-[#e84e2e] active:scale-98 transition disabled:opacity-50 min-h-[44px] cursor-pointer"
+                            className="w-full flex h-11 items-center justify-center gap-2 rounded-lg bg-[#FF6B2C] text-xs font-bold text-white shadow-md hover:bg-[#FF874D] transition disabled:opacity-50 min-h-[44px] cursor-pointer"
                           >
                             {transcribing ? (
                               <>
@@ -1767,7 +1632,7 @@ const Editor = () => {
                           </button>
                           <button
                             onClick={handleAddCaptionMobile}
-                            className="w-full flex h-11 items-center justify-center gap-2 rounded-lg border border-[#e8e4de] bg-white text-xs font-semibold text-neutral-600 hover:bg-[#faf9f6] active:scale-98 transition min-h-[44px] cursor-pointer"
+                            className="w-full flex h-11 items-center justify-center gap-2 rounded-lg border border-[#2C313C] bg-[#1F232D] text-xs font-bold text-[#A1A8B5] hover:text-white hover:bg-[#2C313C] transition min-h-[44px] cursor-pointer"
                           >
                             <Plus className="h-3.5 w-3.5" />
                             <span>Add caption</span>
@@ -1775,17 +1640,17 @@ const Editor = () => {
                         </div>
                       </div>
                     ) : (
-                      <div className="border-b border-[#e8e4de]">
+                      <div className="border-b border-[#2C313C]">
                         {captionsPanel}
                       </div>
                     )}
                   </div>
 
-                  {/* 6. Settings Panel Sheet */}
+                  {/* Settings Panel Sheet */}
                   {activeMobileTab !== "captions" && (
-                    <div className="border-t border-[#e8e4de] bg-white pb-6">
-                      <div className="px-4 py-2.5 bg-[#faf9f6] border-b border-[#e8e4de] flex justify-between items-center select-none">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-500">
+                    <div className="border-t border-[#2C313C] bg-[#181B22] pb-6">
+                      <div className="px-4 py-2.5 bg-[#1F232D] border-b border-[#2C313C] flex justify-between items-center select-none">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-[#A1A8B5]">
                           {activeMobileTab === "style" && "Text Style"}
                           {activeMobileTab === "anim" && "Caption Animation"}
                           {activeMobileTab === "tmpl" && "Style Templates"}
@@ -1793,7 +1658,7 @@ const Editor = () => {
                         </span>
                         <button
                           onClick={() => setActiveMobileTab("captions")}
-                          className="text-[11px] font-bold text-neutral-400 hover:text-neutral-600 px-3 py-1.5 min-h-[44px] flex items-center cursor-pointer"
+                          className="text-[11px] font-bold text-[#A1A8B5] hover:text-white px-3 py-1.5 min-h-[44px] flex items-center cursor-pointer"
                         >
                           Close
                         </button>
@@ -1829,8 +1694,8 @@ const Editor = () => {
                   )}
                 </div>
 
-                {/* 7. Bottom Navigation Tab Bar (Fixed at the absolute bottom of the viewport) */}
-                <div className="fixed bottom-0 left-0 right-0 z-50 h-16 bg-white border-t border-[#e8e4de] flex items-center justify-around px-2 pb-safe shadow-[0_-2px_10px_rgba(0,0,0,0.03)]">
+                {/* Bottom Navigation Tab Bar (Mobile) */}
+                <div className="fixed bottom-0 left-0 right-0 z-50 h-16 bg-[#1F232D] border-t border-[#2C313C] flex items-center justify-around px-2 pb-safe shadow-[0_-2px_10px_rgba(0,0,0,0.1)]">
                   {([
                     { id: "captions", label: "Captions", icon: FileText },
                     { id: "style", label: "Style", icon: Type },
@@ -1844,12 +1709,11 @@ const Editor = () => {
                       <button
                         key={tabItem.id}
                         onClick={() => setActiveMobileTab(tabItem.id)}
-                        className={`flex flex-col items-center justify-center flex-1 h-full min-h-[44px] min-w-[44px] gap-1 transition cursor-pointer ${
-                          active ? "text-[#ff5c3a]" : "text-neutral-400 hover:text-neutral-600"
-                        }`}
+                        className={`flex flex-col items-center justify-center flex-1 h-full min-h-[44px] min-w-[44px] gap-1 transition cursor-pointer ${active ? "text-[#FF6B2C]" : "text-[#A1A8B5] hover:text-white"
+                          }`}
                       >
                         <Icon className="h-5 w-5" strokeWidth={2} />
-                        <span className="text-[10px] font-semibold tracking-wide select-none">{tabItem.label}</span>
+                        <span className="text-[10px] font-bold tracking-wide select-none">{tabItem.label}</span>
                       </button>
                     );
                   })}
@@ -1871,4 +1735,36 @@ const Editor = () => {
   );
 };
 
+/* Slim Sidebar Left icon component */
+function SidebarIcon({
+  icon: Icon, title, active, onClick,
+}: {
+  icon: React.ComponentType<{ className?: string }>; title: string; active?: boolean; onClick?: () => void;
+}) {
+  return (
+    <div className="relative group flex items-center justify-center w-full select-none px-1">
+      {active && (
+        <div className="absolute left-0 top-1 bottom-1 w-[3px] bg-[#FF6B2C] rounded-r-md" />
+      )}
+      <button
+        type="button"
+        onClick={onClick}
+        className={`flex h-11 w-11 items-center justify-center rounded-xl transition duration-300 hover:scale-[1.05] active:scale-95 cursor-pointer relative ${active
+            ? "bg-[#FF6B2C] text-white shadow-[0_0_15px_rgba(255,107,44,0.4)]"
+            : "bg-transparent text-[#999] dark:text-[#A1A8B5] hover:text-[#1A1A1A] dark:hover:text-white hover:bg-[#F0EDE8] dark:hover:bg-[#1F232D]"
+          }`}
+        title={title}
+      >
+        <Icon className="h-[21px] w-[21px]" />
+      </button>
+
+      {/* Floating tooltip on hover */}
+      <span className="absolute left-16 rounded bg-[#1A1A1A] dark:bg-black border border-[#333] dark:border-[#2C313C] px-2 py-1 text-[10px] font-bold text-white opacity-0 transition-opacity pointer-events-none group-hover:opacity-100 z-50 whitespace-nowrap shadow-md">
+        {title}
+      </span>
+    </div>
+  );
+}
+
 export default Editor;
+

@@ -17,6 +17,8 @@ import {
   Unlock,
   ZoomIn,
   ZoomOut,
+  Video,
+  Music,
 } from "lucide-react";
 import type { Caption } from "@/lib/captions/types";
 
@@ -57,6 +59,7 @@ type DragState =
   | { kind: "resize-r"; id: string; startX: number; origStart: number; origEnd: number }
   | { kind: "scrub"; startX: number }
   | null;
+
 export function Timeline({
   duration,
   currentTime,
@@ -74,9 +77,9 @@ export function Timeline({
   lockedTracks = [],
   onToggleLockTrack,
 }: Props) {
-  const [zoomPct, setZoomPct] = useState(40); // 5–100
+  const [zoomPct, setZoomPct] = useState(40);
   const selected = selectedId ?? null;
-  const setSelected = onSelect ?? (() => {});
+  const setSelected = useMemo(() => onSelect ?? (() => { }), [onSelect]);
   const [drag, setDrag] = useState<DragState>(null);
   const [snap, setSnap] = useState(true);
 
@@ -88,23 +91,21 @@ export function Timeline({
   });
   const trackRefs = useRef<Map<number, HTMLDivElement>>(new Map());
 
-  // Map zoomPct (5–100) → pxPerSec (12 → 240)
   const pxPerSec = useMemo(() => {
-    const min = 12;
-    const max = 240;
+    const min = 15;
+    const max = 250;
     return min + ((zoomPct - 5) / 95) * (max - min);
   }, [zoomPct]);
 
   const totalWidth = Math.max(400, (duration || 0) * pxPerSec);
 
-  // Build static fake "cap2" / waveform data deterministically
   const wave = useMemo(() => {
     let seed = 42;
     const rand = () => {
       seed = (seed * 1664525 + 1013904223) & 0x7fffffff;
       return Math.abs(seed) / 0x7fffffff;
     };
-    const N = 200;
+    const N = 120;
     return Array.from({ length: N }, (_, i) =>
       Math.max(0.15, rand() * Math.sin((i / N) * Math.PI) * 0.85 + 0.15),
     );
@@ -148,8 +149,7 @@ export function Timeline({
               start: w.start + offset,
               end: w.end + offset,
             }));
-            
-            // Determine if dragging vertically to the closest track
+
             let track = c.track || 1;
             if (trackRefs.current.size > 0) {
               let minDistance = Infinity;
@@ -167,7 +167,7 @@ export function Timeline({
               });
               track = closestTrack;
             }
-            
+
             return { ...c, start, end: start + len, words, track };
           }
           if (drag.kind === "resize-l") {
@@ -226,7 +226,7 @@ export function Timeline({
       onChange(captions.filter((cap) => cap.id !== id));
       if (selected === id) setSelected(null);
     },
-    [captions, onChange, selected, lockedTracks],
+    [captions, onChange, selected, lockedTracks, setSelected],
   );
 
   const selectedCaption = captions.find((c) => c.id === selected) ?? null;
@@ -263,7 +263,7 @@ export function Timeline({
     const next = [...captions, newCap].sort((a, b) => a.start - b.start);
     onChange(next);
     setSelected(newCap.id);
-  }, [captions, currentTime, duration, onChange, numTracks, lockedTracks]);
+  }, [captions, currentTime, duration, onChange, numTracks, lockedTracks, setSelected]);
 
   const handleDeleteTrack = useCallback((targetTrack: number) => {
     if (numTracks <= 2 || targetTrack <= 2) return;
@@ -286,11 +286,9 @@ export function Timeline({
 
   const phPct = duration > 0 ? (currentTime / duration) * 100 : 0;
 
-  // Scroll bg areas in sync with cap1 track
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
-    // Auto-scroll playhead into view
     const phX = currentTime * pxPerSec;
     if (phX < el.scrollLeft + 40) el.scrollLeft = Math.max(0, phX - 40);
     else if (phX > el.scrollLeft + el.clientWidth - 80)
@@ -302,72 +300,69 @@ export function Timeline({
   }, [numTracks, lockedTracks]);
 
   return (
-    <div className="flex flex-col border-t border-[#e8e4de] bg-white h-full" style={{ fontFamily: "'Outfit', sans-serif" }}>
-      {/* TOOLBAR */}
-      <div className="flex h-9 flex-shrink-0 items-center border-b border-[#e8e4de] bg-white px-2.5">
-        <ToolGroup>
-          <button
-            aria-label="Add text caption"
-            onClick={handleAddCaption}
-            disabled={allTracksLocked}
-            className="inline-flex h-6 items-center gap-1 rounded border border-[#ff5c3a] bg-[#fff5f3] px-2 text-[11px] font-medium text-[#ff5c3a] hover:bg-[#ffd5cc] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-          >
-            <Plus className="h-3 w-3" strokeWidth={2} /> Text
-          </button>
-          <button
-            aria-label="Add caption track"
-            onClick={() => setNumTracks((prev) => Math.min(6, prev + 1))}
-            disabled={numTracks >= 6}
-            className="inline-flex h-6 items-center gap-1 rounded border border-[#ffd5cc] bg-[#fff5f3] px-2 text-[11px] font-medium text-[#ff5c3a] hover:bg-[#ffd5cc] disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
-          >
-            <Plus className="h-3 w-3" strokeWidth={2} /> Track
-          </button>
-        </ToolGroup>
-        <ToolGroup>
-          <ToolBtn
-            title="Delete selected"
-            disabled={!selectedCaption || lockedTracks.includes(selectedCaption.track || 1)}
-            onClick={() => selectedCaption && remove(selectedCaption.id)}
-          >
-            <Trash2 className="h-3 w-3" />
-          </ToolBtn>
-        </ToolGroup>
+    <div className="flex flex-col border-t border-[#E8E4DE] dark:border-[#2C313C] bg-[#F9F8F6] dark:bg-[#0F1117] h-full text-[#1A1A1A] dark:text-white" style={{ fontFamily: "'Outfit', sans-serif" }}>
+      {/* TIMELINE TOOLBAR */}
+      <div className="flex h-11 flex-shrink-0 items-center border-b border-[#E8E4DE] dark:border-[#2C313C] bg-white dark:bg-[#181B22] px-4 justify-between select-none shadow-sm">
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 border-r border-[#E8E4DE] dark:border-[#2C313C] pr-3">
+            <button
+              onClick={handleAddCaption}
+              disabled={allTracksLocked}
+              className="inline-flex h-7 items-center gap-1 rounded-lg bg-[#FF6B2C] hover:bg-[#FF874D] px-2.5 text-[11px] font-bold text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition shadow-sm hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <Plus className="h-3.5 w-3.5" strokeWidth={2.8} /> Text Clip
+            </button>
+            <button
+              onClick={() => setNumTracks((prev) => Math.min(6, prev + 1))}
+              disabled={numTracks >= 6}
+              className="inline-flex h-7 items-center gap-1 rounded-lg border border-[#E8E4DE] dark:border-[#2C313C] bg-[#F9F8F5] dark:bg-[#1F232D] hover:bg-neutral-50 dark:hover:bg-[#2C313C] px-2.5 text-[11px] font-bold text-[#1A1A1A] dark:text-white disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer transition hover:scale-[1.02] active:scale-[0.98]"
+            >
+              <Plus className="h-3.5 w-3.5" /> Add Track
+            </button>
+          </div>
 
-        <ToolGroup>
-          <ToolBtn
-            title="Split at playhead"
-            tone="violet"
-            onClick={() => {
-              const target = selectedCaption || activeCaptionAtPlayhead;
-              if (target) splitAt(target.id, currentTime);
-            }}
-            disabled={
-              (!selectedCaption && !activeCaptionAtPlayhead) ||
-              lockedTracks.includes((selectedCaption || activeCaptionAtPlayhead)?.track || 1)
-            }
-          >
-            <Scissors className="h-3 w-3" />
-          </ToolBtn>
-        </ToolGroup>
-        <ToolGroup>
-          <ToolBtn title="Undo" onClick={onUndo} disabled={!canUndo}>
-            <Undo2 className="h-3 w-3" />
-          </ToolBtn>
-          <ToolBtn title="Redo" onClick={onRedo} disabled={!canRedo}>
-            <Redo2 className="h-3 w-3" />
-          </ToolBtn>
-        </ToolGroup>
-        <ToolGroup>
-          <ToolBtn title="Snap to grid" active={snap} onClick={() => setSnap((v) => !v)}>
-            <ChevronsLeftRight className="h-3 w-3" />
-          </ToolBtn>
-        </ToolGroup>
-        <div className="ml-auto flex items-center gap-1.5 pl-2">
-          <ToolBtn title="Zoom out" onClick={() => setZoomPct((z) => Math.max(5, z - 10))}>
-            <ZoomOut className="h-3 w-3" />
+          <div className="flex items-center gap-1">
+            <ToolBtn
+              title="Delete selected clip"
+              disabled={!selectedCaption || lockedTracks.includes(selectedCaption.track || 1)}
+              onClick={() => selectedCaption && remove(selectedCaption.id)}
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+            </ToolBtn>
+            <ToolBtn
+              title="Split clip at playhead"
+              onClick={() => {
+                const target = selectedCaption || activeCaptionAtPlayhead;
+                if (target) splitAt(target.id, currentTime);
+              }}
+              disabled={
+                (!selectedCaption && !activeCaptionAtPlayhead) ||
+                lockedTracks.includes((selectedCaption || activeCaptionAtPlayhead)?.track || 1)
+              }
+            >
+              <Scissors className="h-3.5 w-3.5 text-[#FF6B2C]" />
+            </ToolBtn>
+            <div className="h-4 w-px bg-[#E8E4DE] dark:bg-[#2C313C]" />
+            <ToolBtn title="Undo Edit" onClick={onUndo} disabled={!canUndo}>
+              <Undo2 className="h-3.5 w-3.5" />
+            </ToolBtn>
+            <ToolBtn title="Redo Edit" onClick={onRedo} disabled={!canRedo}>
+              <Redo2 className="h-3.5 w-3.5" />
+            </ToolBtn>
+            <div className="h-4 w-px bg-[#E8E4DE] dark:bg-[#2C313C]" />
+            <ToolBtn title="Snap boundary to grid" active={snap} onClick={() => setSnap((v) => !v)}>
+              <ChevronsLeftRight className="h-3.5 w-3.5" />
+            </ToolBtn>
+          </div>
+        </div>
+
+        {/* Zoom Controls */}
+        <div className="flex items-center gap-2">
+          <ToolBtn title="Zoom Out" onClick={() => setZoomPct((z) => Math.max(5, z - 10))}>
+            <ZoomOut className="h-3.5 w-3.5" />
           </ToolBtn>
           <div
-            className="relative h-[3px] w-[70px] cursor-pointer rounded bg-[#e8e4de]"
+            className="relative h-1.5 w-[80px] cursor-pointer rounded-full bg-[#E8E4DE] dark:bg-[#2C313C]"
             onPointerDown={(e) => {
               const el = e.currentTarget;
               const update = (clientX: number) => {
@@ -386,152 +381,120 @@ export function Timeline({
             }}
           >
             <div
-              className="relative h-full rounded bg-[#ff5c3a]"
+              className="relative h-full rounded-full bg-[#FF6B2C]"
               style={{ width: `${zoomPct}%` }}
             >
-              <span className="absolute right-[-4px] top-1/2 h-2 w-2 -translate-y-1/2 rounded-full border-2 border-[#ff5c3a] bg-white shadow-[0_0_4px_rgba(255,92,58,0.3)]" />
+              <span className="absolute right-[-4px] top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full border border-[#FF6B2C] bg-white shadow-md" />
             </div>
           </div>
-          <ToolBtn title="Zoom in" onClick={() => setZoomPct((z) => Math.min(100, z + 10))}>
-            <ZoomIn className="h-3 w-3" />
+          <ToolBtn title="Zoom In" onClick={() => setZoomPct((z) => Math.min(100, z + 10))}>
+            <ZoomIn className="h-3.5 w-3.5" />
           </ToolBtn>
         </div>
       </div>
 
-      {/* SCROLL: ruler + tracks */}
+      {/* TRACKS LIST SCROLL GRID */}
       <div ref={scrollRef} className="scrollbar-thin overflow-x-auto overflow-y-auto flex-1 min-h-0">
-        <div className="relative" style={{ width: totalWidth + 92 }}>
-          {/* RULER */}
-          <div className="relative flex h-5 select-none items-end border-b border-[#e8e4de] bg-[#faf9f7]">
-            <div className="sticky left-0 z-30 w-[84px] flex-shrink-0 border-r border-[#e8e4de] bg-[#faf9f7]" />
-            <div className="relative flex-1" style={{ height: "100%" }}>
+        <div className="relative" style={{ width: totalWidth + 96 }}>
+
+          {/* TIME RULE GRID HEADER */}
+          <div className="relative flex h-6 select-none items-end border-b border-[#E8E4DE] dark:border-[#2C313C] bg-white dark:bg-[#181B22]">
+            <div className="sticky left-0 z-30 w-24 flex-shrink-0 border-r border-[#E8E4DE] dark:border-[#2C313C] bg-white dark:bg-[#181B22]" />
+            <div className="relative flex-1 h-full">
               {ticks.arr.map((t) => {
                 const major = Math.round(t / ticks.step) % 5 === 0;
                 return (
                   <div
                     key={t}
                     className="absolute bottom-0"
-                    style={{ left: t * pxPerSec, height: major ? "100%" : "50%" }}
+                    style={{ left: t * pxPerSec, height: major ? "100%" : "40%" }}
                   >
-                    <div
-                      className={`w-px ${major ? "h-full bg-[#1a1a1a]/20" : "h-full bg-[#1a1a1a]/8"}`}
-                    />
+                    <div className={`w-px h-full ${major ? "bg-[#E8E4DE] dark:bg-[#2C313C]" : "bg-[#E8E4DE]/40 dark:bg-[#2C313C]/40"}`} />
                     {major && (
-                      <span
-                        className="absolute left-[2px] top-0 text-[8.5px] text-[#1a1a1a]/40"
-                        style={{ fontFamily: "ui-monospace, monospace" }}
-                      >
+                      <span className="absolute left-1.5 top-0 text-[9px] font-mono text-[#666]/60 dark:text-[#A1A8B5]/60 font-semibold">
                         {fmtShort(t)}
                       </span>
                     )}
                   </div>
                 );
               })}
+
+              {/* Playhead needle */}
               <div
-                className="absolute top-0 bottom-0 z-20 w-px bg-[#ff5c3a]"
+                className="absolute top-0 bottom-0 z-20 w-px bg-[#FF6B2C] pointer-events-none"
                 style={{ left: currentTime * pxPerSec }}
               >
-                <div className="absolute -top-px -left-[3px] h-0 w-0 border-x-[3.5px] border-t-[5px] border-x-transparent border-t-[#ff5c3a]" />
+                <div className="absolute -top-px -left-[3.5px] h-0 w-0 border-x-[4px] border-t-[5.5px] border-x-transparent border-t-[#FF6B2C]" />
               </div>
             </div>
           </div>
 
+          {/* 1. LAYERED VIDEO TRACK */}
+          <div className="flex h-8.5 border-b border-[#E8E4DE]/60 dark:border-[#2C313C]/60 bg-[#FAF9F6] dark:bg-[#0F1117]">
+            <div className="sticky left-0 z-30 flex w-24 flex-shrink-0 items-center gap-1.5 border-r border-[#E8E4DE] dark:border-[#2C313C] bg-white dark:bg-[#181B22] px-3.5 text-[9.5px] font-bold uppercase tracking-wider text-blue-500">
+              <Video className="h-3.5 w-3.5" /> Video
+            </div>
+            <div className="relative flex-1 bg-[#F9F8F5] dark:bg-[#1F232D]/40">
+              <div
+                className="absolute top-[3px] bottom-[3px] rounded-lg border border-[#E8E4DE] dark:border-[#2C313C] bg-[#FAF9F6] dark:bg-[#181B22] opacity-60 flex items-center justify-center text-[9px] font-bold text-[#666] dark:text-[#A1A8B5]"
+                style={{ left: 0, width: (duration || 0) * pxPerSec }}
+              >
+                [ Video Channel ]
+              </div>
+            </div>
+          </div>
+
+          {/* 2. LAYERED CAPTION TRACKS */}
           {Array.from({ length: numTracks }, (_, i) => {
             const trackNum = i + 1;
-            // Distinct labels colors for each track
-            const labelColors = [
-              "text-[#ff5c3a]",        // CAP 1
-              "text-[#d4a843]/70",     // CAP 2
-              "text-blue-500/80",      // CAP 3
-              "text-purple-500/80",    // CAP 4
-              "text-pink-500/80",      // CAP 5
-              "text-teal-500/80",      // CAP 6
-            ];
-            const labelColor = labelColors[i] || "text-[#ff5c3a]";
-            
-            // Distinct styling for active caption items per track
-            const activeBgColors = [
-              "border-[#ff5c3a] bg-[#fff5f3] text-[#ff5c3a]",
-              "border-[#d4a843] bg-[#fffbeb] text-[#d4a843]",
-              "border-blue-500 bg-blue-50 text-blue-600",
-              "border-purple-500 bg-purple-50 text-purple-600",
-              "border-pink-500 bg-pink-50 text-pink-600",
-              "border-teal-500 bg-teal-50 text-teal-600",
-            ];
-            const activeBgColor = activeBgColors[i] || activeBgColors[0];
-            
-            // Distinct styling for selected caption items per track
-            const selectedColors = [
-              "border-[#ff7558] bg-[#ff5c3a] text-white shadow-[0_0_0_2px_#ffd5cc]",
-              "border-[#d4a843] bg-[#d4a843] text-white shadow-[0_0_0_2px_#fef3c7]",
-              "border-blue-600 bg-blue-500 text-white shadow-[0_0_0_2px_#dbeafe]",
-              "border-purple-600 bg-purple-500 text-white shadow-[0_0_0_2px_#f3e8ff]",
-              "border-pink-600 bg-pink-500 text-white shadow-[0_0_0_2px_#fce7f3]",
-              "border-teal-600 bg-teal-500 text-white shadow-[0_0_0_2px_#ccfbf1]",
-            ];
-            const selectedColor = selectedColors[i] || selectedColors[0];
 
-            // Distinct styling for inactive/default caption items per track
-            const defaultColors = [
-              "border-[#ffd5cc] bg-[#fff5f3]/80 text-[#ff5c3a]",
-              "border-[#f59e0b]/30 bg-[#fffbeb]/80 text-[#d4a843]",
-              "border-blue-200 bg-blue-50/50 text-blue-500",
-              "border-purple-200 bg-purple-50/50 text-purple-500",
-              "border-pink-200 bg-pink-50/50 text-pink-500",
-              "border-teal-200 bg-teal-50/50 text-teal-500",
+            // Layout styling configurations
+            const trackLabels = [
+              { color: "text-[#FF6B2C]", activeBorder: "border-[#FF6B2C]" },
+              { color: "text-[#F59E0B]", activeBorder: "border-[#F59E0B]" },
+              { color: "text-blue-400", activeBorder: "border-blue-400" },
+              { color: "text-purple-400", activeBorder: "border-purple-400" },
+              { color: "text-pink-400", activeBorder: "border-pink-400" },
+              { color: "text-teal-400", activeBorder: "border-teal-400" },
             ];
-            const defaultColor = defaultColors[i] || defaultColors[0];
+            const trackStyle = trackLabels[i] || trackLabels[0];
 
             return (
-              <div key={trackNum} className="flex h-8 border-b border-[#f5f3ee]">
-                <div className={`sticky left-0 z-30 flex w-[84px] flex-shrink-0 items-center justify-between border-r border-[#e8e4de] bg-[#faf9f7] pl-1.5 pr-0.5 text-[9px] font-semibold uppercase tracking-[0.06em] ${labelColor}`}>
-                  <div className="flex items-center gap-0.5 truncate">
-                    <Square /> CAP {trackNum}
-                  </div>
-                  <div className="flex items-center gap-0.5">
-                    {/* Lock button */}
+              <div key={trackNum} className="flex h-9 border-b border-[#E8E4DE]/60 dark:border-[#2C313C]/60 bg-[#FAF9F6] dark:bg-[#0F1117]">
+                <div className={`sticky left-0 z-30 flex w-24 flex-shrink-0 items-center justify-between border-r border-[#E8E4DE] dark:border-[#2C313C] bg-white dark:bg-[#181B22] pl-3.5 pr-1.5 text-[9.5px] font-bold uppercase tracking-wider ${trackStyle.color}`}>
+                  <span className="truncate">Cap {trackNum}</span>
+                  <div className="flex items-center gap-1.5">
                     <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onToggleLockTrack?.(trackNum);
-                      }}
-                      className={`h-[18px] w-[18px] rounded border flex items-center justify-center transition-all cursor-pointer shadow-sm ${
-                        lockedTracks.includes(trackNum)
-                          ? "bg-red-50 border-red-200 text-red-500 hover:bg-red-100"
-                          : "bg-white border-[#e8e4de] text-neutral-500 hover:bg-[#f5f3ee] hover:text-neutral-800"
-                      }`}
-                      title={lockedTracks.includes(trackNum) ? `Unlock CAP ${trackNum} track` : `Lock CAP ${trackNum} track`}
+                      onClick={() => onToggleLockTrack?.(trackNum)}
+                      className={`h-5 w-5 rounded border flex items-center justify-center transition cursor-pointer ${lockedTracks.includes(trackNum)
+                          ? "bg-red-500/10 border-red-500/30 text-red-400"
+                          : "bg-[#F9F8F5] border-[#E8E4DE] text-[#666] hover:text-[#1A1A1A] dark:bg-[#1F232D] dark:border-[#2C313C] dark:text-[#A1A8B5] dark:hover:text-white"
+                        }`}
+                      title={lockedTracks.includes(trackNum) ? `Unlock Track ${trackNum}` : `Lock Track ${trackNum}`}
                     >
                       {lockedTracks.includes(trackNum) ? (
-                        <Lock className="h-2.5 w-2.5" strokeWidth={2.4} />
+                        <Lock className="h-2.5 w-2.5" strokeWidth={2.5} />
                       ) : (
-                        <Unlock className="h-2.5 w-2.5" strokeWidth={2.4} />
+                        <Unlock className="h-2.5 w-2.5" strokeWidth={2.5} />
                       )}
                     </button>
-
-                    {/* Delete button */}
                     {trackNum > 2 && (
                       <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleDeleteTrack(trackNum);
-                        }}
-                        className="rounded p-0.5 text-neutral-400 hover:bg-red-50 hover:text-red-500 transition-colors cursor-pointer flex items-center justify-center"
-                        title={`Delete CAP ${trackNum} track`}
+                        onClick={() => handleDeleteTrack(trackNum)}
+                        className="h-5 w-5 rounded bg-[#F9F8F5] border border-[#E8E4DE] flex items-center justify-center text-[#666] hover:text-red-400 dark:bg-[#1F232D] dark:border-[#2C313C] dark:text-[#A1A8B5] transition cursor-pointer"
+                        title={`Delete Track ${trackNum}`}
                       >
-                        <Trash2 className="h-3 w-3" />
+                        <Trash2 className="h-2.5 w-2.5" />
                       </button>
                     )}
                   </div>
                 </div>
+
                 <div
                   ref={(el) => {
                     if (trackNum === 1) trackRef.current = el;
-                    if (el) {
-                      trackRefs.current.set(trackNum, el);
-                    } else {
-                      trackRefs.current.delete(trackNum);
-                    }
+                    if (el) trackRefs.current.set(trackNum, el);
+                    else trackRefs.current.delete(trackNum);
                   }}
                   onPointerDown={(e) => {
                     if (e.target !== e.currentTarget) return;
@@ -541,11 +504,12 @@ export function Timeline({
                     setSelected(null);
                     setDrag({ kind: "scrub", startX: e.clientX });
                   }}
-                  className="relative flex-1 cursor-crosshair overflow-hidden bg-white"
+                  className="relative flex-1 cursor-crosshair bg-[#FAF9F6] dark:bg-[#0F1117]"
                 >
                   {captions.filter(c => (!c.track && trackNum === 1) || c.track === trackNum).map((c) => {
                     const isActive = currentTime >= c.start && currentTime <= c.end;
                     const isSel = selected === c.id;
+
                     return (
                       <div
                         key={c.id}
@@ -568,22 +532,21 @@ export function Timeline({
                             splitAt(c.id, currentTime);
                           }
                         }}
-                        className={`group absolute top-[3px] bottom-[3px] flex items-center overflow-hidden rounded-[3px] border px-1.5 text-[8.5px] font-medium transition active:cursor-grabbing ${
-                          isSel
-                            ? selectedColor
+                        className={`group absolute top-[4px] bottom-[4px] flex items-center overflow-hidden rounded-lg border px-2.5 text-[10px] font-semibold transition shadow-md active:cursor-grabbing select-none ${isSel
+                            ? `border-[#FF6B2C] bg-[#FF6B2C] text-white shadow-[0_0_12px_rgba(255,107,44,0.3)]`
                             : isActive
-                            ? activeBgColor
-                            : defaultColor
-                        } ${lockedTracks.includes(trackNum) ? "cursor-default" : "cursor-grab"}`}
+                              ? `border-[#FF6B2C] bg-white dark:bg-[#1F232D] text-[#1A1A1A] dark:text-white`
+                              : `border-[#E8E4DE] bg-white dark:border-[#2C313C] dark:bg-[#1F232D] text-[#666] dark:text-[#A1A8B5] hover:border-[#FF6B2C]/50 hover:text-[#1A1A1A] dark:hover:text-white`
+                          } ${lockedTracks.includes(trackNum) ? "cursor-default" : "cursor-grab"}`}
                         style={{
                           left: c.start * pxPerSec,
-                          width: Math.max(6, (c.end - c.start) * pxPerSec),
-                          fontFamily: "ui-monospace, monospace",
+                          width: Math.max(12, (c.end - c.start) * pxPerSec),
                         }}
                         title={c.text}
                       >
                         {!lockedTracks.includes(trackNum) && (
                           <>
+                            {/* Resize handle left */}
                             <div
                               onPointerDown={(e) => {
                                 e.stopPropagation();
@@ -596,8 +559,9 @@ export function Timeline({
                                   origEnd: c.end,
                                 });
                               }}
-                              className="absolute inset-y-0 left-0 w-1.5 cursor-ew-resize hover:bg-white/30"
+                              className="absolute inset-y-0 left-0 w-2.5 cursor-ew-resize hover:bg-[#FF6B2C]/20"
                             />
+                            {/* Resize handle right */}
                             <div
                               onPointerDown={(e) => {
                                 e.stopPropagation();
@@ -610,95 +574,81 @@ export function Timeline({
                                   origEnd: c.end,
                                 });
                               }}
-                              className="absolute inset-y-0 right-0 w-1.5 cursor-ew-resize hover:bg-white/30"
+                              className="absolute inset-y-0 right-0 w-2.5 cursor-ew-resize hover:bg-[#FF6B2C]/20"
                             />
                           </>
                         )}
-                        <span className="pointer-events-none truncate">{c.text}</span>
+                        <span className="pointer-events-none truncate select-none">{c.text}</span>
                       </div>
                     );
                   })}
-                  <div
-                    className="pointer-events-none absolute top-0 bottom-0 z-10 w-px bg-[#ff5c3a]/40"
-                    style={{ left: currentTime * pxPerSec }}
-                  />
                 </div>
               </div>
             );
           })}
 
-          {/* AUDIO waveform */}
-          <div className="flex h-[38px]">
-            <div className="sticky left-0 z-30 flex w-[84px] flex-shrink-0 items-center gap-1 border-r border-[#e8e4de] bg-[#faf9f7] px-2 text-[9px] font-semibold uppercase tracking-[0.06em] text-emerald-500">
-              <Square /> AUDIO
+          {/* 3. LAYERED AUDIO TRACK */}
+          <div className="flex h-10 border-b border-[#E8E4DE]/60 dark:border-[#2C313C]/60 bg-[#FAF9F6] dark:bg-[#0F1117]">
+            <div className="sticky left-0 z-30 flex w-24 flex-shrink-0 items-center gap-1.5 border-r border-[#E8E4DE] dark:border-[#2C313C] bg-white dark:bg-[#181B22] px-3.5 text-[9.5px] font-bold uppercase tracking-wider text-[#22C55E]">
+              <Music className="h-3.5 w-3.5" /> Audio
             </div>
-            <div className="relative flex-1 overflow-hidden bg-white">
+            <div className="relative flex-1 overflow-hidden bg-[#F9F8F5] dark:bg-[#1F232D]/10">
               <div className="absolute inset-0 flex items-center gap-px px-1">
                 {wave.map((h, i) => {
                   const played = i / wave.length < (duration ? currentTime / duration : 0);
                   return (
                     <div
                       key={i}
-                      className="flex-1 rounded-[1px]"
+                      className="flex-1 rounded-[1.5px] transition-all duration-300"
                       style={{
-                        height: `${h * 100}%`,
+                        height: `${h * 90}%`,
                         minHeight: 2,
-                        background: played ? "#10b981" : "rgba(16,185,129,0.5)",
-                        opacity: played ? 0.85 : 0.3,
+                        background: played ? "#22C55E" : "rgba(34,197,94,0.45)",
+                        opacity: played ? 0.9 : 0.35,
                       }}
                     />
                   );
                 })}
               </div>
-              <div
-                className="pointer-events-none absolute top-0 bottom-0 z-10 w-px bg-[#ff5c3a]/60"
-                style={{ left: currentTime * pxPerSec }}
-              />
             </div>
           </div>
+
         </div>
       </div>
 
-      {/* TRANSPORT BAR */}
-      <div className="flex h-9 flex-shrink-0 items-center gap-1.5 border-t border-[#e8e4de] bg-[#faf9f7] px-2.5">
-        <div className="flex items-center gap-0.5">
-          <SkipBtn title="To start" onClick={() => onSeek(0)}>
-            <SkipBack className="h-[11px] w-[11px]" />
+      {/* TIMELINE TRANSPORT CONTROLS BAR */}
+      <div className="flex h-11 flex-shrink-0 items-center gap-4 border-t border-[#E8E4DE] dark:border-[#2C313C] bg-white dark:bg-[#181B22] px-4 select-none justify-between">
+        <div className="flex items-center gap-2">
+          <SkipBtn title="To Start" onClick={() => onSeek(0)}>
+            <SkipBack className="h-3.5 w-3.5" />
           </SkipBtn>
-          <SkipBtn title="Step back" onClick={() => onSeek(Math.max(0, currentTime - 1))}>
-            <ChevronsLeft className="h-[11px] w-[11px]" />
+          <SkipBtn title="Step Backward (1s)" onClick={() => onSeek(Math.max(0, currentTime - 1))}>
+            <ChevronsLeft className="h-3.5 w-3.5" />
           </SkipBtn>
           <button
             onClick={onTogglePlay}
             disabled={!onTogglePlay}
             title="Play / Pause"
             aria-label={playing ? "Pause" : "Play"}
-            className="flex h-[26px] w-[26px] items-center justify-center rounded-full border-[1.5px] border-[#ff5c3a] bg-[#ff5c3a] text-white transition hover:bg-[#ff7558] disabled:opacity-50"
+            className="flex h-7.5 w-7.5 items-center justify-center rounded-full bg-[#FF6B2C] text-white hover:bg-[#FF874D] shadow-md shadow-orange-500/10 cursor-pointer hover:scale-105 active:scale-95 transition-all"
           >
             {playing ? (
-              <Pause className="h-[10px] w-[10px] fill-current" />
+              <Pause className="h-3.5 w-3.5 fill-current" />
             ) : (
-              <Play className="h-[10px] w-[10px] translate-x-[1px] fill-current" />
+              <Play className="h-3.5 w-3.5 translate-x-[0.5px] fill-current" />
             )}
           </button>
-          <SkipBtn
-            title="Step forward"
-            onClick={() => onSeek(Math.min(duration, currentTime + 1))}
-          >
-            <ChevronsRight className="h-[11px] w-[11px]" />
+          <SkipBtn title="Step Forward (1s)" onClick={() => onSeek(Math.min(duration, currentTime + 1))}>
+            <ChevronsRight className="h-3.5 w-3.5" />
           </SkipBtn>
-          <SkipBtn title="To end" onClick={() => onSeek(duration)}>
-            <SkipForward className="h-[11px] w-[11px]" />
+          <SkipBtn title="To End" onClick={() => onSeek(duration)}>
+            <SkipForward className="h-3.5 w-3.5" />
           </SkipBtn>
         </div>
+
+        {/* Time slider */}
         <div
-          className="min-w-[66px] text-[11px] font-semibold tracking-[0.03em] text-[#ff5c3a]"
-          style={{ fontFamily: "ui-monospace, monospace" }}
-        >
-          {fmtMs(currentTime)}
-        </div>
-        <div
-          className="relative h-1 flex-1 cursor-pointer rounded-full bg-[#e8e4de]"
+          className="relative h-1 flex-1 max-w-[420px] cursor-pointer rounded-full bg-[#E8E4DE] dark:bg-[#2C313C] hidden sm:block"
           onPointerDown={(e) => {
             const el = e.currentTarget;
             const update = (clientX: number) => {
@@ -717,105 +667,92 @@ export function Timeline({
           }}
         >
           <div
-            className="relative h-full rounded-full bg-[#ff5c3a]"
+            className="relative h-full rounded-full bg-[#FF6B2C]"
             style={{ width: `${phPct}%` }}
           >
-            <span className="absolute right-[-5px] top-1/2 h-2.5 w-2.5 -translate-y-1/2 rounded-full border-2 border-[#ff5c3a] bg-white shadow-[0_0_6px_rgba(255,92,58,0.3)]" />
+            <span className="absolute right-[-4px] top-1/2 h-2 w-2 -translate-y-1/2 rounded-full bg-white border border-[#FF6B2C] shadow-md" />
           </div>
         </div>
-        <div
-          className="min-w-[60px] text-right text-[10px] text-[#b0aba4]"
-          style={{ fontFamily: "ui-monospace, monospace" }}
-        >
-          / {fmtMs(duration)}
+
+        {/* Playhead Pos / Duration */}
+        <div className="flex items-center gap-1 text-[11px] font-mono font-bold text-[#666] dark:text-[#A1A8B5]">
+          <span className="text-[#FF6B2C]">{fmtMs(currentTime)}</span>
+          <span className="opacity-45">/</span>
+          <span>{fmtMs(duration)}</span>
         </div>
       </div>
 
-      {/* INFO BAR */}
-      <div className="flex h-6 flex-shrink-0 flex-wrap items-center gap-3 border-t border-[#e8e4de] bg-[#f5f3ee] px-3 text-[9px] text-[#b0aba4]" style={{ fontFamily: "ui-monospace, monospace" }}>
-        <Pill dot="#10b981">Audio · 48kHz</Pill>
+      {/* TIMELINE BOTTOM STATUS INFORMATION BAR */}
+      <div className="flex h-6.5 flex-shrink-0 flex-wrap items-center gap-3 border-t border-[#E8E4DE] dark:border-[#2C313C] bg-[#F9F8F6] dark:bg-[#0F1117] px-4 text-[9px] text-[#666] dark:text-[#A1A8B5] font-mono select-none">
+        <Pill dot="#22C55E">Audio Engine Ready · 48kHz</Pill>
         <Sep />
-        <Pill dot="#ffd5cc">{captions.length} caption segments</Pill>
+        <Pill dot="#FF6B2C">{captions.length} Timed Segments</Pill>
         <Sep />
-        <Pill dot="#ff5c3a">{selectedCaption ? "1 selected" : "0 selected"}</Pill>
-        <span className="ml-auto">
-          {duration ? `${duration.toFixed(2)}s` : "—"}
+        <Pill dot="#FF874D">{selectedCaption ? "Selected Clip Active" : "No clip selected"}</Pill>
+        <span className="ml-auto font-bold">
+          Duration: {duration ? `${duration.toFixed(2)}s` : "0.00s"}
         </span>
       </div>
 
-
     </div>
   );
 }
 
-/* ---------- helpers ---------- */
+/* Helpers */
 function ToolGroup({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex items-center gap-0.5 border-r border-[#e8e4de] px-1.5 first:pl-0 last:border-r-0">
+    <div className="flex items-center gap-1 border-r border-[#E8E4DE] dark:border-[#2C313C] px-2.5 first:pl-0 last:border-r-0">
       {children}
     </div>
   );
 }
+
 function ToolBtn({
-  children,
-  title,
-  active,
-  tone,
-  disabled,
-  onClick,
+  children, title, active, tone, disabled, onClick,
 }: {
-  children: React.ReactNode;
-  title: string;
-  active?: boolean;
-  tone?: "violet";
-  disabled?: boolean;
-  onClick?: () => void;
-}) {
-  const base =
-    "flex h-6 w-6 items-center justify-center rounded transition disabled:opacity-40 disabled:cursor-not-allowed";
-  const cls = active
-    ? "bg-[#fff5f3] text-[#ff5c3a]"
-    : tone === "violet"
-    ? "text-violet-500 hover:bg-[#f5f3ee] hover:text-violet-600"
-    : "text-[#b0aba4] hover:bg-[#f5f3ee] hover:text-[#1a1a1a]";
-  return (
-    <button title={title} aria-label={title} aria-pressed={active} onClick={onClick} disabled={disabled} className={`${base} ${cls}`}>
-      {children}
-    </button>
-  );
-}
-function SkipBtn({
-  children,
-  title,
-  onClick,
-}: {
-  children: React.ReactNode;
-  title: string;
-  onClick?: () => void;
+  children: React.ReactNode; title: string; active?: boolean; tone?: "violet"; disabled?: boolean; onClick?: () => void;
 }) {
   return (
     <button
       title={title}
       aria-label={title}
       onClick={onClick}
-      className="flex h-[22px] w-[22px] items-center justify-center rounded text-[#b0aba4] transition hover:bg-[#e8e4de] hover:text-[#1a1a1a]"
+      disabled={disabled}
+      className={`flex h-7 w-7 items-center justify-center rounded-lg border transition-all cursor-pointer hover:scale-105 active:scale-95 ${active
+          ? "bg-[#FF6B2C] border-[#FF6B2C] text-white shadow-md shadow-orange-500/10"
+          : "bg-[#F9F8F5] border-[#E8E4DE] text-[#666] hover:border-[#FF6B2C]/40 hover:text-[#1A1A1A] dark:bg-[#1F232D] dark:border-[#2C313C] dark:text-[#A1A8B5] dark:hover:text-white"
+        } disabled:opacity-40 disabled:scale-100 disabled:cursor-not-allowed`}
     >
       {children}
     </button>
   );
 }
-function Square() {
+
+function SkipBtn({
+  children, title, onClick,
+}: {
+  children: React.ReactNode; title: string; onClick?: () => void;
+}) {
   return (
-    <span className="inline-block h-2 w-2 rounded-[2px] border border-current" aria-hidden />
+    <button
+      title={title}
+      aria-label={title}
+      onClick={onClick}
+      className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#F9F8F5] border border-[#E8E4DE] text-[#666] hover:text-[#1A1A1A] hover:border-[#FF6B2C]/40 dark:bg-[#1F232D] dark:border-[#2C313C] dark:text-[#A1A8B5] dark:hover:text-white transition hover:scale-105 active:scale-95 cursor-pointer"
+    >
+      {children}
+    </button>
   );
 }
+
 function Sep() {
-  return <span className="h-2.5 w-px bg-[#e8e4de]" />;
+  return <span className="h-2.5 w-px bg-[#E8E4DE] dark:bg-[#2C313C]" />;
 }
+
 function Pill({ dot, children }: { dot: string; children: React.ReactNode }) {
   return (
-    <span className="flex items-center gap-1">
-      <span className="h-[5px] w-[5px] rounded-full" style={{ background: dot }} />
+    <span className="flex items-center gap-1.5 font-bold uppercase tracking-wider text-[8.5px]">
+      <span className="h-1.5 w-1.5 rounded-full" style={{ background: dot }} />
       {children}
     </span>
   );
