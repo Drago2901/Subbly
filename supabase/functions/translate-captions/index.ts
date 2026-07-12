@@ -55,10 +55,13 @@ async function translateWithGemini(
     `Captions to translate:\n${numbered}`;
 
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: {
+        "Content-Type": "application/json",
+        "x-goog-api-key": apiKey,
+      },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
@@ -159,7 +162,7 @@ Deno.serve(async (req) => {
     if (language.length > 10) {
       if (geminiApiKey) {
         try {
-          console.info("Enhancing captions with emojis via Gemini 2.5 Flash");
+          console.info("Enhancing captions with emojis via Gemini 3.5 Flash");
           const result = await translateWithGemini(texts, language, geminiApiKey);
           return new Response(JSON.stringify({ translations: result }), {
             headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -193,7 +196,7 @@ Deno.serve(async (req) => {
       );
     }
 
-    console.info(`Translating ${texts.length} captions → ${language} (${targetName}) via Gemini 2.5 Flash`);
+    console.info(`Translating ${texts.length} captions → ${language} (${targetName}) via Gemini 3.5 Flash`);
     const translations = await translateWithGemini(texts, targetName, geminiApiKey);
 
     return new Response(JSON.stringify({ translations }), {
