@@ -25,6 +25,15 @@ const LANGUAGE_NAMES: Record<string, string> = {
   tr: "Turkish",
   pl: "Polish",
   id: "Indonesian",
+  bn: "Bengali",
+  mr: "Marathi",
+  ta: "Tamil",
+  te: "Telugu",
+  gu: "Gujarati",
+  kn: "Kannada",
+  ml: "Malayalam",
+  pa: "Punjabi",
+  ur: "Urdu",
 };
 
 function localAddEmojis(text: string): string {
@@ -128,9 +137,122 @@ Deno.serve(async (req) => {
       });
     }
 
+    const sarvamApiKey = Deno.env.get("SARVAM_API_KEY");
+    const SARVAM_LANGS: Record<string, string> = {
+      hi: "hi-IN",
+      hinglish: "hi-IN",
+      bn: "bn-IN",
+      mr: "mr-IN",
+      ta: "ta-IN",
+      te: "te-IN",
+      gu: "gu-IN",
+      kn: "kn-IN",
+      ml: "ml-IN",
+      pa: "pa-IN",
+      ur: "ur-IN",
+    };
+
+    if (sarvamApiKey && typeof language === "string" && SARVAM_LANGS[language]) {
+      console.info(`Using Sarvam AI for translating to: ${language}`);
+      try {
+        const targetLangCode = SARVAM_LANGS[language];
+        const isHinglish = language === "hinglish";
+        const model = isHinglish ? "mayura:v1" : "sarvam-translate:v1";
+
+        const translations = await Promise.all(
+          texts.map(async (txt) => {
+            try {
+              const res = await fetch("https://api.sarvam.ai/translate", {
+                method: "POST",
+                headers: {
+                  "api-subscription-key": sarvamApiKey,
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  input: txt,
+                  source_language_code: "auto",
+                  target_language_code: targetLangCode,
+                  model: model,
+                }),
+              });
+              if (res.ok) {
+                const data = await res.json();
+                return data?.translated_text ?? txt;
+              }
+              const errText = await res.text();
+              console.warn(`Sarvam translation line error: ${res.status} ${errText}`);
+              return txt;
+            } catch (lineErr) {
+              console.warn("Sarvam translation line connection error:", lineErr);
+              return txt;
+            }
+          })
+        );
+
+        return new Response(JSON.stringify({ translations }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } catch (err) {
+        console.error("Sarvam translation global error:", err);
+        // Fall through to other APIs
+      }
+    }
+
     const apiKey = Deno.env.get("LOVABLE_API_KEY");
     if (!apiKey) {
-      console.warn("LOVABLE_API_KEY not configured, using local emoji processing / keyless translation.");
+      const openaiApiKey = Deno.env.get("OPENAI_API_KEY");
+      if (openaiApiKey) {
+        console.info("Using configured OPENAI_API_KEY for direct translation/emojis.");
+        const numbered = texts.map((t: string, i: number) => `${i}: ${t}`).join("\n");
+        const res = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${openaiApiKey}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [
+              {
+                role: "system",
+                content:
+                  `You are a professional subtitle translator. Translate each numbered caption line into ${targetName}. ` +
+                  `Preserve meaning, tone, slang and emojis. Keep each translation concise so it still fits as a subtitle. ` +
+                  `Return ONLY a JSON object of the form {"translations":[{"index":0,"text":"..."}, ...]} with one entry per input line, in the same order. Do not add commentary.`,
+              },
+              { role: "user", content: numbered },
+            ],
+            response_format: { type: "json_object" },
+          }),
+        });
+
+        if (res.ok) {
+          const data = await res.json();
+          const content = data?.choices?.[0]?.message?.content ?? "{}";
+          let parsed: { translations?: { index: number; text: string }[] };
+          try {
+            parsed = JSON.parse(content);
+          } catch {
+            parsed = {};
+          }
+
+          const out = [...texts];
+          for (const item of parsed.translations ?? []) {
+            if (typeof item.index === "number" && item.index >= 0 && item.index < out.length && typeof item.text === "string") {
+              out[item.index] = item.text;
+            }
+          }
+
+          return new Response(JSON.stringify({ translations: out }), {
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          });
+        } else {
+          const errText = await res.text();
+          console.error("OpenAI API direct error:", res.status, errText);
+        }
+      }
+
+      console.warn("LOVABLE_API_KEY and OPENAI_API_KEY not configured, using local emoji processing / keyless translation.");
       const isEmojiRequest = typeof language === "string" && language.includes("emojis");
       if (isEmojiRequest) {
         const translations = texts.map((t) => localAddEmojis(t));

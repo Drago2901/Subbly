@@ -151,11 +151,10 @@ function MenuItem({
   return (
     <button
       onClick={onClick}
-      className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition ${
-        danger
+      className={`flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition ${danger
           ? "text-red-400 hover:bg-red-500/10"
           : "text-white/70 hover:bg-white/5 hover:text-white"
-      }`}
+        }`}
     >
       <Icon className="h-4 w-4 flex-shrink-0" />
       {label}
