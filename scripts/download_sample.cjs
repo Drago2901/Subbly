@@ -1,7 +1,7 @@
 const fs = require('fs');
 
 async function downloadSample() {
-  const url = "http://www.voiptroubleshooter.com/open_speech/american/OSR_us_000_0010_8k.wav";
+  const url = "https://www.voiptroubleshooter.com/open_speech/american/OSR_us_000_0010_8k.wav";
   console.log('Downloading sample from', url);
   try {
     const res = await fetch(url, {

@@ -13,6 +13,8 @@ import {
 import { toast } from "sonner";
 import { useProfile } from "@/hooks/useProfile";
 import { useAvatar, buildSpriteStyle } from "@/hooks/useAvatar";
+import { useAuth } from "@/hooks/useAuth";
+import { supabase } from "@/integrations/supabase/client";
 import { NavBar } from "@/components/NavBar";
 import { Seo } from "@/components/Seo";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,10 +28,40 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { AvatarPickerModal } from "@/components/AvatarPickerModal";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 export default function Profile() {
   const { data, loading, saving, error, save } = useProfile();
   const { selection, setSelection } = useAvatar();
+  const { signOut } = useAuth();
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDeleteAccount = async () => {
+    setDeleting(true);
+    try {
+      const { error: deleteError } = await supabase.rpc("delete_own_account");
+      if (deleteError) {
+        toast.error(deleteError.message || "Failed to delete account.");
+      } else {
+        toast.success("Account deleted successfully.");
+        await signOut();
+      }
+    } catch (err) {
+      toast.error("An unexpected error occurred.");
+    } finally {
+      setDeleting(false);
+    }
+  };
   
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -273,6 +305,56 @@ export default function Profile() {
                       </Select>
                     </div>
                   </div>
+                </CardContent>
+              </Card>
+
+              {/* Danger Zone */}
+              <Card className="border-red-200/60 dark:border-red-900/30 bg-red-50/20 dark:bg-red-950/10 shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-lg font-bold text-red-600 dark:text-red-400">Danger Zone</CardTitle>
+                  <CardDescription className="text-xs">
+                    Permanently delete your account and all associated data.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed">
+                    Once you delete your account, there is no going back. All of your projects, caption styles, brand kits, and uploaded video files will be permanently deleted.
+                  </p>
+                  
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        className="bg-red-600 hover:bg-red-700 text-white font-bold h-10 px-5 transition-all active:scale-[0.98]"
+                      >
+                        Delete Account
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="border-[#e8e4de] dark:border-zinc-800 bg-white dark:bg-zinc-950">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle className="text-lg font-bold text-zinc-900 dark:text-zinc-50">
+                          Are you absolutely sure?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="text-sm text-zinc-500 dark:text-zinc-400 mt-2">
+                          This action cannot be undone. This will permanently delete your account,
+                          all created projects, uploaded video files, and customized style presets from our servers.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter className="mt-6 gap-2">
+                        <AlertDialogCancel className="border-zinc-300 dark:border-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-100 dark:hover:bg-zinc-900">
+                          Cancel
+                        </AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handleDeleteAccount}
+                          disabled={deleting}
+                          className="bg-red-600 hover:bg-red-700 text-white font-bold"
+                        >
+                          {deleting ? "Deleting..." : "Yes, Delete My Account"}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
                 </CardContent>
               </Card>
 

@@ -27,6 +27,56 @@ const LANGUAGE_NAMES: Record<string, string> = {
   id: "Indonesian",
 };
 
+function localAddEmojis(text: string): string {
+  const emojiMap: Record<string, string> = {
+    love: "❤️", like: "👍", happy: "😊", sad: "😢", angry: "😠", fire: "🔥",
+    cool: "😎", work: "💼", money: "💵", time: "⏰", music: "🎵", video: "🎥",
+    camera: "📷", phone: "📱", computer: "💻", game: "🎮", food: "🍔", coffee: "☕",
+    dog: "🐶", cat: "🐱", car: "🚗", plane: "✈️", travel: "✈️", world: "🌐",
+    star: "⭐", idea: "💡", check: "✅", cross: "❌", warning: "⚠️", info: "ℹ️",
+    question: "❓", success: "🏆", winner: "🏆", fail: "👎", start: "🚀", go: "🚀",
+    launch: "🚀", build: "🛠️", code: "💻", dev: "💻", design: "🎨", art: "🎨",
+    sound: "🔊", audio: "🔊", microphone: "🎤", speak: "🗣️", talk: "🗣️",
+    people: "👥", user: "👤", friend: "👥", family: "👨‍👩‍👧‍👦", home: "🏠",
+    school: "🏫", office: "🏢", shop: "🛒", buy: "🛒", sell: "📈",
+    perfect: "👌", absolute: "💯", hundred: "💯", wow: "😮", omg: "😱",
+    magic: "✨", sparkle: "✨", key: "🔑", lock: "🔒", unlock: "🔓",
+  };
+  
+  return text.split(/\b/).map(word => {
+    const cleanWord = word.toLowerCase().trim();
+    if (cleanWord && emojiMap[cleanWord]) {
+      return `${word} ${emojiMap[cleanWord]}`;
+    }
+    return word;
+  }).join("");
+}
+
+async function translateMyMemory(texts: string[], targetLang: string): Promise<string[]> {
+  const sourceLang = "en";
+  return await Promise.all(
+    texts.map(async (txt) => {
+      try {
+        const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(txt)}&langpair=${sourceLang}|${targetLang}`;
+        const res = await fetch(url);
+        if (res.ok) {
+          const data = await res.json();
+          const trans = data?.responseData?.translatedText || txt;
+          return trans
+            .replace(/&quot;/g, '"')
+            .replace(/&#039;/g, "'")
+            .replace(/&amp;/g, "&")
+            .replace(/&lt;/g, "<")
+            .replace(/&gt;/g, ">");
+        }
+        return txt;
+      } catch {
+        return txt;
+      }
+    })
+  );
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -42,43 +92,22 @@ Deno.serve(async (req) => {
       });
     }
     const token = authHeader.replace("Bearer ", "");
-    let user = null;
-
-    if (token === "mock-token") {
-      user = { id: "mock-user-id", email: "mock-user@example.com" };
-    } else {
-      const supabase = createClient(
-        Deno.env.get("SUPABASE_URL")!,
-        Deno.env.get("SUPABASE_ANON_KEY")!,
-      );
-      const { data: { user: dbUser }, error: authError } = await supabase.auth.getUser(token);
-      if (authError || !dbUser) {
-        return new Response(JSON.stringify({ error: "Unauthorized" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-      user = dbUser;
-    }
-
-
-    const apiKey = Deno.env.get("LOVABLE_API_KEY");
-    if (!apiKey) {
-      console.error("LOVABLE_API_KEY not configured");
-      return new Response(
-        JSON.stringify({
-          error: "LOVABLE_API_KEY is not configured on the Supabase project. Please set it in your Supabase dashboard or via CLI.",
-        }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        },
-      );
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_ANON_KEY")!,
+    );
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    if (authError || !user) {
+      return new Response(JSON.stringify({ error: "Unauthorized" }), {
+        status: 401,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
     }
 
     const body = await req.json();
     const texts = body?.texts;
     const language = body?.language;
+
     if (!Array.isArray(texts) || texts.length === 0 || texts.length > 2000) {
       return new Response(JSON.stringify({ error: "Invalid 'texts' array" }), {
         status: 400,
@@ -97,6 +126,24 @@ Deno.serve(async (req) => {
         status: 400,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
+    }
+
+    const apiKey = Deno.env.get("LOVABLE_API_KEY");
+    if (!apiKey) {
+      console.warn("LOVABLE_API_KEY not configured, using local emoji processing / keyless translation.");
+      const isEmojiRequest = typeof language === "string" && language.includes("emojis");
+      if (isEmojiRequest) {
+        const translations = texts.map((t) => localAddEmojis(t));
+        return new Response(JSON.stringify({ translations }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      } else {
+        const langCode = typeof language === "string" ? language : "en";
+        const translations = await translateMyMemory(texts, langCode);
+        return new Response(JSON.stringify({ translations }), {
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
     }
 
     const numbered = texts.map((t: string, i: number) => `${i}: ${t}`).join("\n");

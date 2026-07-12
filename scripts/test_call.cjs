@@ -5,7 +5,7 @@ async function testCall() {
   const token = "mock-token";
   
   // Read the WAV file
-  const fileData = fs.readFileSync('public/test-audio.wav');
+  const fileData = fs.readFileSync('public/test-speech.wav');
   
   // Construct FormData
   const formData = new FormData();

@@ -430,6 +430,18 @@ const Editor = () => {
   }, [history, historyIndex]);
 
   const enhanceCaptionsWithEmojis = useCallback(async (currentCaptions: Caption[]) => {
+    if (!user) {
+      toast.info("Sign in to enhance your captions with emojis using AI.", {
+        action: {
+          label: "Sign In",
+          onClick: () => navigate("/auth"),
+        },
+      });
+      setCaptions(currentCaptions);
+      setStyle((s) => ({ ...s, emojiEnabled: false }));
+      return;
+    }
+
     await toast.promise(
       (async () => {
         const densityText =
@@ -684,6 +696,17 @@ const Editor = () => {
     setLanguage(next);
     // Only translate existing captions when switching to a concrete language.
     if (next === "auto" || next === prev || captions.length === 0) return;
+
+    if (!user) {
+      toast.info("Sign in to translate your captions into different languages.", {
+        action: {
+          label: "Sign In",
+          onClick: () => navigate("/auth"),
+        },
+      });
+      setLanguage(prev);
+      return;
+    }
 
     setTranslating(true);
     try {
@@ -1381,12 +1404,12 @@ const Editor = () => {
                   <Globe className="h-3.5 w-3.5 text-[#888]" strokeWidth={1.8} />
                   <span className="hidden text-[11.5px] font-medium text-[#666] sm:inline">Caption language</span>
                   <Select value={language} onValueChange={handleLanguageChange} disabled={translating}>
-                    <SelectTrigger className="h-7 w-[130px] rounded-[6px] border-[#e8e4de] bg-[#f5f3ee] px-2 text-[12px] text-[#1a1a1a] focus:ring-0">
+                    <SelectTrigger className="h-7 w-[130px] rounded-[6px] border border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-950 px-2 text-[12px] font-medium text-zinc-850 dark:text-zinc-100 focus:ring-0 focus:ring-offset-0 transition hover:bg-zinc-100 dark:hover:bg-zinc-900 cursor-pointer">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent>
+                    <SelectContent className="max-h-[280px] overflow-y-auto bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-zinc-900 dark:text-zinc-100 shadow-lg">
                       {LANGUAGES.map((l) => (
-                        <SelectItem key={l.code} value={l.code} className="text-[13px]">
+                        <SelectItem key={l.code} value={l.code} className="text-[12.5px] cursor-pointer hover:bg-zinc-100 dark:hover:bg-zinc-800 focus:bg-zinc-100 dark:focus:bg-zinc-800 transition-colors">
                           {l.label}
                         </SelectItem>
                       ))}

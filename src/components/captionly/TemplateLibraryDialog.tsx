@@ -25,6 +25,12 @@ import {
   type CaptionStyle 
 } from "@/lib/captions/types";
 
+export interface ExtendedCaptionTemplate extends CaptionTemplate {
+  badge?: "New" | "Pro" | null;
+  categories?: string[];
+  tags?: string[];
+}
+
 interface TemplateLibraryDialogProps {
   currentStyle: CaptionStyle;
   onApplyTemplate: (t: CaptionTemplate) => void;
@@ -159,7 +165,7 @@ function TemplateCardPreview({ template }: { template: CaptionTemplate }) {
         </div>
       );
       
-    default:
+    default: {
       const s = template.style || {};
       const fontFamily = s.fontFamily || "Inter";
       const uppercase = s.uppercase || false;
@@ -178,6 +184,7 @@ function TemplateCardPreview({ template }: { template: CaptionTemplate }) {
           </span>
         </div>
       );
+    }
   }
 }
 
@@ -217,7 +224,7 @@ export function TemplateLibraryDialog({
 
   // Compile all available templates
   const allTemplates = useMemo(() => {
-    const list: CaptionTemplate[] = [];
+    const list: ExtendedCaptionTemplate[] = [];
 
     // Prepend the 8 primary featured templates from screenshot matching CAPTION_TEMPLATES ids
     const featuredIds = [
@@ -240,7 +247,7 @@ export function TemplateLibraryDialog({
         list.push({
           ...existing,
           id: fid, // keep standard id
-          badge: details.badge as any,
+          badge: details.badge,
           categories: details.categories,
           tags: details.tags
         });
@@ -250,7 +257,7 @@ export function TemplateLibraryDialog({
           id: fid,
           name: fid.split("-").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" "),
           description: "Stunning template designed for professional look",
-          badge: details.badge as any,
+          badge: details.badge,
           categories: details.categories,
           tags: details.tags,
           style: { fontFamily: "Inter", fontSize: 50, color: "#FFFFFF" }
@@ -271,7 +278,7 @@ export function TemplateLibraryDialog({
     });
 
     // Append custom imported ones
-    customTemplates.forEach((ct) => {
+    (customTemplates || []).forEach((ct) => {
       list.push({
         ...ct,
         badge: "New",

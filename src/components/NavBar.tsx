@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Film, Sparkles, LayoutGrid, Zap, Shield, Moon, Sun, Menu as MenuIcon, X, ArrowRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
@@ -15,10 +15,26 @@ export function NavBar({ activeView, isPublic = false }: NavBarProps) {
   const { theme, toggle } = useTheme();
   const navigate = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 20);
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const isSystemAdmin = userRole === "super_admin" || userRole === "admin";
 
-  const links = isPublic
+  interface NavLink {
+    label: string;
+    path: string;
+    icon?: React.ComponentType<{ className?: string }>;
+    active: boolean;
+  }
+
+  const links: NavLink[] = isPublic
     ? [
         { label: "Features", path: "/#features", active: activeView === "Features" },
         { label: "How it works", path: "/#how", active: activeView === "How" },
@@ -33,17 +49,23 @@ export function NavBar({ activeView, isPublic = false }: NavBarProps) {
   return (
     <>
       <nav 
-        className="sticky top-0 z-[100] flex h-[64px] items-center justify-between border-b border-[#e8e4de] dark:border-zinc-800 bg-white/90 dark:bg-zinc-950/90 px-6 backdrop-blur-xl transition-all duration-300 md:px-12"
+        className={`sticky top-0 z-[100] flex items-center justify-between px-6 md:px-12 transition-all duration-300 ${
+          scrolled 
+            ? "h-[56px] border-b border-[#e8e4de]/60 dark:border-zinc-800/80 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md shadow-sm" 
+            : "h-[68px] border-b border-transparent bg-white/95 dark:bg-zinc-950/95"
+        }`}
         style={{ fontFamily: "'Outfit', sans-serif" }}
       >
         {/* Brand Logo */}
         <Link to="/" className="flex items-center gap-2.5 group">
-          <img
-            src="/logo.png"
-            alt="Subbly Logo"
-            className="h-9 w-9 object-contain rounded-[9px] shadow-[0_2px_8px_rgba(255,92,58,0.15)] transition-transform duration-300 group-hover:scale-105"
-          />
-          <span className="font-serif text-[18px] font-semibold tracking-[-0.2px] text-zinc-900 dark:text-white transition-colors duration-200 group-hover:text-[#ff5c3a]">
+          <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-[#ff5c3a] to-[#ff8c73] p-[2px] shadow-[0_4px_12px_rgba(255,92,58,0.2)] transition-transform duration-300 group-hover:scale-105">
+            <img
+              src="/logo.png"
+              alt="Subbly Logo"
+              className="h-full w-full object-contain rounded-[9px]"
+            />
+          </div>
+          <span className="font-serif text-[18px] font-bold tracking-tight text-zinc-900 dark:text-white transition-colors duration-200 group-hover:text-[#ff5c3a]">
             Subbly
           </span>
         </Link>
@@ -51,19 +73,22 @@ export function NavBar({ activeView, isPublic = false }: NavBarProps) {
         {/* Middle Navigation Links */}
         {isPublic ? (
           /* Public Centered Links */
-          <div className="hidden items-center gap-[30px] md:flex md:absolute md:left-1/2 md:-translate-x-1/2 md:top-1/2 md:-translate-y-1/2">
+          <div className="hidden items-center gap-8 md:flex md:absolute md:left-1/2 md:-translate-x-1/2 md:top-1/2 md:-translate-y-1/2">
             {links.map((link) => (
-              <Link
+              <a
                 key={link.label}
-                to={link.path}
-                className={`text-[13.5px] transition-colors duration-200 ${
+                href={link.path}
+                className={`relative text-[13.5px] font-medium transition-colors duration-200 py-1.5 ${
                   link.active
-                    ? "font-medium text-[#ff5c3a] dark:text-[#ff7558]"
+                    ? "text-[#ff5c3a] dark:text-[#ff7558]"
                     : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
-                }`}
+                } group`}
               >
                 {link.label}
-              </Link>
+                <span className={`absolute bottom-0 left-0 h-[2px] w-full scale-x-0 bg-[#ff5c3a] transition-transform duration-300 group-hover:scale-x-100 ${
+                  link.active ? "scale-x-100" : ""
+                }`} />
+              </a>
             ))}
           </div>
         ) : (
@@ -106,7 +131,7 @@ export function NavBar({ activeView, isPublic = false }: NavBarProps) {
           ) : (
             <Link
               to="/auth"
-              className="inline-flex items-center rounded-lg border border-[#e8e4de] dark:border-zinc-800 bg-white dark:bg-zinc-900 px-[14px] py-1.5 text-[13px] text-zinc-600 dark:text-zinc-300 transition-all duration-200 hover:text-zinc-900 dark:hover:text-white hover:border-[#b0aba4] dark:hover:border-zinc-700"
+              className="inline-flex items-center rounded-lg border border-[#e8e4de] dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-1.5 text-[13px] font-medium text-zinc-600 dark:text-zinc-300 transition-all duration-200 hover:text-zinc-900 dark:hover:text-white hover:border-[#b0aba4] dark:hover:border-zinc-700"
             >
               Sign In
             </Link>
@@ -116,9 +141,9 @@ export function NavBar({ activeView, isPublic = false }: NavBarProps) {
           {isPublic && (
             <Link
               to="/editor"
-              className="hidden items-center gap-1.5 rounded-lg bg-[#ff5c3a] px-[16px] py-1.5 text-[13px] font-medium text-white shadow-[0_2px_8px_rgba(255,92,58,0.2)] transition-all duration-200 hover:-translate-y-px hover:bg-[#ff7558] hover:shadow-[0_4px_16px_rgba(255,92,58,0.3)] md:inline-flex"
+              className="hidden items-center gap-1.5 rounded-lg bg-[#ff5c3a] px-4 py-1.5 text-[13px] font-semibold text-white shadow-[0_2px_8px_rgba(255,92,58,0.2)] transition-all duration-200 hover:-translate-y-px hover:bg-[#ff7558] hover:shadow-[0_4px_16px_rgba(255,92,58,0.3)] md:inline-flex"
             >
-              Open editor <ArrowRight className="h-3 w-3" strokeWidth={2.2} />
+              Open Editor <ArrowRight className="h-3 w-3" strokeWidth={2.2} />
             </Link>
           )}
 
@@ -135,15 +160,15 @@ export function NavBar({ activeView, isPublic = false }: NavBarProps) {
 
       {/* Collapsible Mobile Drawer */}
       {mobileOpen && (
-        <div className="border-b border-[#e8e4de] dark:border-zinc-800 bg-white dark:bg-zinc-950 px-6 py-4 md:hidden flex flex-col gap-2.5 transition-all duration-300">
+        <div className="sticky top-[56px] z-[99] border-b border-[#e8e4de] dark:border-zinc-800 bg-white dark:bg-zinc-950 px-6 py-4 md:hidden flex flex-col gap-2.5 transition-all duration-300 shadow-lg">
           {links.map((link) => {
-            const Icon = (link as any).icon;
+            const Icon = link.icon;
             return (
-              <Link
+              <a
                 key={link.label}
-                to={link.path}
+                href={link.path}
                 onClick={() => setMobileOpen(false)}
-                className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[14px] font-medium transition-colors ${
+                className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[14px] font-semibold transition-colors ${
                   link.active
                     ? "bg-[#fff5f3] dark:bg-zinc-900 text-[#ff5c3a] dark:text-[#ff7558]"
                     : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900 hover:text-zinc-900 dark:hover:text-white"
@@ -151,18 +176,18 @@ export function NavBar({ activeView, isPublic = false }: NavBarProps) {
               >
                 {Icon && <Icon className="h-4 w-4" />}
                 {link.label}
-              </Link>
+              </a>
             );
           })}
           {isPublic && (
             <>
-              <div className="my-1 h-px bg-[#e8e4de] dark:bg-zinc-800" />
+              <div className="my-1.5 h-px bg-[#e8e4de] dark:bg-zinc-800" />
               <Link
                 to="/editor"
                 onClick={() => setMobileOpen(false)}
-                className="rounded-lg bg-[#ff5c3a] px-3 py-2.5 text-center text-[14px] font-medium text-white shadow-[0_2px_8px_rgba(255,92,58,0.2)] hover:bg-[#ff7558]"
+                className="rounded-lg bg-[#ff5c3a] px-3 py-3 text-center text-[14px] font-semibold text-white shadow-[0_2px_8px_rgba(255,92,58,0.2)] hover:bg-[#ff7558]"
               >
-                Open editor
+                Open Editor
               </Link>
             </>
           )}
@@ -171,3 +196,4 @@ export function NavBar({ activeView, isPublic = false }: NavBarProps) {
     </>
   );
 }
+

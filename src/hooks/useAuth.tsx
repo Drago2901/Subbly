@@ -248,7 +248,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     // 1. Check for mock session first
-    const mockSessionStr = localStorage.getItem("mock_session");
+    const mockSessionStr = import.meta.env.DEV ? localStorage.getItem("mock_session") : null;
     if (mockSessionStr) {
       try {
         const mock = JSON.parse(mockSessionStr);
@@ -314,7 +314,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     // Check local storage overrides first (Super Admin reassignments)
     try {
-      const overridesStr = localStorage.getItem("rbac_user_roles");
+      const overridesStr = import.meta.env.DEV ? localStorage.getItem("rbac_user_roles") : null;
       if (overridesStr) {
         const overrides = JSON.parse(overridesStr);
         const customRole = overrides[currentUser.email || ""] || overrides[currentUser.id];

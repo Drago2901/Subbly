@@ -374,7 +374,7 @@ function CaptionPreview({ t }: { t: typeof TEMPLATES[number] }) {
         const isHighlightWord = idx >= textWords.length;
         const isActive = idx === activeIdx;
 
-        let style: React.CSSProperties = {
+        const style: React.CSSProperties & { [key: string]: string | number } = {
           transition: "all 0.25s ease-in-out",
         };
 
@@ -417,7 +417,6 @@ function CaptionPreview({ t }: { t: typeof TEMPLATES[number] }) {
           if (isHighlightWord) {
             style.color = t.accent;
             style.animation = `glowPulse 1.5s infinite ease-in-out`;
-            // @ts-ignore
             style["--glow-color"] = t.accent;
             if (isActive) {
               style.transform = "scale(1.1)";
