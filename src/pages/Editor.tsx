@@ -252,6 +252,8 @@ const Editor = () => {
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
   const [meta, setMeta] = useState<ProjectMeta | null>(null);
   const [captions, setCaptions] = useState<Caption[]>([]);
+  const captionsRef = useRef<Caption[]>(captions);
+  captionsRef.current = captions;
   const [style, setStyle] = useState<CaptionStyle>(DEFAULT_STYLE);
   const [title, setTitle] = useState("Untitled project");
   const [transcribing, setTranscribing] = useState(false);
@@ -428,6 +430,54 @@ const Editor = () => {
     }
   }, [historyIndex, history]);
 
+  // Synchronize play/pause state from video element
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const onPlay = () => setIsPlaying(true);
+    const onPause = () => setIsPlaying(false);
+
+    video.addEventListener("play", onPlay);
+    video.addEventListener("pause", onPause);
+
+    setIsPlaying(!video.paused);
+
+    return () => {
+      video.removeEventListener("play", onPlay);
+      video.removeEventListener("pause", onPause);
+    };
+  }, [videoUrl, transcribing]);
+
+  // Global Spacebar Keydown Listener for Play/Pause
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement;
+      if (
+        activeEl &&
+        (activeEl.tagName === "INPUT" ||
+          activeEl.tagName === "TEXTAREA" ||
+          activeEl.isContentEditable)
+      ) {
+        return;
+      }
+
+      if (e.code === "Space") {
+        e.preventDefault();
+        const v = videoRef.current;
+        if (!v) return;
+        if (v.paused) {
+          v.play().catch(() => {});
+        } else {
+          v.pause();
+        }
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, []);
+
   // AI Emoji generation side effects
   useEffect(() => {
     const isFirstTime = prevEmojiEnabledRef.current === undefined;
@@ -439,7 +489,9 @@ const Editor = () => {
 
     if (isFirstTime) return;
     if (!emojiChanged && !densityChanged) return;
-    if (captions.length === 0) return;
+
+    const currentCaptions = captionsRef.current;
+    if (currentCaptions.length === 0) return;
 
     const runEmojiAlignment = async () => {
       const stageToast = toast.loading(
@@ -458,7 +510,7 @@ const Editor = () => {
         } else {
           const res = await invokeEdgeFunction("align-emojis", {
             body: {
-              captions: captions.map((c) => ({ id: c.id, text: c.text, words: c.words })),
+              captions: currentCaptions.map((c) => ({ id: c.id, text: c.text, words: c.words })),
               density: style.emojiDensity || "medium",
             },
           });
@@ -582,7 +634,7 @@ const Editor = () => {
     return () => clearInterval(timer);
   }, [projectId, file, captions, style, title, language]);
 
-  const handleManualSave = async () => {
+  const handleManualSave = useCallback(async () => {
     if (!projectId) {
       toast.error("Save is only available for cloud projects");
       return;
@@ -610,7 +662,7 @@ const Editor = () => {
     } finally {
       setSaving(false);
     }
-  };
+  }, [projectId, title, captions, style, language]);
 
   const handleFile = async (f: File) => {
     setFile(f);
@@ -765,7 +817,7 @@ const Editor = () => {
     }
   };
 
-  const exportVideo = async () => {
+  const exportVideo = useCallback(async () => {
     if (!file || exporting) return;
     setExporting(true);
     setExportProgress(0);
@@ -831,7 +883,7 @@ const Editor = () => {
       setExportProgress(0);
       exportAbortRef.current = null;
     }
-  };
+  }, [file, exporting, quality, captions, style, frame, title, projectId, user]);
 
   const cancelExport = () => {
     if (exportAbortRef.current) {
@@ -839,9 +891,9 @@ const Editor = () => {
     }
   };
 
-  const handleImportSrtClick = () => {
+  const handleImportSrtClick = useCallback(() => {
     srtInputRef.current?.click();
-  };
+  }, []);
 
   const handleSrtFile = (e: React.ChangeEvent<HTMLInputElement>) => {
     const srtFile = e.target.files?.[0];
@@ -866,7 +918,7 @@ const Editor = () => {
     e.target.value = "";
   };
 
-  const handleExportSrt = () => {
+  const handleExportSrt = useCallback(() => {
     if (captions.length === 0) return;
     const text = captionsToSrt(captions);
     const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
@@ -878,7 +930,7 @@ const Editor = () => {
     link.click();
     document.body.removeChild(link);
     toast.success("Subtitle SRT file exported successfully!");
-  };
+  }, [captions, title]);
 
   const seek = (timeVal: number) => {
     setCurrentTime(timeVal);
@@ -980,7 +1032,7 @@ const Editor = () => {
         )}
       </div>
     ),
-    [file, exporting, exportProgress, exportStage, quality, saving, title, captions, style, meta, framePreset],
+    [file, exporting, exportProgress, exportStage, quality, saving, captions, exportVideo, handleExportSrt, handleManualSave, handleImportSrtClick],
   );
 
   if (loadingProject) {
@@ -1005,7 +1057,7 @@ const Editor = () => {
 
       {/* 1. FLOATING NAVIGATION BAR */}
       {!isMobile && (
-        <header className="flex flex-shrink-0 items-center justify-between gap-3 border border-[#E8E4DE] dark:border-[#2C313C] bg-white dark:bg-[#181B22] px-4 py-2 mx-4 mt-3 rounded-xl shadow-xl select-none h-14">
+        <header className="flex flex-shrink-0 items-center justify-between gap-3 border border-[#E8E4DE]/60 dark:border-[#2C313C]/60 bg-white/80 dark:bg-[#181B22]/80 backdrop-blur-md px-4 py-2 mx-4 mt-3 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3)] select-none h-14 z-50">
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <button
               onClick={() => {
@@ -1391,9 +1443,12 @@ const Editor = () => {
 
 
                 {/* 2.2 HORIZONTAL WORKSPACE ROW */}
-                <div className="flex-1 flex flex-col overflow-hidden bg-[#F9F8F6] dark:bg-[#0F1117]">
+                <div className="flex-1 flex flex-col overflow-hidden bg-[#F9F8F6] dark:bg-[#0F1117] bg-grid-dark-pattern dark:bg-grid-white-pattern relative">
+                  {/* Soft ambient background glows */}
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-[#FF6B2C]/5 via-transparent to-purple-500/5 dark:from-[#FF6B2C]/10 dark:to-purple-500/10 opacity-70" />
+                  
                   {/* Top Workspace Panels */}
-                  <div className="flex-1 min-h-0 overflow-hidden px-4 py-3">
+                  <div className="flex-1 min-h-0 overflow-hidden px-4 py-3 z-10">
                     <ResizablePanelGroup direction="horizontal" className="h-full w-full gap-3">
                       {/* Left: captionsPanel */}
                       <ResizablePanel defaultSize={26} minSize={15} maxSize={40} className="rounded-2xl border border-[#E8E4DE] dark:border-[#2C313C] bg-white dark:bg-[#181B22] overflow-hidden shadow-2xl">

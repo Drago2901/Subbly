@@ -1,4 +1,4 @@
-import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import { Pencil, Play, Pause, Volume2, VolumeX, Maximize, Minimize } from "lucide-react";
 import type { Caption, CaptionStyle, CaptionAnimation } from "@/lib/captions/types";
 
@@ -173,7 +173,7 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
   const scrubberRef = useRef<HTMLDivElement>(null);
   const [scrubbing, setScrubbing] = useState(false);
 
-  const handleScrub = (clientX: number) => {
+  const handleScrub = useCallback((clientX: number) => {
     const el = scrubberRef.current;
     if (!el || duration === 0) return;
     const rect = el.getBoundingClientRect();
@@ -183,7 +183,7 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
     if (innerRef.current) {
       innerRef.current.currentTime = newTime;
     }
-  };
+  }, [duration, setTime]);
 
   useEffect(() => {
     if (!scrubbing) return;
@@ -197,7 +197,7 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
     };
-  }, [scrubbing, duration]);
+  }, [scrubbing, handleScrub]);
 
   const toggleFullscreen = async () => {
     const el = containerRef.current;
