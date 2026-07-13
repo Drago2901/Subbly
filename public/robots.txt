@@ -13,4 +13,4 @@ Allow: /
 User-agent: *
 Allow: /
 
-Sitemap: https://subbly.lovable.app/sitemap.xml
+Sitemap: https://subbly.in/sitemap.xml

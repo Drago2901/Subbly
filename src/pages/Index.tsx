@@ -61,14 +61,14 @@ const HOME_JSONLD = [
     "@context": "https://schema.org",
     "@type": "Organization",
     name: "Subbly",
-    url: "https://subbly.lovable.app/",
+    url: "https://subbly.in/",
     description: "AI video caption editor.",
   },
   {
     "@context": "https://schema.org",
     "@type": "WebSite",
     name: "Subbly",
-    url: "https://subbly.lovable.app/",
+    url: "https://subbly.in/",
     description: HOME_DESCRIPTION,
   },
   {

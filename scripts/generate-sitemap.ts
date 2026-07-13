@@ -3,7 +3,7 @@
 import { writeFileSync } from "fs";
 import { resolve } from "path";
 
-const BASE_URL = "https://subbly.lovable.app";
+const BASE_URL = "https://subbly.in";
 
 interface SitemapEntry {
   path: string;

@@ -1,6 +1,6 @@
 import { Helmet } from "react-helmet-async";
 
-const SITE_URL = "https://subbly.lovable.app";
+const SITE_URL = "https://subbly.in";
 
 type Props = {
   title: string;
