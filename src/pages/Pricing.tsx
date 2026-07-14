@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
+import { BrandLogo } from "@/components/BrandLogo";
+
 import {
   ArrowRight,
   Check,
@@ -389,12 +391,7 @@ export default function Pricing() {
       {/* Footer */}
       <footer className="border-t border-zinc-200 dark:border-zinc-900 bg-zinc-50/50 dark:bg-zinc-950/60 px-6 py-10 text-xs text-zinc-500">
         <div className="mx-auto max-w-7xl flex flex-col items-center justify-between gap-4 md:flex-row text-zinc-550 dark:text-[#b0aba4]">
-          <Link to="/" className="flex items-center gap-2.5 group">
-            <div className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-[#FF6B2C] shadow-[0_3px_8px_rgba(255,107,44,0.25)] group-hover:scale-105 transition-transform">
-              <Sparkles className="h-4.5 w-4.5 text-white" strokeWidth={2.2} />
-            </div>
-            <span className="font-sans text-[15px] font-extrabold tracking-wider uppercase text-zinc-800 dark:text-white group-hover:text-[#FF6B2C] transition-colors">SUBBLY</span>
-          </Link>
+          <BrandLogo size="md" />
           <div className="flex gap-6 text-[11.5px] font-semibold text-zinc-500 dark:text-zinc-450">
             <Link to="/privacy" className="hover:text-[#ff5c3a] transition-colors">Privacy</Link>
             <Link to="/terms" className="hover:text-[#ff5c3a] transition-colors">Terms</Link>

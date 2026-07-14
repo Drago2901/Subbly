@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { BrandLogo } from "@/components/BrandLogo";
+
 import {
   ArrowLeft,
   Check,
@@ -1136,12 +1138,7 @@ const Editor = () => {
             >
               <ArrowLeft className="h-4.5 w-4.5" strokeWidth={2.4} />
             </button>
-            <div className="flex items-center gap-2 select-none">
-              <div className="flex h-7 w-7 items-center justify-center rounded-[8px] bg-[#FF6B2C] shadow-[0_2px_8px_rgba(255,107,44,0.25)]">
-                <Sparkles className="h-4 w-4 text-white" strokeWidth={2.2} />
-              </div>
-              <span className="hidden text-[14px] font-extrabold tracking-wider uppercase sm:inline text-zinc-900 dark:text-white">SUBBLY</span>
-            </div>
+            <BrandLogo size="sm" />
             <div className="hidden h-5 w-px bg-[#E8E4DE] dark:bg-[#2C313C] sm:block" />
             <Input
               value={title}

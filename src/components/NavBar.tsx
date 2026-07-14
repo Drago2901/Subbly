@@ -4,6 +4,7 @@ import { Film, Sparkles, LayoutGrid, Zap, Shield, Moon, Sun, Menu as MenuIcon, X
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
 import { AvatarDropdown } from "@/components/AvatarDropdown";
+import { BrandLogo } from "@/components/BrandLogo";
 
 interface NavBarProps {
   activeView?: string;
@@ -56,15 +57,7 @@ export function NavBar({ activeView, isPublic = false }: NavBarProps) {
         }`}
         style={{ fontFamily: "'Outfit', sans-serif" }}
       >
-        {/* Brand Logo */}
-        <Link to="/" className="flex items-center gap-2.5 group">
-          <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#FF6B2C] shadow-[0_4px_12px_rgba(255,107,44,0.3)] transition-transform duration-300 group-hover:scale-105">
-            <Sparkles className="h-5 w-5 text-white" strokeWidth={2.2} />
-          </div>
-          <span className="font-sans text-[16px] font-extrabold tracking-wider uppercase text-zinc-900 dark:text-white transition-colors duration-200 group-hover:text-[#FF6B2C]">
-            SUBBLY
-          </span>
-        </Link>
+        <BrandLogo size="md" />
 
         {/* Middle Navigation Links */}
         {isPublic ? (
