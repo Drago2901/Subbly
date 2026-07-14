@@ -134,9 +134,6 @@ async function translateWithOpenRouter(
   return texts;
 }
 
-  return texts; // fallback to originals on parse failure
-}
-
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
