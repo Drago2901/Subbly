@@ -467,7 +467,7 @@ const Editor = () => {
         const v = videoRef.current;
         if (!v) return;
         if (v.paused) {
-          v.play().catch(() => {});
+          v.play().catch(() => { });
         } else {
           v.pause();
         }
@@ -697,29 +697,26 @@ const Editor = () => {
   const transcribe = async () => {
     if (!file) return;
     setTranscribing(true);
-    setTranscribeStage("Preparing…");
-    const stageToast = toast.loading("Auto-transcription: Preparing audio…");
+    setTranscribeStage("Extracting audio…");
+    const stageToast = toast.loading("Auto-transcription: Extracting audio tracks…");
 
     try {
-      const form = new FormData();
-
-      // For files <= 25 MB send directly — ElevenLabs Scribe v2 accepts mp4, webm, mov, etc.
-      // For larger files extract a compact 16 kHz mono WAV to reduce upload size.
-      const SIZE_THRESHOLD = 25 * 1024 * 1024; // 25 MB
-      if (file.size <= SIZE_THRESHOLD) {
-        // Fast path: no preprocessing at all
-        form.append("file", file, file.name);
-      } else {
-        setTranscribeStage("Extracting audio…");
-        toast.loading("Extracting audio from large file…", { id: stageToast });
-        const audioBlob = await extractAudioNative(file);
-        form.append("file", audioBlob, "audio.wav");
+      let targetFile = file;
+      if (file.name.endsWith(".webm")) {
+        setTranscribeStage("Webm transcoding…");
+        toast.loading("Converting webm containers to mp4 segments…", { id: stageToast });
+        targetFile = await transcodeWebmToMp4(file);
       }
 
-      if (language && language !== "auto") form.append("language", language);
+      setTranscribeStage("Processing voice…");
+      toast.loading("Extracting speech tracks from video metadata…", { id: stageToast });
+      const audioBlob = await extractAudioNative(targetFile);
 
       setTranscribeStage("Transcribing…");
       toast.loading("Speech engine running neural voice transcripts…", { id: stageToast });
+      const form = new FormData();
+      form.append("file", audioBlob, "audio.mp4");
+      if (language && language !== "auto") form.append("language", language);
 
       // Use direct fetch so the browser sets the correct multipart Content-Type
       // boundary automatically (supabase.functions.invoke overrides it and breaks FormData)
@@ -780,7 +777,6 @@ const Editor = () => {
     }
   };
 
-
   const handleLanguageChange = async (nextLang: string) => {
     setLanguage(nextLang);
     if (!captions.length || nextLang === "auto") return;
@@ -788,23 +784,21 @@ const Editor = () => {
     setTranslating(true);
     const stageToast = toast.loading(`Translating all captions to ${LANGUAGES.find(l => l.code === nextLang)?.label || nextLang}…`);
     try {
+      const texts = captions.map(c => c.text);
       const res = await invokeEdgeFunction("translate-captions", {
         body: {
-          captions: captions.map(c => ({ id: c.id, text: c.text })),
-          targetLanguage: nextLang,
+          texts,
+          language: nextLang,
         }
       });
-      if (res && Array.isArray(res.translatedCaptions)) {
-        interface TranslatedCap {
-          id: string;
-          text: string;
-        }
-        const list = res.translatedCaptions as TranslatedCap[];
+      if (res && Array.isArray(res.translations)) {
+        const translated: string[] = res.translations;
         setCaptions(cur =>
-          cur.map(c => {
-            const match = list.find(x => x.id === c.id);
-            return match ? { ...c, text: match.text, words: undefined } : c;
-          })
+          cur.map((c, i) => ({
+            ...c,
+            text: translated[i] ?? c.text,
+            words: undefined,
+          }))
         );
         toast.success(`Captions translated to ${LANGUAGES.find(l => l.code === nextLang)?.label || nextLang}`);
       }
@@ -1426,7 +1420,7 @@ const Editor = () => {
                 <div className="flex-1 flex flex-col overflow-hidden bg-[#F9F8F6] dark:bg-[#0F1117] bg-grid-dark-pattern dark:bg-grid-white-pattern relative">
                   {/* Soft ambient background glows */}
                   <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-[#FF6B2C]/5 via-transparent to-purple-500/5 dark:from-[#FF6B2C]/10 dark:to-purple-500/10 opacity-70" />
-                  
+
                   {/* Top Workspace Panels */}
                   <div className="flex-1 min-h-0 overflow-hidden px-4 py-3 z-10">
                     <ResizablePanelGroup direction="horizontal" className="h-full w-full gap-3">
@@ -1586,8 +1580,8 @@ const Editor = () => {
                           key={p.id}
                           onClick={() => setFramePreset(p)}
                           className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold select-none transition min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer ${active
-                              ? "bg-[#FF6B2C] text-white shadow-sm"
-                              : "bg-[#F9F8F5] text-[#666] border border-[#E8E4DE] hover:bg-neutral-50 dark:bg-[#1F232D] dark:text-[#A1A8B5] dark:border-[#2C313C] dark:hover:bg-[#2C313C] dark:hover:text-white"
+                            ? "bg-[#FF6B2C] text-white shadow-sm"
+                            : "bg-[#F9F8F5] text-[#666] border border-[#E8E4DE] hover:bg-neutral-50 dark:bg-[#1F232D] dark:text-[#A1A8B5] dark:border-[#2C313C] dark:hover:bg-[#2C313C] dark:hover:text-white"
                             }`}
                         >
                           {p.label}
@@ -1785,8 +1779,8 @@ function SidebarIcon({
         type="button"
         onClick={onClick}
         className={`flex h-11 w-11 items-center justify-center rounded-xl transition duration-300 hover:scale-[1.05] active:scale-95 cursor-pointer relative ${active
-            ? "bg-[#FF6B2C] text-white shadow-[0_0_15px_rgba(255,107,44,0.4)]"
-            : "bg-transparent text-[#999] dark:text-[#A1A8B5] hover:text-[#1A1A1A] dark:hover:text-white hover:bg-[#F0EDE8] dark:hover:bg-[#1F232D]"
+          ? "bg-[#FF6B2C] text-white shadow-[0_0_15px_rgba(255,107,44,0.4)]"
+          : "bg-transparent text-[#999] dark:text-[#A1A8B5] hover:text-[#1A1A1A] dark:hover:text-white hover:bg-[#F0EDE8] dark:hover:bg-[#1F232D]"
           }`}
         title={title}
       >
