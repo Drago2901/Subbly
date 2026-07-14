@@ -1,4 +1,4 @@
-// translate-captions — powered by MyMemory (free, no API key required)
+// translate-captions — powered by OpenRouter (multi-model AI translation)
 import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
@@ -7,14 +7,14 @@ const corsHeaders = {
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
-// MyMemory language code map (some codes differ from ISO 639-1)
-const LANG_MAP: Record<string, string> = {
-  en: "en-GB", es: "es-ES", fr: "fr-FR", de: "de-DE", it: "it-IT",
-  pt: "pt-PT", nl: "nl-NL", ru: "ru-RU", hi: "hi-IN", hinglish: "hi-IN",
-  ja: "ja-JP", ko: "ko-KR", zh: "zh-CN", ar: "ar-SA", tr: "tr-TR",
-  pl: "pl-PL", id: "id-ID", bn: "bn-IN", mr: "mr-IN", ta: "ta-IN",
-  te: "te-IN", gu: "gu-IN", kn: "kn-IN", ml: "ml-IN", pa: "pa-IN",
-  ur: "ur-PK",
+const LANGUAGE_NAMES: Record<string, string> = {
+  en: "English", es: "Spanish", fr: "French", de: "German", it: "Italian",
+  pt: "Portuguese", nl: "Dutch", ru: "Russian", hi: "Hindi",
+  hinglish: "Hinglish (Hindi written in Roman/Latin script mixed with English — NOT Devanagari)",
+  ja: "Japanese", ko: "Korean", zh: "Chinese (Simplified)", ar: "Arabic",
+  tr: "Turkish", pl: "Polish", id: "Indonesian", bn: "Bengali",
+  mr: "Marathi", ta: "Tamil", te: "Telugu", gu: "Gujarati",
+  kn: "Kannada", ml: "Malayalam", pa: "Punjabi", ur: "Urdu",
 };
 
 function localAddEmojis(text: string): string {
@@ -37,33 +37,64 @@ function localAddEmojis(text: string): string {
   }).join("");
 }
 
-async function translateOne(text: string, langpair: string): Promise<string> {
-  const url = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${langpair}`;
-  const res = await fetch(url, { signal: AbortSignal.timeout(8000) });
-  if (!res.ok) return text;
-  const data = await res.json();
-  const translated: string = data?.responseData?.translatedText ?? text;
-  // MyMemory sometimes returns "MYMEMORY WARNING" strings on quota hit
-  if (translated.startsWith("MYMEMORY WARNING")) return text;
-  return translated;
-}
-
-async function translateWithMyMemory(
+async function translateWithOpenRouter(
   texts: string[],
-  targetLang: string,
+  targetName: string,
+  apiKey: string,
 ): Promise<string[]> {
-  const langpair = `en|${targetLang}`;
-  const BATCH = 10; // concurrent requests per batch
-  const results: string[] = new Array(texts.length);
+  const numbered = texts.map((t, i) => `${i}: ${t}`).join("\n");
 
-  for (let i = 0; i < texts.length; i += BATCH) {
-    const batch = texts.slice(i, i + BATCH);
-    const batchResults = await Promise.all(
-      batch.map((t) => translateOne(t, langpair)),
-    );
-    batchResults.forEach((r, j) => { results[i + j] = r; });
+  const prompt =
+    `You are a professional subtitle translator. Translate each numbered caption line into ${targetName}.\n` +
+    `Rules:\n` +
+    `- Preserve meaning, tone, and any emojis in the original text.\n` +
+    `- Keep translations short and natural — they must fit as video subtitles.\n` +
+    `- Do NOT add explanations or commentary.\n` +
+    `- Return ONLY a JSON array of translated strings in the same order, like: ["translation0","translation1",...]\n\n` +
+    `Captions to translate:\n${numbered}`;
+
+  const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://subbly.app",
+      "X-Title": "Subbly Caption Translator",
+    },
+    body: JSON.stringify({
+      model: "mistralai/mistral-7b-instruct:free",
+      messages: [{ role: "user", content: prompt }],
+      temperature: 0.2,
+      max_tokens: 4096,
+    }),
+    signal: AbortSignal.timeout(40000),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error(`OpenRouter API error ${res.status}:`, errText.substring(0, 500));
+    let errMsg = `OpenRouter API error: ${res.status}`;
+    try {
+      const parsed = JSON.parse(errText);
+      if (parsed?.error?.message) errMsg = parsed.error.message;
+    } catch { /* not JSON */ }
+    throw new Error(errMsg);
   }
-  return results;
+
+  const data = await res.json();
+  const rawText: string = data?.choices?.[0]?.message?.content ?? "[]";
+
+  try {
+    const clean = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
+    const parsed = JSON.parse(clean);
+    if (Array.isArray(parsed) && parsed.length === texts.length) {
+      return parsed.map((t) => (typeof t === "string" ? t : texts[parsed.indexOf(t)]));
+    }
+  } catch {
+    console.error("Failed to parse OpenRouter response:", rawText.substring(0, 300));
+  }
+
+  return texts; // fallback to originals on parse failure
 }
 
 Deno.serve(async (req) => {
@@ -118,17 +149,25 @@ Deno.serve(async (req) => {
       });
     }
 
-    // ── TRANSLATION MODE via MyMemory ──
-    const myMemoryLang = LANG_MAP[language] ?? language;
-    if (!myMemoryLang) {
+    // ── TRANSLATION MODE via OpenRouter ──
+    const targetName = LANGUAGE_NAMES[language];
+    if (!targetName) {
       return new Response(
         JSON.stringify({ error: `Unsupported language code: "${language}"` }),
         { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
 
-    console.info(`Translating ${texts.length} captions → ${language} via MyMemory`);
-    const translations = await translateWithMyMemory(texts, myMemoryLang);
+    const openRouterKey = Deno.env.get("OPENROUTER_API_KEY");
+    if (!openRouterKey) {
+      return new Response(
+        JSON.stringify({ error: "OPENROUTER_API_KEY is not configured in Supabase secrets." }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      );
+    }
+
+    console.info(`Translating ${texts.length} captions → ${language} (${targetName}) via OpenRouter`);
+    const translations = await translateWithOpenRouter(texts, targetName, openRouterKey);
 
     return new Response(JSON.stringify({ translations }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
