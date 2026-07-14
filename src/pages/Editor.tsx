@@ -1189,13 +1189,7 @@ const Editor = () => {
             </div>
 
             {headerRight}
-            <button
-              onClick={toggleTheme}
-              aria-label="Toggle dark mode"
-              className="inline-flex h-8.5 w-8.5 items-center justify-center rounded-lg border border-[#E8E4DE] dark:border-[#2C313C] bg-[#F9F8F5] dark:bg-[#1F232D] text-[#666] dark:text-[#A1A8B5] hover:text-[#1A1A1A] dark:hover:text-white transition hover:bg-neutral-50 dark:hover:bg-[#2C313C] hover:scale-105 active:scale-95 cursor-pointer"
-            >
-              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-            </button>
+
             {user ? (
               <AvatarDropdown />
             ) : (
