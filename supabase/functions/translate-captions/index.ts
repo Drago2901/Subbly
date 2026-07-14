@@ -55,7 +55,7 @@ async function translateWithGemini(
     `Captions to translate:\n${numbered}`;
 
   const res = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent`,
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent`,
     {
       method: "POST",
       headers: {
@@ -75,8 +75,13 @@ async function translateWithGemini(
 
   if (!res.ok) {
     const errText = await res.text();
-    console.error(`Gemini API error ${res.status}:`, errText.substring(0, 300));
-    throw new Error(`Gemini API error: ${res.status}`);
+    console.error(`Gemini API error ${res.status}:`, errText.substring(0, 500));
+    let errMsg = `Gemini API error: ${res.status}`;
+    try {
+      const parsed = JSON.parse(errText);
+      if (parsed?.error?.message) errMsg = parsed.error.message;
+    } catch { /* not JSON */ }
+    throw new Error(errMsg);
   }
 
   const data = await res.json();
@@ -204,7 +209,8 @@ Deno.serve(async (req) => {
     });
   } catch (err) {
     console.error("translate-captions error:", err);
-    return new Response(JSON.stringify({ error: "Translation failed. Please try again." }), {
+    const msg = err instanceof Error ? err.message : "Translation failed. Please try again.";
+    return new Response(JSON.stringify({ error: msg }), {
       status: 500,
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
