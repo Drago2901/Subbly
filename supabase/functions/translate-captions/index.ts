@@ -83,12 +83,36 @@ async function translateWithOpenRouter(
 
   const data = await res.json();
   const rawText: string = data?.choices?.[0]?.message?.content ?? "[]";
+  console.info("OpenRouter raw response:", rawText.substring(0, 500));
 
   try {
     const clean = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
     const parsed = JSON.parse(clean);
-    if (Array.isArray(parsed) && parsed.length === texts.length) {
-      return parsed.map((t) => (typeof t === "string" ? t : texts[parsed.indexOf(t)]));
+
+    // Format 1: plain array ["t1", "t2", ...]
+    if (Array.isArray(parsed)) {
+      const out = texts.map((orig, i) =>
+        typeof parsed[i] === "string" && parsed[i].trim() ? parsed[i] : orig
+      );
+      return out;
+    }
+
+    // Format 2: { translations: ["t1", "t2", ...] }
+    if (Array.isArray(parsed?.translations)) {
+      const out = texts.map((orig, i) =>
+        typeof parsed.translations[i] === "string" && parsed.translations[i].trim()
+          ? parsed.translations[i]
+          : orig
+      );
+      return out;
+    }
+
+    // Format 3: { "0": "t1", "1": "t2", ... }
+    if (typeof parsed === "object" && parsed !== null) {
+      return texts.map((orig, i) => {
+        const v = parsed[i] ?? parsed[String(i)];
+        return typeof v === "string" && v.trim() ? v : orig;
+      });
     }
   } catch {
     console.error("Failed to parse OpenRouter response:", rawText.substring(0, 300));
