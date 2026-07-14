@@ -31,28 +31,28 @@
 
 @layer base {
   :root {
-    /* OLED Night Mode HSL variables */
-    --background: 0 0% 0%;             /* #000000 */
+    /* Charcoal canvas + pure black panels variables */
+    --background: 240 5% 5%;           /* #09090b */
     --foreground: 0 0% 100%;           /* #FFFFFF */
 
-    --surface: 0 0% 4%;                /* #0A0A0A */
-    --surface-2: 0 0% 7%;              /* #121212 */
-    --surface-3: 0 0% 9%;              /* #181818 */
+    --surface: 0 0% 0%;                /* #000000 */
+    --surface-2: 240 5% 7%;            /* #121215 */
+    --surface-3: 240 5% 10%;           /* #18181c */
 
-    --card: 0 0% 4%;                   /* #0A0A0A */
+    --card: 0 0% 0%;                   /* #000000 */
     --card-foreground: 0 0% 100%;      /* #FFFFFF */
 
-    --popover: 0 0% 4%;                /* #0A0A0A */
+    --popover: 0 0% 0%;                /* #000000 */
     --popover-foreground: 0 0% 100%;   /* #FFFFFF */
 
     --primary: 25 100% 50%;            /* #FF6B00 */
     --primary-foreground: 0 0% 100%;   /* #FFFFFF */
     --primary-glow: 25 100% 60%;       /* #FF8A33 */
 
-    --secondary: 0 0% 7%;              /* #121212 */
+    --secondary: 240 5% 7%;            /* #121215 */
     --secondary-foreground: 0 0% 100%; /* #FFFFFF */
 
-    --muted: 0 0% 7%;                  /* #121212 */
+    --muted: 240 5% 7%;                /* #121215 */
     --muted-foreground: 240 5% 65%;    /* #A1A1AA */
 
     --accent: 25 100% 50%;             /* #FF6B00 */
@@ -61,25 +61,25 @@
     --destructive: 0 84% 60%;          /* #EF4444 */
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 12%;                /* #1F1F1F */
-    --input: 0 0% 7%;                  /* #121212 */
+    --border: 240 5% 10%;              /* #18181c */
+    --input: 240 5% 7%;                /* #121215 */
     --ring: 25 100% 50%;               /* #FF6B00 */
 
     --radius: 0.75rem;
 
     --gradient-primary: linear-gradient(135deg, hsl(25 100% 50%), hsl(35 100% 60%));
     --gradient-accent: linear-gradient(135deg, hsl(25 100% 50%), hsl(15 100% 45%));
-    --gradient-surface: linear-gradient(180deg, hsl(0 0% 4%), hsl(0 0% 0%));
+    --gradient-surface: linear-gradient(180deg, hsl(0 0% 0%), hsl(240 5% 5%));
     --shadow-glow: 0 0 40px -8px hsl(25 100% 50% / 0.35);
     --shadow-elegant: 0 20px 60px -20px hsl(0 0% 0% / 0.8);
 
-    --sidebar-background: 0 0% 0%;     /* #000000 */
+    --sidebar-background: 240 5% 5%;   /* #09090b */
     --sidebar-foreground: 240 5% 65%;  /* #A1A1AA */
     --sidebar-primary: 25 100% 50%;    /* #FF6B00 */
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 7%;         /* #121212 */
+    --sidebar-accent: 0 0% 0%;         /* #000000 */
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 0 0% 12%;        /* #1F1F1F */
+    --sidebar-border: 240 5% 10%;      /* #18181c */
     --sidebar-ring: 25 100% 50%;       /* #FF6B00 */
   }
 }
@@ -183,23 +183,27 @@
 
 /* Gradient backgrounds */
 .dark .from-\[\#ff5c3a\].to-\[\#ffd5cc\] { --tw-gradient-to: #121212 !important; }
-
 /* OLED Overrides for Tailwind classes */
-.dark .bg-\[\#181B22\] { background-color: #0a0a0a !important; }
-.dark .bg-\[\#181B22\]\/80 { background-color: rgba(10, 10, 10, 0.8) !important; }
-.dark .bg-\[\#1F232D\] { background-color: #0a0a0a !important; }
-.dark .bg-\[\#1F232D\]\/90 { background-color: rgba(10, 10, 10, 0.9) !important; }
-.dark .bg-\[\#181B22\]\/90 { background-color: rgba(10, 10, 10, 0.9) !important; }
+.dark .bg-\[\#0F1117\] { background-color: #08090b !important; }
+.dark .bg-\[\#181B22\] { background-color: #000000 !important; }
+.dark .bg-\[\#181B22\]\/80 { background-color: rgba(8, 9, 11, 0.8) !important; }
+.dark .bg-\[\#181B22\]\/90 { background-color: rgba(8, 9, 11, 0.9) !important; }
+.dark .bg-\[\#1F232D\] { background-color: #08090b !important; }
+.dark .bg-\[\#1F232D\]\/90 { background-color: rgba(8, 9, 11, 0.9) !important; }
 .dark .bg-\[\#1F232D\]\/5 { background-color: rgba(255, 107, 0, 0.05) !important; }
 .dark .bg-\[\#FF6B2C\]\/5 { background-color: rgba(255, 107, 0, 0.05) !important; }
 .dark .bg-\[\#FF6B2C\]\/10 { background-color: rgba(255, 107, 0, 0.1) !important; }
 .dark .bg-\[\#FF6B2C\]\/15 { background-color: rgba(255, 107, 0, 0.15) !important; }
 .dark .bg-\[\#FF6B2C\] { background-color: #ff6b00 !important; }
 .dark .hover\:bg-\[\#FF874D\]:hover { background-color: #ff8a33 !important; }
-.dark .border-\[\#2C313C\] { border-color: #1f1f1f !important; }
-.dark .border-\[\#2C313C\]\/60 { border-color: rgba(31, 31, 31, 0.6) !important; }
+
+/* Borders mapping to thin slate/gray borders */
+.dark .border-\[\#2C313C\] { border-color: #1a1b20 !important; }
+.dark .border-\[\#2C313C\]\/60 { border-color: rgba(26, 27, 32, 0.6) !important; }
+.dark .border-\[\#E8E4DE\]\/60 { border-color: rgba(26, 27, 32, 0.6) !important; }
 .dark .border-\[\#FF6B2C\] { border-color: #ff6b00 !important; }
 .dark .border-\[\#FF6B2C\]\/40 { border-color: rgba(255, 107, 0, 0.4) !important; }
+
 .dark .text-\[\#A1A8B5\] { color: #a1a1aa !important; }
 .dark .text-\[\#FF6B2C\] { color: #ff6b00 !important; }
 .dark .hover\:text-\[\#FF6B2C\]:hover { color: #ff6b00 !important; }
