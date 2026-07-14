@@ -62,7 +62,7 @@ async function translateWithOpenRouter(
       "X-Title": "Subbly Caption Translator",
     },
     body: JSON.stringify({
-      model: "meta-llama/llama-3.1-8b-instruct:free",
+      model: "meta-llama/llama-3.1-8b-instruct",
       messages: [{ role: "user", content: prompt }],
       temperature: 0.2,
       max_tokens: 4096,
