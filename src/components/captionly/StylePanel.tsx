@@ -70,6 +70,7 @@ const TEMPLATES = [
   { id: "phantom", name: "Phantom", category: "Cinematic", badge: null, text: "you'll feel it before", highlight: "you see it", treatment: "dim", accent: "#e5e5e5" },
   { id: "vortex", name: "Vortex", category: "Cinematic", badge: null, text: "pulled in,", highlight: "not scrolled past", treatment: "outline", accent: "#ffffff" },
   { id: "zenith", name: "Zenith", category: "Cinematic", badge: null, text: "the top,", highlight: "and staying there", treatment: "stacked", accent: "#ffd166" },
+  { id: "cinematic_gold", name: "Cinematic Gold", category: "Cinematic", badge: "NEW", text: "GREETINGS FROM\n", highlight: "CINEMATIC\nMAKE IT SIMPLE, BUT SIGNIFICANT.", treatment: "cinematic_gold", accent: "#fbbf24" },
 
   { id: "motion", name: "Motion", category: "Phrase", badge: "POPULAR", text: "some days you plan", highlight: "the move", treatment: "color", accent: "#ff5a3c" },
   { id: "pulse", name: "Pulse", category: "Phrase", badge: null, text: "this is happening", highlight: "right now", treatment: "box", accent: "#ff3b3b" },
@@ -237,6 +238,20 @@ const mapTemplateToStyle = (t: typeof TEMPLATES[number]): Partial<CaptionStyle> 
         fontWeight: 500,
         karaoke: false,
         animation: "none" as const,
+      };
+
+    case "cinematic_gold":
+      return {
+        ...base,
+        fontFamily: "Playfair Display",
+        fontSize: 50,
+        color: "#FFFFFF",
+        strokeWidth: 1,
+        strokeColor: "#fbbf24",
+        bgOpacity: 0,
+        fontWeight: 800,
+        karaoke: false,
+        animation: "fade" as const,
       };
 
     case "oneword":

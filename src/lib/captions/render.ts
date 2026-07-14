@@ -284,6 +284,84 @@ export async function burnCaptions(opts: {
   }
 }
 
+function drawCinematicStacked(
+  ctx: CanvasRenderingContext2D,
+  active: Caption,
+  activeStyle: CaptionStyle,
+  width: number,
+  height: number,
+  time: number,
+) {
+  let lines = active.text.split("\n");
+  if (lines.length === 1) {
+    const words = active.text.split(" ");
+    if (words.length >= 3) {
+      const mid = Math.max(1, Math.floor(words.length / 2));
+      lines = [
+        words.slice(0, mid - 1).join(" ") || "GREETINGS FROM",
+        words[mid - 1] || "CINEMATIC",
+        words.slice(mid).join(" ") || "MAKE IT SIMPLE, BUT SIGNIFICANT."
+      ];
+    } else {
+      lines = ["", active.text, ""];
+    }
+  }
+
+  // Animation calculation
+  const enter = clamp((time - active.start) / 0.35, 0, 1);
+  const exit = clamp((active.end - time) / 0.25, 0, 1);
+  const anim = computeAnim(activeStyle.animation, enter, exit);
+
+  // Layout parameters
+  const posX = active.x ?? 0.5;
+  const posY = active.y ?? activeStyle.posY;
+  const center = { x: width * posX, y: height * posY };
+
+  ctx.save();
+  ctx.globalAlpha = anim.opacity;
+  ctx.translate(center.x, center.y);
+  if (anim.scale !== 1) ctx.scale(anim.scale, anim.scale);
+  if (anim.translateY) ctx.translate(0, anim.translateY * (height / 1080));
+
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  // Line 1: GREETINGS FROM (small, yellow/amber)
+  const size1 = clamp(Math.round((22 / 1080) * height), 12, 45);
+  ctx.font = `700 ${size1}px "Outfit", "Inter", sans-serif`;
+  ctx.fillStyle = "#fbbf24";
+  ctx.shadowColor = "rgba(0,0,0,0.8)";
+  ctx.shadowBlur = 4;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 2;
+  const line1Text = lines[0] ? lines[0].toUpperCase() : "";
+  ctx.fillText(line1Text, 0, -size1 * 2);
+
+  // Line 2: CINEMATIC (large, italic, gold, serif)
+  const size2 = clamp(Math.round((70 / 1080) * height), 24, 150);
+  ctx.font = `italic 800 ${size2}px "Playfair Display", Georgia, serif`;
+  ctx.fillStyle = "#ffd166";
+  ctx.shadowColor = "rgba(0,0,0,0.9)";
+  ctx.shadowBlur = 8;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 4;
+  const line2Text = lines[1] ? lines[1].toUpperCase() : "";
+  ctx.fillText(line2Text, 0, 0);
+
+  // Line 3: MAKE IT SIMPLE, BUT SIGNIFICANT (medium, white)
+  const size3 = clamp(Math.round((18 / 1080) * height), 10, 40);
+  ctx.font = `600 ${size3}px "Outfit", "Inter", sans-serif`;
+  ctx.fillStyle = "#FFFFFF";
+  ctx.shadowColor = "rgba(0,0,0,0.8)";
+  ctx.shadowBlur = 4;
+  ctx.shadowOffsetX = 0;
+  ctx.shadowOffsetY = 2;
+  const line3Text = lines[2] ? lines[2].toUpperCase() : "";
+  ctx.fillText(line3Text, 0, size2 * 0.9);
+
+  ctx.restore();
+}
+
 function drawCaptionOverlay(
   ctx: CanvasRenderingContext2D,
   captions: Caption[],
@@ -297,6 +375,11 @@ function drawCaptionOverlay(
 
   activeCaptions.forEach((active) => {
     const activeStyle = active.style ? { ...style, ...active.style } : style;
+    const isCinematicStacked = activeStyle.fontFamily === "Playfair Display" && activeStyle.strokeWidth === 1 && activeStyle.strokeColor === "#fbbf24";
+    if (isCinematicStacked) {
+      drawCinematicStacked(ctx, active, activeStyle, width, height, time);
+      return;
+    }
     const fontSize = clamp(Math.round((activeStyle.fontSize / 1080) * height), 18, 160);
     const padX = Math.round(fontSize * 0.36);
     const padY = Math.round(fontSize * 0.24);

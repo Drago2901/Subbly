@@ -911,6 +911,73 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
                   }}
                 >
                   {(() => {
+                    const isCinematicStacked = itemStyle.fontFamily === "Playfair Display" && itemStyle.strokeWidth === 1 && itemStyle.strokeColor === "#fbbf24";
+                    if (isCinematicStacked) {
+                      let lines = activeItem.text.split("\n");
+                      if (lines.length === 1) {
+                        const words = activeItem.text.split(" ");
+                        if (words.length >= 3) {
+                          const mid = Math.max(1, Math.floor(words.length / 2));
+                          lines = [
+                            words.slice(0, mid - 1).join(" ") || "GREETINGS FROM",
+                            words[mid - 1] || "CINEMATIC",
+                            words.slice(mid).join(" ") || "MAKE IT SIMPLE, BUT SIGNIFICANT."
+                          ];
+                        } else {
+                          lines = ["", activeItem.text, ""];
+                        }
+                      }
+                      return (
+                        <div className="flex flex-col items-center gap-1.5 p-2 text-center select-none pointer-events-none">
+                          {lines[0] && (
+                            <span 
+                              style={{ 
+                                fontFamily: "'Inter', sans-serif", 
+                                fontSize: "0.55em", 
+                                color: "#fbbf24", 
+                                letterSpacing: "0.15em", 
+                                textTransform: "uppercase",
+                                fontWeight: 700,
+                                textShadow: "0 2px 4px rgba(0,0,0,0.8)"
+                              }}
+                            >
+                              {lines[0]}
+                            </span>
+                          )}
+                          {lines[1] && (
+                            <span 
+                              style={{ 
+                                fontFamily: "'Playfair Display', serif", 
+                                fontSize: "1.65em", 
+                                fontStyle: "italic",
+                                fontWeight: 800,
+                                color: "#ffd166", 
+                                textShadow: "0 4px 8px rgba(0,0,0,0.9)",
+                                textTransform: "uppercase",
+                              }}
+                            >
+                              {lines[1]}
+                            </span>
+                          )}
+                          {lines[2] && (
+                            <span 
+                              style={{ 
+                                fontFamily: "'Inter', sans-serif", 
+                                fontSize: "0.45em", 
+                                color: "#FFFFFF", 
+                                letterSpacing: "0.1em",
+                                textTransform: "uppercase",
+                                fontWeight: 600,
+                                textShadow: "0 2px 4px rgba(0,0,0,0.8)"
+                              }}
+                            >
+                              {lines[2]}
+                            </span>
+                          )}
+                        </div>
+                      );
+                    }
+
                     if (itemStyle.animation === "typewriter") {
                       const elapsedMs = Math.max(0, (time - activeItem.start) * 1000);
                       const { text: slicedText, showCursor } = getTypewriterState(activeItem.text, itemStyle, elapsedMs);
