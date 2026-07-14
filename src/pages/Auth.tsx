@@ -1,6 +1,6 @@
 import { useState, useEffect, type FormEvent } from "react";
 import { Link, Navigate, useLocation, useNavigate } from "react-router-dom";
-import { Loader2, Sun, Moon, Eye, EyeOff, Copy } from "lucide-react";
+import { Loader2, Sun, Moon, Eye, EyeOff, Copy, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
@@ -734,12 +734,10 @@ const Auth = () => {
       />
       <nav className="sticky top-0 z-[200] flex h-[62px] items-center justify-between border-b border-[#e8e4de] bg-white/95 px-6 backdrop-blur-xl md:px-12">
         <Link to="/" className="flex items-center gap-2.5">
-          <img
-            src="/logo.png"
-            alt="Subbly Logo"
-            className="h-9 w-9 object-contain rounded-[9px] shadow-[0_2px_8px_rgba(255,92,58,0.15)]"
-          />
-          <span className="font-serif-display text-[18px] tracking-[-0.2px]">Subbly</span>
+          <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#FF6B2C] shadow-[0_4px_12px_rgba(255,107,44,0.3)]">
+            <Sparkles className="h-5 w-5 text-white" strokeWidth={2.2} />
+          </div>
+          <span className="font-sans text-[16px] font-extrabold tracking-wider uppercase text-zinc-900">SUBBLY</span>
         </Link>
         <div className="flex items-center gap-3">
           <button
@@ -767,11 +765,9 @@ const Auth = () => {
       <main className="flex flex-1 items-center justify-center px-6 py-12">
         <div className="w-full max-w-[420px] rounded-[20px] border border-[#e8e4de] bg-white p-10 shadow-[0_4px_40px_rgba(26,26,26,0.07)] md:p-12">
           <div className="mb-6 flex flex-col items-center justify-center">
-            <img
-              src="/logo.png"
-              alt="Subbly Logo"
-              className="h-16 w-16 object-contain rounded-[14px] shadow-[0_4px_16px_rgba(255,92,58,0.12)]"
-            />
+            <div className="flex h-16 w-16 items-center justify-center rounded-[16px] bg-[#FF6B2C] shadow-[0_8px_20px_rgba(255,107,44,0.35)]">
+              <Sparkles className="h-9 w-9 text-white" strokeWidth={2.2} />
+            </div>
           </div>
 
           <h1 className="font-serif-display mb-2 text-center text-[30px] font-normal tracking-[-0.5px]">

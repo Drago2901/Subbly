@@ -1076,18 +1076,13 @@ export default function Index() {
       {/* Premium Footer */}
       <footer className="border-t border-zinc-200 dark:border-zinc-900 bg-zinc-50/50 dark:bg-zinc-950/60 px-6 py-14 md:px-12 text-xs">
         <div className="mx-auto max-w-7xl grid grid-cols-2 md:grid-cols-6 gap-8 mb-10 text-zinc-550 dark:text-[#b0aba4]">
-          
           {/* Logo / Brand columns */}
           <div className="col-span-2 flex flex-col items-start gap-4">
             <Link to="/" className="flex items-center gap-2">
-              <div className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-gradient-to-tr from-[#ff5c3a] to-[#ff8c73] p-[1.5px] shadow-[0_2px_8px_rgba(255,92,58,0.15)]">
-                <img
-                  src="/logo.png"
-                  alt="Subbly Logo"
-                  className="h-full w-full object-contain rounded-[7px]"
-                />
+              <div className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-[#FF6B2C] shadow-[0_3px_8px_rgba(255,107,44,0.25)]">
+                <Sparkles className="h-4.5 w-4.5 text-white" strokeWidth={2.2} />
               </div>
-              <span className="font-serif text-[16.5px] font-bold text-zinc-850 dark:text-white">Subbly</span>
+              <span className="font-sans text-[15px] font-extrabold tracking-wider uppercase text-zinc-800 dark:text-white">SUBBLY</span>
             </Link>
             <p className="text-[11.5px] text-zinc-500 dark:text-zinc-500 leading-relaxed max-w-[200px]">
               AI-powered captions for creators, agencies, and marketing editors. Ready in seconds.

@@ -1137,10 +1137,10 @@ const Editor = () => {
               <ArrowLeft className="h-4.5 w-4.5" strokeWidth={2.4} />
             </button>
             <div className="flex items-center gap-2 select-none">
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#FF6B2C] shadow-md shadow-orange-500/10">
-                <Sparkles className="h-[15px] w-[15px] text-white" strokeWidth={2} />
+              <div className="flex h-7 w-7 items-center justify-center rounded-[8px] bg-[#FF6B2C] shadow-[0_2px_8px_rgba(255,107,44,0.25)]">
+                <Sparkles className="h-4 w-4 text-white" strokeWidth={2.2} />
               </div>
-              <span className="hidden text-[14px] font-extrabold tracking-wider uppercase sm:inline bg-gradient-to-r from-[#1A1A1A] to-[#666] dark:from-white dark:to-[#A1A8B5] bg-clip-text text-transparent">Subbly</span>
+              <span className="hidden text-[14px] font-extrabold tracking-wider uppercase sm:inline text-zinc-900 dark:text-white">SUBBLY</span>
             </div>
             <div className="hidden h-5 w-px bg-[#E8E4DE] dark:bg-[#2C313C] sm:block" />
             <Input

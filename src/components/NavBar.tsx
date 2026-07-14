@@ -58,15 +58,11 @@ export function NavBar({ activeView, isPublic = false }: NavBarProps) {
       >
         {/* Brand Logo */}
         <Link to="/" className="flex items-center gap-2.5 group">
-          <div className="relative flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-tr from-[#ff5c3a] to-[#ff8c73] p-[2px] shadow-[0_4px_12px_rgba(255,92,58,0.2)] transition-transform duration-300 group-hover:scale-105">
-            <img
-              src="/logo.png"
-              alt="Subbly Logo"
-              className="h-full w-full object-contain rounded-[9px]"
-            />
+          <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-[#FF6B2C] shadow-[0_4px_12px_rgba(255,107,44,0.3)] transition-transform duration-300 group-hover:scale-105">
+            <Sparkles className="h-5 w-5 text-white" strokeWidth={2.2} />
           </div>
-          <span className="font-serif text-[18px] font-bold tracking-tight text-zinc-900 dark:text-white transition-colors duration-200 group-hover:text-[#ff5c3a]">
-            Subbly
+          <span className="font-sans text-[16px] font-extrabold tracking-wider uppercase text-zinc-900 dark:text-white transition-colors duration-200 group-hover:text-[#FF6B2C]">
+            SUBBLY
           </span>
         </Link>
 
