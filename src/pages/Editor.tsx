@@ -940,13 +940,6 @@ const Editor = () => {
   const headerRight = useMemo(
     () => (
       <div className="flex items-center gap-2">
-        <button
-          onClick={handleImportSrtClick}
-          className="inline-flex h-8.5 items-center gap-1.5 rounded-lg border border-[#E8E4DE] dark:border-[#2C313C] bg-[#F9F8F5] dark:bg-[#1F232D] px-3.5 text-[12px] font-bold text-[#1A1A1A] dark:text-white transition hover:bg-neutral-100 dark:hover:bg-[#2C313C] hover:scale-[1.02] active:scale-[0.98]"
-        >
-          <Upload className="h-3.5 w-3.5 text-[#FF6B2C]" strokeWidth={2.4} />
-          <span>Import SRT</span>
-        </button>
         {captions.length > 0 && (
           <button
             onClick={handleExportSrt}
@@ -956,20 +949,7 @@ const Editor = () => {
             <span>Export SRT</span>
           </button>
         )}
-        {file && (
-          <button
-            onClick={handleManualSave}
-            disabled={saving}
-            className="inline-flex h-8.5 items-center gap-1.5 rounded-lg border border-[#E8E4DE] dark:border-[#2C313C] bg-[#F9F8F5] dark:bg-[#1F232D] px-3.5 text-[12px] font-bold text-[#1A1A1A] dark:text-white transition hover:bg-neutral-100 dark:hover:bg-[#2C313C] disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98]"
-          >
-            {saving ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-            ) : (
-              <Save className="h-3.5 w-3.5 text-emerald-500" strokeWidth={2.4} />
-            )}
-            <span>Save Workspace</span>
-          </button>
-        )}
+
         {file && (
           <div className="flex items-center gap-2 border border-[#E8E4DE] dark:border-[#2C313C] bg-[#F9F8F5] dark:bg-[#1F232D] p-1.5 rounded-lg">
             <span className="px-2 py-0.5 text-[10px] font-extrabold tracking-wider text-[#666] dark:text-[#A1A8B5] bg-[#EAE7E2] dark:bg-[#181B22] rounded shadow-inner uppercase select-none border border-[#E8E4DE] dark:border-[#2C313C]">
