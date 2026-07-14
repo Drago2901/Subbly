@@ -42,16 +42,17 @@ async function translateWithOpenRouter(
   targetName: string,
   apiKey: string,
 ): Promise<string[]> {
-  const numbered = texts.map((t, i) => `${i}: ${t}`).join("\n");
+  const numbered = texts.map((t, i) => `${i}. ${t}`).join("\n");
 
-  const prompt =
-    `You are a professional subtitle translator. Translate each numbered caption line into ${targetName}.\n` +
-    `Rules:\n` +
-    `- Preserve meaning, tone, and any emojis in the original text.\n` +
-    `- Keep translations short and natural — they must fit as video subtitles.\n` +
-    `- Do NOT add explanations or commentary.\n` +
-    `- Return ONLY a JSON array of translated strings in the same order, like: ["translation0","translation1",...]\n\n` +
-    `Captions to translate:\n${numbered}`;
+  const systemPrompt =
+    `You are a subtitle translator. You MUST respond with ONLY a valid JSON array of strings. ` +
+    `No explanation, no markdown fences, no extra text. Just the raw JSON array. ` +
+    `Example output for 3 inputs: ["translated 1","translated 2","translated 3"]`;
+
+  const userPrompt =
+    `Translate each line below into ${targetName}. ` +
+    `Keep each translation short (subtitle length). Return a JSON array with exactly ${texts.length} strings.\n\n` +
+    numbered;
 
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
@@ -63,8 +64,11 @@ async function translateWithOpenRouter(
     },
     body: JSON.stringify({
       model: "meta-llama/llama-3.1-8b-instruct",
-      messages: [{ role: "user", content: prompt }],
-      temperature: 0.2,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
+      ],
+      temperature: 0.1,
       max_tokens: 4096,
     }),
     signal: AbortSignal.timeout(40000),
@@ -82,41 +86,53 @@ async function translateWithOpenRouter(
   }
 
   const data = await res.json();
-  const rawText: string = data?.choices?.[0]?.message?.content ?? "[]";
-  console.info("OpenRouter raw response:", rawText.substring(0, 500));
+  const rawText: string = data?.choices?.[0]?.message?.content ?? "";
+  console.info("OpenRouter raw response:", rawText.substring(0, 600));
 
+  // Strip markdown fences and trim
+  const clean = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
+
+  // Try JSON parse first
   try {
-    const clean = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
     const parsed = JSON.parse(clean);
 
-    // Format 1: plain array ["t1", "t2", ...]
     if (Array.isArray(parsed)) {
-      const out = texts.map((orig, i) =>
+      return texts.map((orig, i) =>
         typeof parsed[i] === "string" && parsed[i].trim() ? parsed[i] : orig
       );
-      return out;
     }
-
-    // Format 2: { translations: ["t1", "t2", ...] }
     if (Array.isArray(parsed?.translations)) {
-      const out = texts.map((orig, i) =>
+      return texts.map((orig, i) =>
         typeof parsed.translations[i] === "string" && parsed.translations[i].trim()
-          ? parsed.translations[i]
-          : orig
+          ? parsed.translations[i] : orig
       );
-      return out;
     }
-
-    // Format 3: { "0": "t1", "1": "t2", ... }
     if (typeof parsed === "object" && parsed !== null) {
       return texts.map((orig, i) => {
         const v = parsed[i] ?? parsed[String(i)];
         return typeof v === "string" && v.trim() ? v : orig;
       });
     }
-  } catch {
-    console.error("Failed to parse OpenRouter response:", rawText.substring(0, 300));
+  } catch { /* fall through to regex fallback */ }
+
+  // Regex fallback: extract lines like "0. text", "0: text", or "0) text"
+  console.warn("JSON parse failed, trying regex fallback on:", clean.substring(0, 300));
+  const lines = clean.split("\n");
+  const extracted: Record<number, string> = {};
+  for (const line of lines) {
+    const match = line.match(/^(\d+)[.:)]\s*(.+)/);
+    if (match) {
+      const idx = parseInt(match[1], 10);
+      if (idx >= 0 && idx < texts.length) extracted[idx] = match[2].trim();
+    }
   }
+  if (Object.keys(extracted).length > 0) {
+    return texts.map((orig, i) => extracted[i] ?? orig);
+  }
+
+  console.error("All parsers failed. Raw:", rawText.substring(0, 300));
+  return texts;
+}
 
   return texts; // fallback to originals on parse failure
 }
