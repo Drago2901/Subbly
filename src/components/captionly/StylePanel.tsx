@@ -1219,7 +1219,7 @@ export function StylePanel({
             placeholder="Search animations..."
             value={animSearchQuery}
             onChange={(e) => setAnimSearchQuery(e.target.value)}
-            className="w-full rounded-lg border border-[#E8E8E8] dark:border-[#2C313C] bg-white dark:bg-[#181B22] pl-8.5 pr-4 py-2 text-xs text-[#111827] dark:text-white placeholder-[#999] focus:border-[#FF6B2C] focus:outline-none transition-colors"
+            className="w-full rounded-lg border border-[#E8E8E8] dark:border-[#2C313C] bg-white dark:bg-[#181B22] pl-10 pr-4 py-2 text-xs text-[#111827] dark:text-white placeholder-[#999] focus:border-[#FF6B2C] focus:outline-none transition-colors"
           />
           <div className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-neutral-500 text-[11px]">
             🔍
