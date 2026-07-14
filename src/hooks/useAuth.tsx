@@ -263,7 +263,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         // Force mock roles to default to customer except superadmin and admin
         const isSuper = mock.email === "superadmin@gmail.com" || mock.role === "super_admin";
         const isAdminRole = mock.role === "admin";
-        const activeRole = isSuper ? "super_admin" : (isAdminRole ? "admin" : "customer");
+        const activeRole: string = isSuper ? "super_admin" : (isAdminRole ? "admin" : "customer");
 
         setUserRole(activeRole);
         setIsAdmin(activeRole !== "customer" && activeRole !== "guest");
@@ -322,7 +322,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           // Force override roles to default to customer except admin/superadmin
           const isSuper = currentUser.email === "superadmin@gmail.com" || customRole === "super_admin";
           const isAdminRole = customRole === "admin";
-          const activeRole = isSuper ? "super_admin" : (isAdminRole ? "admin" : "customer");
+          const activeRole: string = isSuper ? "super_admin" : (isAdminRole ? "admin" : "customer");
           setUserRole(activeRole);
           setIsAdmin(activeRole !== "customer" && activeRole !== "guest");
           return;
