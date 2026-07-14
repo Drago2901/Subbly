@@ -462,7 +462,7 @@ const Editor = () => {
         activeEl &&
         (activeEl.tagName === "INPUT" ||
           activeEl.tagName === "TEXTAREA" ||
-          activeEl.isContentEditable)
+          (activeEl as HTMLElement).isContentEditable)
       ) {
         return;
       }
@@ -791,7 +791,10 @@ const Editor = () => {
       if (file.name.endsWith(".webm")) {
         setTranscribeStage("Webm transcoding…");
         toast.loading("Converting webm containers to mp4 segments…", { id: stageToast });
-        targetFile = await transcodeWebmToMp4(file);
+        const mp4Blob = await transcodeWebmToMp4({ webmBlob: file });
+        targetFile = new File([mp4Blob], file.name.replace(/\.[^/.]+$/, "") + ".mp4", {
+          type: "video/mp4",
+        });
       }
 
       setTranscribeStage("Processing voice…");
@@ -907,25 +910,26 @@ const Editor = () => {
     const outputQuality = quality;
 
     try {
-      const webmBlob = await burnCaptions(
-        file,
+      const webmBlob = await burnCaptions({
+        videoFile: file,
         captions,
         style,
-        (progress) => {
-          setExportProgress(progress);
+        onProgress: (info) => {
+          setExportProgress(info.progress);
         },
-        exportAbortRef.current.signal,
-        frame,
-        outputQuality
-      );
+        signal: exportAbortRef.current.signal,
+        output: frame || undefined,
+        quality: outputQuality,
+      });
 
       setExportStage("transcode");
       setExportProgress(0);
 
-      const mp4Blob = await transcodeWebmToMp4(
-        new File([webmBlob], "rendered.webm", { type: "video/webm" }),
-        (progress) => setExportProgress(progress)
-      );
+      const mp4Blob = await transcodeWebmToMp4({
+        webmBlob: new File([webmBlob], "rendered.webm", { type: "video/webm" }),
+        onProgress: (progress) => setExportProgress(progress),
+        signal: exportAbortRef.current.signal,
+      });
 
       const blobUrl = URL.createObjectURL(mp4Blob);
       const link = document.createElement("a");
@@ -941,7 +945,7 @@ const Editor = () => {
         const randPath = `${user.id}/${projectId}_export.mp4`;
         const { error: uploadErr } = await supabase.storage
           .from("exports")
-          .upload(randPath, mp4Blob, { overwrite: true });
+          .upload(randPath, mp4Blob, { upsert: true });
 
         if (!uploadErr) {
           await supabase
@@ -956,7 +960,8 @@ const Editor = () => {
         toast.info("Export cancelled by user");
       } else {
         console.error("Video export pipeline error:", err);
-        toast.error(`Export failed: ${(err as Error).message}`);
+        const errMsg = err instanceof Error ? err.message : (err && typeof err === "object" && "message" in err) ? String((err as any).message) : String(err);
+        toast.error(`Export failed: ${errMsg}`);
       }
     } finally {
       setExporting(false);

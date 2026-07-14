@@ -91,13 +91,28 @@ export async function burnCaptions(opts: {
     video.muted = false;
     video.volume = 1;
     video.crossOrigin = "anonymous";
+
+    // Hide video offscreen but keep it active so the browser doesn't throttle decoding/playback
+    video.style.position = "absolute";
+    video.style.width = "1px";
+    video.style.height = "1px";
+    video.style.opacity = "0.001";
+    video.style.pointerEvents = "none";
+    video.style.top = "0";
+    video.style.left = "0";
+    document.body.appendChild(video);
+
     video.load();
 
     await waitForVideoReady(video, 1, "loadedmetadata");
     await waitForVideoReady(video, 3, "canplay");
 
     if ("fonts" in document) {
-      await (document as Document & { fonts: FontFaceSet }).fonts.ready;
+      try {
+        await (document as Document & { fonts: FontFaceSet }).fonts.ready;
+      } catch (fontErr) {
+        onLog?.(`Font loading issue ignored during export: ${fontErr instanceof Error ? fontErr.message : String(fontErr)}`);
+      }
     }
 
     const srcW = video.videoWidth || 1280;
@@ -252,6 +267,9 @@ export async function burnCaptions(opts: {
     return await result;
   } finally {
     cancelAnimationFrame(animationFrame);
+    if (video.parentNode) {
+      video.parentNode.removeChild(video);
+    }
     recorder?.stream.getTracks().forEach((track) => track.stop());
     outputStream?.getTracks().forEach((track) => track.stop());
     audioSource?.disconnect();

@@ -4,9 +4,6 @@ import { fetchFile, toBlobURL } from "@ffmpeg/util";
 let ffmpegInstance: FFmpeg | null = null;
 let loadPromise: Promise<FFmpeg> | null = null;
 
-// Single-threaded build (no SharedArrayBuffer / COOP+COEP requirement).
-const CORE_BASE = "https://unpkg.com/@ffmpeg/core@0.12.10/dist/umd";
-
 async function getFFmpeg(onLog?: (msg: string) => void): Promise<FFmpeg> {
   if (ffmpegInstance) return ffmpegInstance;
   if (loadPromise) return loadPromise;
@@ -16,10 +13,36 @@ async function getFFmpeg(onLog?: (msg: string) => void): Promise<FFmpeg> {
     if (onLog) {
       ffmpeg.on("log", ({ message }) => onLog(message));
     }
-    await ffmpeg.load({
-      coreURL: await toBlobURL(`${CORE_BASE}/ffmpeg-core.js`, "text/javascript"),
-      wasmURL: await toBlobURL(`${CORE_BASE}/ffmpeg-core.wasm`, "application/wasm"),
-    });
+
+    const localBase = typeof window !== "undefined" ? window.location.origin : "";
+    const urls = [
+      localBase,
+      "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.10/dist/esm",
+      "https://unpkg.com/@ffmpeg/core@0.12.10/dist/esm",
+      "https://cdn.jsdelivr.net/npm/@ffmpeg/core@0.12.6/dist/esm",
+    ].filter(Boolean);
+
+    let loaded = false;
+    let lastError: any = null;
+
+    for (const baseUrl of urls) {
+      try {
+        await ffmpeg.load({
+          coreURL: await toBlobURL(`${baseUrl}/ffmpeg-core.js`, "text/javascript"),
+          wasmURL: await toBlobURL(`${baseUrl}/ffmpeg-core.wasm`, "application/wasm"),
+        });
+        loaded = true;
+        break;
+      } catch (err) {
+        console.warn(`Failed to load FFmpeg core from ${baseUrl}:`, err);
+        lastError = err;
+      }
+    }
+
+    if (!loaded) {
+      throw lastError || new Error("Failed to load FFmpeg core from all locations.");
+    }
+
     ffmpegInstance = ffmpeg;
     return ffmpeg;
   })();

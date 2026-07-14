@@ -193,6 +193,9 @@ export default function Index() {
   const [period, setPeriod] = useState<"monthly" | "yearly">("monthly");
   const [openFaq, setOpenFaq] = useState<number | null>(0);
   const [showcaseTab, setShowcaseTab] = useState<"transcribe" | "styles" | "edit" | "translate" | "export">("transcribe");
+  const [activeStyle, setActiveStyle] = useState<"amber" | "tiktok" | "neon" | "srt">("amber");
+  const [sampleText, setSampleText] = useState("AMBER GLOW");
+  const [editingText, setEditingText] = useState(false);
 
   // Creator Logos
   const platforms = [
@@ -560,31 +563,106 @@ export default function Index() {
               </div>
             )}
 
-            {showcaseTab === "styles" && (
-              <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center animate-fade-in">
-                <div className="md:col-span-5">
-                  <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-3">Viral caption styles at your disposal</h3>
-                  <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed mb-4">
-                    Change colors, font weight, border outlines, and backgrounds in one click. Support for Google Fonts and custom file uploads.
-                  </p>
-                  <ul className="flex flex-col gap-2.5 text-xs text-zinc-700 dark:text-zinc-300">
-                    <li className="flex items-center gap-2"><Check className="h-4 w-4 text-[#ff5c3a]" /> Custom font file uploads (.ttf/.otf)</li>
-                    <li className="flex items-center gap-2"><Check className="h-4 w-4 text-[#ff5c3a]" /> Bouncy animation presets</li>
-                    <li className="flex items-center gap-2"><Check className="h-4 w-4 text-[#ff5c3a]" /> Subtitle block backgrounds</li>
-                  </ul>
-                </div>
-                <div className="md:col-span-7 bg-zinc-50/80 dark:bg-zinc-900/50 rounded-xl border border-zinc-200 dark:border-zinc-850 p-5 flex flex-col gap-4">
-                  <div className="text-center font-extrabold uppercase tracking-wide text-2xl text-amber-400 drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] border border-dashed border-zinc-200 dark:border-zinc-700/60 p-6 rounded-lg bg-white dark:bg-zinc-950">
-                    AMBER GLOW
+            {showcaseTab === "styles" && (() => {
+              const STYLES = {
+                amber: {
+                  label: "Amber Glow",
+                  className: "text-amber-400",
+                  style: { textShadow: "0 2px 4px rgba(0,0,0,0.8)" },
+                },
+                tiktok: {
+                  label: "TikTok Style",
+                  className: "text-white",
+                  style: {
+                    textShadow:
+                      "-2px -2px 0 #FE2C55, 2px -2px 0 #25F4EE, -2px 2px 0 #FE2C55, 2px 2px 0 #25F4EE, 0 0 6px rgba(0,0,0,0.4)",
+                  },
+                },
+                neon: {
+                  label: "Neon Glow",
+                  className: "text-[#ff5c3a]",
+                  style: {
+                    textShadow:
+                      "0 0 4px #ff5c3a, 0 0 11px #ff5c3a, 0 0 19px #ff5c3a, 0 0 40px #ff3a1a, 0 0 80px #ff3a1a",
+                  },
+                },
+                srt: {
+                  label: "Classic SRT",
+                  className: "text-white bg-black/75 border border-white/15 rounded-md px-4 py-1",
+                  style: { textShadow: "1px 1px 2px rgba(0,0,0,0.8)" },
+                },
+              } as const;
+
+              const active = STYLES[activeStyle];
+
+              const handleStyleClick = (key: keyof typeof STYLES) => {
+                setActiveStyle(key);
+                if (!editingText) setSampleText(STYLES[key].label.toUpperCase());
+              };
+
+              return (
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center animate-fade-in">
+                  <div className="md:col-span-5">
+                    <h3 className="text-xl font-bold text-zinc-900 dark:text-white mb-3">Viral caption styles at your disposal</h3>
+                    <p className="text-xs text-zinc-500 dark:text-zinc-400 leading-relaxed mb-4">
+                      Change colors, font weight, border outlines, and backgrounds in one click. Support for Google Fonts and custom file uploads.
+                    </p>
+                    <ul className="flex flex-col gap-2.5 text-xs text-zinc-700 dark:text-zinc-300">
+                      <li className="flex items-center gap-2"><Check className="h-4 w-4 text-[#ff5c3a]" /> Custom font file uploads (.ttf/.otf)</li>
+                      <li className="flex items-center gap-2"><Check className="h-4 w-4 text-[#ff5c3a]" /> Bouncy animation presets</li>
+                      <li className="flex items-center gap-2"><Check className="h-4 w-4 text-[#ff5c3a]" /> Subtitle block backgrounds</li>
+                    </ul>
                   </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="rounded border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-2 text-center text-[10px] font-bold text-zinc-700 dark:text-white">TikTok Style</div>
-                    <div className="rounded border border-orange-500/20 bg-orange-95/20 dark:bg-orange-95/20 p-2 text-center text-[10px] font-bold text-[#ff5c3a]">Neon Glow</div>
-                    <div className="rounded border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 p-2 text-center text-[10px] font-bold text-zinc-700 dark:text-white">Classic SRT</div>
+                  <div className="md:col-span-7 bg-zinc-50/80 dark:bg-zinc-900/50 rounded-xl border border-zinc-200 dark:border-zinc-850 p-5 flex flex-col gap-4">
+                    <div
+                      className="relative text-center border border-dashed border-zinc-200 dark:border-zinc-700/60 p-6 rounded-lg bg-white dark:bg-zinc-950 cursor-text min-h-[96px] flex items-center justify-center"
+                      onClick={() => setEditingText(true)}
+                    >
+                      {editingText ? (
+                        <input
+                          autoFocus
+                          value={sampleText}
+                          onChange={(e) => setSampleText(e.target.value.toUpperCase())}
+                          onBlur={() => setEditingText(false)}
+                          onKeyDown={(e) => e.key === "Enter" && setEditingText(false)}
+                          className={`w-full bg-transparent outline-none text-center font-extrabold uppercase tracking-wide text-2xl ${active.className}`}
+                          style={active.style}
+                        />
+                      ) : (
+                        <span
+                          className={`inline-block font-extrabold uppercase tracking-wide text-2xl ${active.className}`}
+                          style={active.style}
+                        >
+                          {sampleText}
+                        </span>
+                      )}
+                      <span className="absolute bottom-1.5 right-3 text-[9px] text-zinc-450 dark:text-zinc-600 tracking-wide font-semibold pointer-events-none">
+                        click text to edit
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {(["amber", "tiktok", "neon", "srt"] as const).map((key) => {
+                        const isActive = activeStyle === key;
+                        return (
+                          <button
+                            key={key}
+                            onClick={() => handleStyleClick(key)}
+                            className={`rounded border p-2 text-center text-[10px] font-bold transition-colors ${
+                              isActive
+                                ? "border-[#ff5c3a] bg-orange-500/10 text-[#ff5c3a]"
+                                : "border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-950 text-zinc-700 dark:text-white"
+                            }`}
+                          >
+                            {STYLES[key].label}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             {showcaseTab === "edit" && (
               <div className="grid grid-cols-1 md:grid-cols-12 gap-8 items-center animate-fade-in">

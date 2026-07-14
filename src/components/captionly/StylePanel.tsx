@@ -102,6 +102,10 @@ const TEMPLATES = [
 
   { id: "apex", name: "Apex", category: "One word", badge: "POPULAR", text: "", highlight: "APEX", treatment: "oneword", accent: "#ff5a3c" },
   { id: "focus", name: "Focus", category: "One word", badge: null, text: "", highlight: "FOCUS", treatment: "oneword", accent: "#4ade80" },
+  { id: "amber_glow", name: "Amber Glow", category: "Cinematic", badge: "NEW", text: "words are", highlight: "glowing", treatment: "amber_glow", accent: "#fbbf24" },
+  { id: "tiktok_style", name: "TikTok Style", category: "Phrase", badge: "POPULAR", text: "post with", highlight: "impact", treatment: "tiktok_style", accent: "#FFFFFF" },
+  { id: "neon_glow", name: "Neon Glow", category: "Cinematic", badge: "NEW", text: "bright and", highlight: "electric", treatment: "neon_glow", accent: "#ff5c3a" },
+  { id: "classic_srt", name: "Classic SRT", category: "Editorial", badge: null, text: "standard readable", highlight: "subtitles", treatment: "classic_srt", accent: "#FFFFFF" },
 ];
 
 const CATEGORY_ORDER = ["Cinematic", "Phrase", "Karaoke", "Build", "Boxed", "Editorial", "Aesthetic", "One word"];
@@ -177,6 +181,64 @@ const mapTemplateToStyle = (t: typeof TEMPLATES[number]): Partial<CaptionStyle> 
   };
 
   switch (t.treatment) {
+    case "amber_glow":
+      return {
+        ...base,
+        fontFamily: "Montserrat",
+        fontSize: 54,
+        color: "#fbbf24",
+        strokeWidth: 3,
+        strokeColor: "#000050",
+        bgOpacity: 0,
+        fontWeight: 850,
+        karaoke: true,
+        animation: "pop" as const,
+      };
+
+    case "tiktok_style":
+      return {
+        ...base,
+        fontFamily: "Montserrat",
+        fontSize: 56,
+        color: "#FFFFFF",
+        strokeWidth: 4,
+        strokeColor: "#000000",
+        bgOpacity: 0,
+        fontWeight: 900,
+        bold: true,
+        uppercase: true,
+        karaoke: true,
+        animation: "pop" as const,
+      };
+
+    case "neon_glow":
+      return {
+        ...base,
+        fontFamily: "Montserrat",
+        fontSize: 54,
+        color: "#ff5c3a",
+        strokeWidth: 2,
+        strokeColor: "#ff3a1a",
+        bgOpacity: 0,
+        fontWeight: 850,
+        karaoke: true,
+        animation: "pop" as const,
+      };
+
+    case "classic_srt":
+      return {
+        ...base,
+        fontFamily: "Inter",
+        fontSize: 40,
+        color: "#FFFFFF",
+        bgColor: "#000000",
+        bgOpacity: 0.75,
+        strokeWidth: 0,
+        fontWeight: 500,
+        karaoke: false,
+        animation: "none" as const,
+      };
+
     case "oneword":
       return {
         ...base,
