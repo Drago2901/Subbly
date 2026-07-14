@@ -697,26 +697,29 @@ const Editor = () => {
   const transcribe = async () => {
     if (!file) return;
     setTranscribing(true);
-    setTranscribeStage("Extracting audio…");
-    const stageToast = toast.loading("Auto-transcription: Extracting audio tracks…");
+    setTranscribeStage("Preparing…");
+    const stageToast = toast.loading("Auto-transcription: Preparing audio…");
 
     try {
-      let targetFile = file;
-      if (file.name.endsWith(".webm")) {
-        setTranscribeStage("Webm transcoding…");
-        toast.loading("Converting webm containers to mp4 segments…", { id: stageToast });
-        targetFile = await transcodeWebmToMp4(file);
+      const form = new FormData();
+
+      // For files <= 25 MB send directly — ElevenLabs Scribe v2 accepts mp4, webm, mov, etc.
+      // For larger files extract a compact 16 kHz mono WAV to reduce upload size.
+      const SIZE_THRESHOLD = 25 * 1024 * 1024; // 25 MB
+      if (file.size <= SIZE_THRESHOLD) {
+        // Fast path: no preprocessing at all
+        form.append("file", file, file.name);
+      } else {
+        setTranscribeStage("Extracting audio…");
+        toast.loading("Extracting audio from large file…", { id: stageToast });
+        const audioBlob = await extractAudioNative(file);
+        form.append("file", audioBlob, "audio.wav");
       }
 
-      setTranscribeStage("Processing voice…");
-      toast.loading("Extracting speech tracks from video metadata…", { id: stageToast });
-      const audioBlob = await extractAudioNative(targetFile);
+      if (language && language !== "auto") form.append("language", language);
 
       setTranscribeStage("Transcribing…");
       toast.loading("Speech engine running neural voice transcripts…", { id: stageToast });
-      const form = new FormData();
-      form.append("file", audioBlob, "audio.mp4");
-      if (language && language !== "auto") form.append("language", language);
 
       // Use direct fetch so the browser sets the correct multipart Content-Type
       // boundary automatically (supabase.functions.invoke overrides it and breaks FormData)
@@ -776,6 +779,7 @@ const Editor = () => {
       toast.dismiss(stageToast);
     }
   };
+
 
   const handleLanguageChange = async (nextLang: string) => {
     setLanguage(nextLang);
