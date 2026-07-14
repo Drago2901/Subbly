@@ -31,56 +31,56 @@
 
 @layer base {
   :root {
-    /* Editor-first dark theme as default */
-    --background: 240 10% 4%;
-    --foreground: 0 0% 98%;
+    /* OLED Night Mode HSL variables */
+    --background: 0 0% 0%;             /* #000000 */
+    --foreground: 0 0% 100%;           /* #FFFFFF */
 
-    --surface: 240 8% 8%;
-    --surface-2: 240 7% 12%;
-    --surface-3: 240 6% 16%;
+    --surface: 0 0% 4%;                /* #0A0A0A */
+    --surface-2: 0 0% 7%;              /* #121212 */
+    --surface-3: 0 0% 9%;              /* #181818 */
 
-    --card: 240 8% 8%;
-    --card-foreground: 0 0% 98%;
+    --card: 0 0% 4%;                   /* #0A0A0A */
+    --card-foreground: 0 0% 100%;      /* #FFFFFF */
 
-    --popover: 240 8% 10%;
-    --popover-foreground: 0 0% 98%;
+    --popover: 0 0% 4%;                /* #0A0A0A */
+    --popover-foreground: 0 0% 100%;   /* #FFFFFF */
 
-    --primary: 152 84% 52%;
-    --primary-foreground: 240 10% 4%;
-    --primary-glow: 152 100% 65%;
+    --primary: 25 100% 50%;            /* #FF6B00 */
+    --primary-foreground: 0 0% 100%;   /* #FFFFFF */
+    --primary-glow: 25 100% 60%;       /* #FF8A33 */
 
-    --secondary: 240 6% 16%;
-    --secondary-foreground: 0 0% 98%;
+    --secondary: 0 0% 7%;              /* #121212 */
+    --secondary-foreground: 0 0% 100%; /* #FFFFFF */
 
-    --muted: 240 6% 14%;
-    --muted-foreground: 240 5% 64%;
+    --muted: 0 0% 7%;                  /* #121212 */
+    --muted-foreground: 240 5% 65%;    /* #A1A1AA */
 
-    --accent: 280 90% 65%;
-    --accent-foreground: 0 0% 98%;
+    --accent: 25 100% 50%;             /* #FF6B00 */
+    --accent-foreground: 0 0% 100%;    /* #FFFFFF */
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 98%;
+    --destructive: 0 84% 60%;          /* #EF4444 */
+    --destructive-foreground: 0 0% 100%;
 
-    --border: 240 6% 18%;
-    --input: 240 6% 16%;
-    --ring: 152 84% 52%;
+    --border: 0 0% 12%;                /* #1F1F1F */
+    --input: 0 0% 7%;                  /* #121212 */
+    --ring: 25 100% 50%;               /* #FF6B00 */
 
     --radius: 0.75rem;
 
-    --gradient-primary: linear-gradient(135deg, hsl(152 84% 52%), hsl(190 95% 55%));
-    --gradient-accent: linear-gradient(135deg, hsl(280 90% 65%), hsl(330 90% 60%));
-    --gradient-surface: linear-gradient(180deg, hsl(240 8% 10%), hsl(240 10% 5%));
-    --shadow-glow: 0 0 40px -8px hsl(152 84% 52% / 0.5);
-    --shadow-elegant: 0 20px 60px -20px hsl(0 0% 0% / 0.6);
+    --gradient-primary: linear-gradient(135deg, hsl(25 100% 50%), hsl(35 100% 60%));
+    --gradient-accent: linear-gradient(135deg, hsl(25 100% 50%), hsl(15 100% 45%));
+    --gradient-surface: linear-gradient(180deg, hsl(0 0% 4%), hsl(0 0% 0%));
+    --shadow-glow: 0 0 40px -8px hsl(25 100% 50% / 0.35);
+    --shadow-elegant: 0 20px 60px -20px hsl(0 0% 0% / 0.8);
 
-    --sidebar-background: 240 8% 6%;
-    --sidebar-foreground: 0 0% 90%;
-    --sidebar-primary: 152 84% 52%;
-    --sidebar-primary-foreground: 240 10% 4%;
-    --sidebar-accent: 240 6% 14%;
-    --sidebar-accent-foreground: 0 0% 98%;
-    --sidebar-border: 240 6% 16%;
-    --sidebar-ring: 152 84% 52%;
+    --sidebar-background: 0 0% 0%;     /* #000000 */
+    --sidebar-foreground: 240 5% 65%;  /* #A1A1AA */
+    --sidebar-primary: 25 100% 50%;    /* #FF6B00 */
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 0 0% 7%;         /* #121212 */
+    --sidebar-accent-foreground: 0 0% 100%;
+    --sidebar-border: 0 0% 12%;        /* #1F1F1F */
+    --sidebar-ring: 25 100% 50%;       /* #FF6B00 */
   }
 }
 
@@ -155,33 +155,54 @@
 @keyframes capGlitch { 0%,88%,100%{opacity:1;transform:none;clip-path:none} 20%,80%{opacity:1} 90%{transform:translateX(-3px);clip-path:inset(20% 0 30% 0)} 94%{transform:translateX(3px);clip-path:inset(55% 0 10% 0)} 97%{transform:none;clip-path:none} 0%{opacity:0} }
 @keyframes capType { 0%,100%{width:0} 45%,85%{width:100%} }
 @keyframes capCaret { 0%,100%{border-color:transparent} 50%{border-color:currentColor} }
-
-
 /* ===== Dark mode override for Subbly light-themed pages =====
    The landing/projects/editor light UI uses hard-coded hex colors.
    Under .dark we remap them via attribute selectors so a single
    class toggle on <html> flips the whole site to dark. */
-.dark .bg-white { background-color: #15130f !important; }
-.dark .bg-\[\#f5f3ee\] { background-color: #0f0e0c !important; }
-.dark .bg-\[\#faf9f7\] { background-color: #1a1714 !important; }
-.dark .bg-\[\#fff5f3\] { background-color: #2a1612 !important; }
-.dark .bg-\[\#1a1a1a\] { background-color: #050505 !important; }
-.dark .bg-white\/95 { background-color: rgba(21,19,15,0.92) !important; }
+.dark .bg-white { background-color: #000000 !important; }
+.dark .bg-\[\#f5f3ee\] { background-color: #0a0a0a !important; }
+.dark .bg-\[\#faf9f7\] { background-color: #0a0a0a !important; }
+.dark .bg-\[\#fff5f3\] { background-color: #121212 !important; }
+.dark .bg-\[\#1a1a1a\] { background-color: #121212 !important; }
+.dark .bg-white\/95 { background-color: rgba(0, 0, 0, 0.95) !important; }
+.dark .bg-white\/80 { background-color: rgba(0, 0, 0, 0.8) !important; }
 
-.dark .text-\[\#1a1a1a\] { color: #f5f3ee !important; }
-.dark .text-\[\#333\] { color: #e8e4de !important; }
-.dark .text-\[\#666\] { color: #a8a39c !important; }
-.dark .text-\[\#999\] { color: #908a82 !important; }
-.dark .text-\[\#b0aba4\] { color: #7a766f !important; }
-.dark .text-\[\#ccc\] { color: #4a4640 !important; }
+/* Text colors */
+.dark .text-\[\#1a1a1a\] { color: #ffffff !important; }
+.dark .text-\[\#333\] { color: #ffffff !important; }
+.dark .text-\[\#666\] { color: #a1a1aa !important; }
+.dark .text-\[\#999\] { color: #71717a !important; }
+.dark .text-\[\#b0aba4\] { color: #71717a !important; }
+.dark .text-\[\#ccc\] { color: #525252 !important; }
 
-.dark .border-\[\#e8e4de\] { border-color: #2a2622 !important; }
-.dark .border-\[\#ffd5cc\] { border-color: #5a2820 !important; }
-.dark .border-\[\#b0aba4\] { border-color: #5a554f !important; }
-.dark .bg-\[\#e8e4de\] { background-color: #2a2622 !important; }
+/* Border colors */
+.dark .border-\[\#e8e4de\] { border-color: #1f1f1f !important; }
+.dark .border-\[\#ffd5cc\] { border-color: #1f1f1f !important; }
+.dark .border-\[\#b0aba4\] { border-color: #2a2a2a !important; }
+.dark .bg-\[\#e8e4de\] { background-color: #1f1f1f !important; }
 
-.dark .from-\[\#ff5c3a\].to-\[\#ffd5cc\] { --tw-gradient-to: #5a2820 !important; }
+/* Gradient backgrounds */
+.dark .from-\[\#ff5c3a\].to-\[\#ffd5cc\] { --tw-gradient-to: #121212 !important; }
 
+/* OLED Overrides for Tailwind classes */
+.dark .bg-\[\#181B22\] { background-color: #0a0a0a !important; }
+.dark .bg-\[\#181B22\]\/80 { background-color: rgba(10, 10, 10, 0.8) !important; }
+.dark .bg-\[\#1F232D\] { background-color: #0a0a0a !important; }
+.dark .bg-\[\#1F232D\]\/90 { background-color: rgba(10, 10, 10, 0.9) !important; }
+.dark .bg-\[\#181B22\]\/90 { background-color: rgba(10, 10, 10, 0.9) !important; }
+.dark .bg-\[\#1F232D\]\/5 { background-color: rgba(255, 107, 0, 0.05) !important; }
+.dark .bg-\[\#FF6B2C\]\/5 { background-color: rgba(255, 107, 0, 0.05) !important; }
+.dark .bg-\[\#FF6B2C\]\/10 { background-color: rgba(255, 107, 0, 0.1) !important; }
+.dark .bg-\[\#FF6B2C\]\/15 { background-color: rgba(255, 107, 0, 0.15) !important; }
+.dark .bg-\[\#FF6B2C\] { background-color: #ff6b00 !important; }
+.dark .hover\:bg-\[\#FF874D\]:hover { background-color: #ff8a33 !important; }
+.dark .border-\[\#2C313C\] { border-color: #1f1f1f !important; }
+.dark .border-\[\#2C313C\]\/60 { border-color: rgba(31, 31, 31, 0.6) !important; }
+.dark .border-\[\#FF6B2C\] { border-color: #ff6b00 !important; }
+.dark .border-\[\#FF6B2C\]\/40 { border-color: rgba(255, 107, 0, 0.4) !important; }
+.dark .text-\[\#A1A8B5\] { color: #a1a1aa !important; }
+.dark .text-\[\#FF6B2C\] { color: #ff6b00 !important; }
+.dark .hover\:text-\[\#FF6B2C\]:hover { color: #ff6b00 !important; }
 /* ===== Blinking Cursor Animation for Typewriter ===== */
 .animate-cursor-blink {
   animation: cursorBlinkSmooth 1s ease-in-out infinite;
@@ -257,17 +278,15 @@
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
-
 .bg-premium-gradient {
-  background: radial-gradient(circle at top, rgba(255, 92, 58, 0.12) 0%, rgba(12, 11, 8, 0) 70%), #0c0b08;
+  background: radial-gradient(circle at top, rgba(255, 92, 58, 0.12) 0%, rgba(0, 0, 0, 0) 70%), #000000;
 }
 
 .bg-premium-glass-dark {
-  background: rgba(26, 24, 20, 0.6);
+  background: rgba(10, 10, 10, 0.6);
   backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.04);
+  border: 1px solid #1f1f1f;
 }
-
 .bg-premium-glass-light {
   background: rgba(255, 255, 255, 0.7);
   backdrop-filter: blur(16px);
