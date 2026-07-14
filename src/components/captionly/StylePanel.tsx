@@ -125,7 +125,58 @@ export interface AnimPreset {
 }
 
 const ANIM_STYLES: AnimPreset[] = [
-  // ✨ Social Media
+  // ✨ Core & Social Media
+  {
+    id: "none",
+    title: "None",
+    description: "Static text, no animation",
+    category: "Cinematic",
+    iconText: "Aa",
+    filterTags: ["popular"],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "none" as const, karaoke: false }),
+    isActive: (style: CaptionStyle) => style.animation === "none" && !style.karaoke,
+  },
+  {
+    id: "karaoke",
+    title: "Karaoke",
+    description: "Highlight words as they are spoken",
+    category: "Social Media",
+    iconText: "Aa",
+    badge: "POPULAR",
+    filterTags: ["popular", "trending"],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "pop" as const, karaoke: true }),
+    isActive: (style: CaptionStyle) => style.karaoke === true,
+  },
+  {
+    id: "pop",
+    title: "Pop",
+    description: "Words pop in with scale effect",
+    category: "Social Media",
+    iconText: "Aa!",
+    filterTags: ["popular"],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "pop" as const, karaoke: false }),
+    isActive: (style: CaptionStyle) => style.animation === "pop" && !style.karaoke,
+  },
+  {
+    id: "typewriter",
+    title: "Typewriter",
+    description: "Characters appear one at a time",
+    category: "Handwritten",
+    iconText: "Aa|",
+    filterTags: ["popular"],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "typewriter" as const, karaoke: false }),
+    isActive: (style: CaptionStyle) => style.animation === "typewriter" && !style.karaoke,
+  },
+  {
+    id: "fade",
+    title: "Fade",
+    description: "Smooth fade in and out",
+    category: "Cinematic",
+    iconText: "Aa~",
+    filterTags: ["popular"],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "fade" as const, karaoke: false }),
+    isActive: (style: CaptionStyle) => style.animation === "fade" && !style.karaoke,
+  },
   {
     id: "tiktok",
     title: "TikTok",
