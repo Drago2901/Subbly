@@ -12,6 +12,8 @@ import { useAuth } from "@/hooks/useAuth";
 import { Seo } from "@/components/Seo";
 import { NavBar } from "@/components/NavBar";
 import { HeroAnimation } from "@/components/HeroAnimation";
+import { FloatingCaptionBackground } from "@/components/FloatingCaptionBackground";
+
 import {
   Dialog,
   DialogContent,
@@ -215,6 +217,9 @@ export default function Index() {
 
       {/* Hero Section */}
       <section className="relative px-6 pt-20 pb-16 md:px-12 md:pt-28 md:pb-24 overflow-hidden">
+        {/* Ambient Caption background animation */}
+        <FloatingCaptionBackground />
+
         {/* Glow Spheres */}
         <div className="pointer-events-none absolute -top-40 left-1/2 -translate-x-1/2 h-[450px] w-[800px] rounded-full bg-gradient-to-b from-[#ff5c3a]/5 dark:from-[#ff5c3a]/12 to-transparent blur-[120px] z-0" />
         
