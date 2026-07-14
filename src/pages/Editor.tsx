@@ -713,7 +713,7 @@ const Editor = () => {
       const audioBlob = await extractAudioNative(targetFile);
 
       setTranscribeStage("Transcribing…");
-      toast.loading("Speech engine running neural voice transcripts…", { id: stageToast });
+      toast.loading("☕ Grab a coffee while we do the magic...", { id: stageToast });
       const form = new FormData();
       form.append("file", audioBlob, "audio.mp4");
       if (language && language !== "auto") form.append("language", language);
