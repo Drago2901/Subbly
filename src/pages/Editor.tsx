@@ -670,43 +670,29 @@ const Editor = () => {
     setVideoUrl(localUrl);
 
     if (user && !projectId) {
-      const stageToast = toast.loading("Syncing new project directory with cloud storage…");
+      // Create project record in DB silently — no storage upload needed
+      // (video plays locally from the File object)
       try {
-        const fileExt = f.name.split(".").pop();
-        const randPath = `${user.id}/${crypto.randomUUID()}.${fileExt}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from("videos")
-          .upload(randPath, f);
-
-        if (uploadError) throw uploadError;
-
         const { data: projData, error: dbError } = await supabase
           .from("projects")
           .insert({
             user_id: user.id,
             title: f.name.replace(/\.[^/.]+$/, ""),
-            source_path: randPath,
-            source_mime: f.type,
-            source_name: f.name,
             style: DEFAULT_STYLE,
           })
           .select("id")
           .single();
 
-        if (dbError) throw dbError;
-        if (projData) {
+        if (!dbError && projData) {
           setSearchParams({ project: projData.id });
-          toast.success("Project workspace synced with cloud");
         }
       } catch (err: unknown) {
-        console.error("Cloud syncing failed:", err);
-        toast.error(`Cloud sync issue: ${(err as Error).message}`);
-      } finally {
-        toast.dismiss(stageToast);
+        // Silent — project works locally even if DB sync fails
+        console.warn("Project DB sync skipped:", err);
       }
     }
   };
+
 
   const transcribe = async () => {
     if (!file) return;
@@ -726,24 +712,34 @@ const Editor = () => {
       toast.loading("Extracting speech tracks from video metadata…", { id: stageToast });
       const audioBlob = await extractAudioNative(targetFile);
 
-      setTranscribeStage("Uploading audio…");
-      toast.loading("Uploading voice streams to speech networks…", { id: stageToast });
-      const form = new FormData();
-      form.append("file", audioBlob, "audio.mp4");
-
-      const { data: uploadData, error: uploadErr } = await supabase.storage
-        .from("audios")
-        .upload(`${crypto.randomUUID()}.mp4`, audioBlob);
-      if (uploadErr) throw uploadErr;
-
       setTranscribeStage("Transcribing…");
       toast.loading("Speech engine running neural voice transcripts…", { id: stageToast });
-      const transcriptionData = await invokeEdgeFunction("transcribe-audio", {
-        body: {
-          filePath: uploadData.path,
-          language: language === "auto" ? undefined : language,
+      const form = new FormData();
+      form.append("file", audioBlob, "audio.mp4");
+      if (language && language !== "auto") form.append("language", language);
+
+      // Use direct fetch so the browser sets the correct multipart Content-Type
+      // boundary automatically (supabase.functions.invoke overrides it and breaks FormData)
+      const { data: { session } } = await supabase.auth.getSession();
+      const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/transcribe-video`;
+      const fnRes = await fetch(fnUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session?.access_token ?? ""}`,
+          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
         },
+        body: form,
       });
+      if (!fnRes.ok) {
+        const errText = await fnRes.text();
+        let errMsg = "Transcription failed. Please try again.";
+        try {
+          const parsed = JSON.parse(errText);
+          errMsg = parsed.error || parsed.message || errMsg;
+        } catch { /* not json */ }
+        throw new Error(errMsg);
+      }
+      const transcriptionData = await fnRes.json();
 
       if (transcriptionData?.words && Array.isArray(transcriptionData.words)) {
         let alignedWords = transcriptionData.words as Word[];
