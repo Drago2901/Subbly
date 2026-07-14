@@ -111,51 +111,341 @@ const TEMPLATES = [
 
 const CATEGORY_ORDER = ["Cinematic", "Phrase", "Karaoke", "Build", "Boxed", "Editorial", "Aesthetic", "One word"];
 
-const ANIM_STYLES = [
+export interface AnimPreset {
+  id: string;
+  title: string;
+  description: string;
+  category: "Social Media" | "Cinematic" | "Handwritten" | "Creative Effects";
+  iconText: string;
+  badge?: "NEW" | "POPULAR" | "TRENDING" | "PRO";
+  isPro?: boolean;
+  filterTags: string[];
+  apply: (style: CaptionStyle) => CaptionStyle;
+  isActive: (style: CaptionStyle) => boolean;
+}
+
+const ANIM_STYLES: AnimPreset[] = [
+  // ✨ Social Media
   {
-    id: "none",
-    title: "None",
-    description: "Static text, no animation",
-    iconText: "Aa",
-    hasUnderline: false,
-    apply: (style: CaptionStyle) => ({ ...style, animation: "none" as const, karaoke: false }),
-    isActive: (style: CaptionStyle) => style.animation === "none" && !style.karaoke,
+    id: "tiktok",
+    title: "TikTok",
+    description: "Pop + bounce animation inspired by short-form videos",
+    category: "Social Media",
+    iconText: "📱",
+    badge: "POPULAR",
+    filterTags: ["popular", "trending"],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "pop" as const, karaoke: true, bold: true, uppercase: true }),
+    isActive: (style: CaptionStyle) => style.animation === "pop" && style.karaoke && style.bold && style.uppercase,
   },
   {
-    id: "karaoke",
-    title: "Karaoke",
-    description: "Highlight words as they are spoken",
-    iconText: "Aa",
-    hasUnderline: true,
-    apply: (style: CaptionStyle) => ({ ...style, animation: "pop" as const, karaoke: true }),
-    isActive: (style: CaptionStyle) => style.karaoke === true,
+    id: "instagram",
+    title: "Instagram",
+    description: "Clean fade with smooth motion",
+    category: "Social Media",
+    iconText: "📸",
+    badge: "TRENDING",
+    filterTags: ["trending"],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "fade" as const, karaoke: false, uppercase: false }),
+    isActive: (style: CaptionStyle) => style.animation === "fade" && !style.karaoke && !style.uppercase,
   },
   {
-    id: "pop",
-    title: "Pop",
-    description: "Words pop in with scale effect",
-    iconText: "Aa!",
-    hasUnderline: false,
-    apply: (style: CaptionStyle) => ({ ...style, animation: "pop" as const, karaoke: false }),
-    isActive: (style: CaptionStyle) => style.animation === "pop" && !style.karaoke,
+    id: "youtube_shorts",
+    title: "YouTube Shorts",
+    description: "Punch words with slight scale effect",
+    category: "Social Media",
+    iconText: "🎥",
+    badge: "POPULAR",
+    filterTags: ["popular"],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "pop" as const, karaoke: false, uppercase: true }),
+    isActive: (style: CaptionStyle) => style.animation === "pop" && !style.karaoke && style.uppercase,
   },
   {
-    id: "typewriter",
-    title: "Typewriter",
-    description: "Characters appear one at a time",
-    iconText: "Aa|",
-    hasUnderline: false,
-    apply: (style: CaptionStyle) => ({ ...style, animation: "typewriter" as const, karaoke: false }),
-    isActive: (style: CaptionStyle) => style.animation === "typewriter" && !style.karaoke,
+    id: "podcast",
+    title: "Podcast",
+    description: "Minimal captions with subtle fade",
+    category: "Social Media",
+    iconText: "🎙️",
+    filterTags: [],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "fade" as const, karaoke: true, fontSize: 32 }),
+    isActive: (style: CaptionStyle) => style.animation === "fade" && style.karaoke && style.fontSize === 32,
   },
   {
-    id: "fade",
-    title: "Fade",
-    description: "Smooth fade in and out",
-    iconText: "Aa~",
-    hasUnderline: false,
-    apply: (style: CaptionStyle) => ({ ...style, animation: "fade" as const, karaoke: false }),
-    isActive: (style: CaptionStyle) => style.animation === "fade" && !style.karaoke,
+    id: "documentary",
+    title: "Documentary",
+    description: "Elegant bottom fade subtitle style",
+    category: "Social Media",
+    iconText: "🎬",
+    filterTags: [],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "fade" as const, position: "bottom" as const, bgOpacity: 0.5 }),
+    isActive: (style: CaptionStyle) => style.animation === "fade" && style.position === "bottom" && style.bgOpacity === 0.5,
+  },
+  {
+    id: "meme",
+    title: "Meme",
+    description: "Random pop animation for comedic timing",
+    category: "Social Media",
+    iconText: "😂",
+    badge: "TRENDING",
+    filterTags: ["trending"],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "bounce" as const, bold: true, uppercase: true, highlightColor: "#ff5c3a" }),
+    isActive: (style: CaptionStyle) => style.animation === "bounce" && style.bold && style.uppercase,
+  },
+  {
+    id: "news",
+    title: "News",
+    description: "Professional ticker/news broadcast style",
+    category: "Social Media",
+    iconText: "📰",
+    isPro: true,
+    filterTags: ["pro"],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "slide-left" as const, alignment: "left" as const, bgOpacity: 0.8 }),
+    isActive: (style: CaptionStyle) => style.animation === "slide-left" && style.alignment === "left",
+  },
+  {
+    id: "gaming",
+    title: "Gaming",
+    description: "RGB glow and neon-inspired animation",
+    category: "Social Media",
+    iconText: "🎮",
+    badge: "NEW",
+    isPro: true,
+    filterTags: ["pro", "new"],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "glitch" as const, color: "#39ff14", strokeWidth: 2, strokeColor: "#ff007f" }),
+    isActive: (style: CaptionStyle) => style.animation === "glitch" && style.color === "#39ff14",
+  },
+
+  // 🎬 Cinematic
+  {
+    id: "cinematic_fade",
+    title: "Cinematic Fade",
+    description: "Movie subtitle style with smooth fade",
+    category: "Cinematic",
+    iconText: "🎞️",
+    badge: "POPULAR",
+    filterTags: ["popular"],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "fade" as const, fontFamily: "Playfair Display", fontSize: 40 }),
+    isActive: (style: CaptionStyle) => style.animation === "fade" && style.fontFamily === "Playfair Display",
+  },
+  {
+    id: "blur_reveal",
+    title: "Blur Reveal",
+    description: "Text sharpens into focus",
+    category: "Cinematic",
+    iconText: "🔍",
+    badge: "NEW",
+    filterTags: ["new"],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "fade" as const, typewriterSpeed: 60 }),
+    isActive: (style: CaptionStyle) => style.animation === "fade" && style.typewriterSpeed === 60,
+  },
+  {
+    id: "letterbox_reveal",
+    title: "Letterbox Reveal",
+    description: "Appears between cinematic black bars",
+    category: "Cinematic",
+    iconText: "↕️",
+    isPro: true,
+    filterTags: ["pro"],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "slide-up" as const, position: "bottom" as const, posY: 0.9 }),
+    isActive: (style: CaptionStyle) => style.animation === "slide-up" && style.posY === 0.9,
+  },
+  {
+    id: "opacity_drift",
+    title: "Opacity Drift",
+    description: "Slowly fades while moving upward",
+    category: "Cinematic",
+    iconText: "☁️",
+    filterTags: [],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "slide-up" as const, bgOpacity: 0 }),
+    isActive: (style: CaptionStyle) => style.animation === "slide-up" && style.bgOpacity === 0,
+  },
+  {
+    id: "soft_lift",
+    title: "Soft Lift",
+    description: "Elegant upward motion",
+    category: "Cinematic",
+    iconText: "↗️",
+    filterTags: [],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "slide-up" as const, posY: 0.8 }),
+    isActive: (style: CaptionStyle) => style.animation === "slide-up" && style.posY === 0.8,
+  },
+  {
+    id: "whisper",
+    title: "Whisper",
+    description: "Extremely subtle fade animation",
+    category: "Cinematic",
+    iconText: "🤫",
+    filterTags: [],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "fade" as const, bgOpacity: 0, fontSize: 28 }),
+    isActive: (style: CaptionStyle) => style.animation === "fade" && style.bgOpacity === 0 && style.fontSize === 28,
+  },
+  {
+    id: "focus_pull",
+    title: "Focus Pull",
+    description: "Blur to focus transition",
+    category: "Cinematic",
+    iconText: "🎯",
+    isPro: true,
+    filterTags: ["pro"],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "zoom-in" as const, fontWeight: 900 }),
+    isActive: (style: CaptionStyle) => style.animation === "zoom-in" && style.fontWeight === 900,
+  },
+  {
+    id: "glow_fade",
+    title: "Glow Fade",
+    description: "Soft glow appears while fading in",
+    category: "Cinematic",
+    iconText: "✨",
+    badge: "TRENDING",
+    filterTags: ["trending"],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "fade" as const, strokeWidth: 1, strokeColor: "#fde68a" }),
+    isActive: (style: CaptionStyle) => style.animation === "fade" && style.strokeColor === "#fde68a",
+  },
+
+  // ✍️ Handwritten
+  {
+    id: "marker",
+    title: "Marker",
+    description: "Text draws like a marker",
+    category: "Handwritten",
+    iconText: "🖍️",
+    badge: "POPULAR",
+    filterTags: ["popular"],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "typewriter" as const, typewriterSpeed: 100 }),
+    isActive: (style: CaptionStyle) => style.animation === "typewriter" && style.typewriterSpeed === 100,
+  },
+  {
+    id: "pen_write",
+    title: "Pen Write",
+    description: "Realistic handwriting animation",
+    category: "Handwritten",
+    iconText: "✍️",
+    badge: "TRENDING",
+    filterTags: ["trending"],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "typewriter" as const, typewriterSpeed: 70 }),
+    isActive: (style: CaptionStyle) => style.animation === "typewriter" && style.typewriterSpeed === 70,
+  },
+  {
+    id: "chalk",
+    title: "Chalk",
+    description: "Chalkboard writing effect",
+    category: "Handwritten",
+    iconText: "✏️",
+    badge: "NEW",
+    filterTags: ["new"],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "typewriter" as const, color: "#f3f4f6", typewriterSpeed: 120 }),
+    isActive: (style: CaptionStyle) => style.animation === "typewriter" && style.color === "#f3f4f6",
+  },
+  {
+    id: "brush_stroke",
+    title: "Brush Stroke",
+    description: "Paint brush reveal",
+    category: "Handwritten",
+    iconText: "🖌️",
+    isPro: true,
+    filterTags: ["pro"],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "typewriter" as const, typewriterSpeed: 50 }),
+    isActive: (style: CaptionStyle) => style.animation === "typewriter" && style.typewriterSpeed === 50,
+  },
+  {
+    id: "ink_spread",
+    title: "Ink Spread",
+    description: "Ink spreading animation",
+    category: "Handwritten",
+    iconText: "✒️",
+    isPro: true,
+    filterTags: ["pro"],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "fade" as const, typewriterSpeed: 80 }),
+    isActive: (style: CaptionStyle) => style.animation === "fade" && style.typewriterSpeed === 80,
+  },
+
+  // 🔥 Creative Effects
+  {
+    id: "fire",
+    title: "Fire",
+    description: "Burning text animation",
+    category: "Creative Effects",
+    iconText: "🔥",
+    badge: "TRENDING",
+    isPro: true,
+    filterTags: ["trending", "pro"],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "wave" as const, color: "#f97316", highlightColor: "#ef4444" }),
+    isActive: (style: CaptionStyle) => style.animation === "wave" && style.color === "#f97316",
+  },
+  {
+    id: "ice",
+    title: "Ice",
+    description: "Frozen text reveal",
+    category: "Creative Effects",
+    iconText: "❄️",
+    badge: "NEW",
+    filterTags: ["new"],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "fade" as const, color: "#93c5fd", strokeWidth: 1, strokeColor: "#ffffff" }),
+    isActive: (style: CaptionStyle) => style.animation === "fade" && style.color === "#93c5fd",
+  },
+  {
+    id: "smoke",
+    title: "Smoke",
+    description: "Soft smoke fade effect",
+    category: "Creative Effects",
+    iconText: "💨",
+    filterTags: [],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "fade" as const, bgOpacity: 0.1, bgColor: "#71717a" }),
+    isActive: (style: CaptionStyle) => style.animation === "fade" && style.bgColor === "#71717a",
+  },
+  {
+    id: "explosion",
+    title: "Explosion",
+    description: "Small impact burst animation",
+    category: "Creative Effects",
+    iconText: "💥",
+    badge: "POPULAR",
+    isPro: true,
+    filterTags: ["popular", "pro"],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "zoom-out" as const, fontWeight: 800, color: "#ef4444" }),
+    isActive: (style: CaptionStyle) => style.animation === "zoom-out" && style.color === "#ef4444",
+  },
+  {
+    id: "confetti",
+    title: "Confetti",
+    description: "Celebration particle animation",
+    category: "Creative Effects",
+    iconText: "🎉",
+    filterTags: [],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "bounce" as const, highlightColor: "#10b981" }),
+    isActive: (style: CaptionStyle) => style.animation === "bounce" && style.highlightColor === "#10b981",
+  },
+  {
+    id: "sparkle",
+    title: "Sparkle",
+    description: "Glitter and sparkle effect",
+    category: "Creative Effects",
+    iconText: "✨",
+    badge: "TRENDING",
+    filterTags: ["trending"],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "wave" as const, strokeWidth: 1, strokeColor: "#fbbf24" }),
+    isActive: (style: CaptionStyle) => style.animation === "wave" && style.strokeColor === "#fbbf24",
+  },
+  {
+    id: "lightning",
+    title: "Lightning",
+    description: "Electric flash animation",
+    category: "Creative Effects",
+    iconText: "⚡",
+    isPro: true,
+    filterTags: ["pro"],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "shake" as const, color: "#facc15" }),
+    isActive: (style: CaptionStyle) => style.animation === "shake" && style.color === "#facc15",
+  },
+  {
+    id: "liquid",
+    title: "Liquid",
+    description: "Water ripple reveal",
+    category: "Creative Effects",
+    iconText: "💧",
+    badge: "NEW",
+    filterTags: ["new"],
+    apply: (style: CaptionStyle) => ({ ...style, animation: "wave" as const, color: "#3b82f6" }),
+    isActive: (style: CaptionStyle) => style.animation === "wave" && style.color === "#3b82f6",
   },
 ];
 
@@ -400,6 +690,14 @@ export function StylePanel({
 
   const [customTemplates, setCustomTemplates] = useState<CaptionTemplate[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [animSearchQuery, setAnimSearchQuery] = useState("");
+  const [animFilter, setAnimFilter] = useState<"all" | "popular" | "trending" | "new" | "pro">("all");
+  const [collapsedCategories, setCollapsedCategories] = useState<Record<string, boolean>>({
+    "Social Media": false,
+    "Cinematic": false,
+    "Handwritten": false,
+    "Creative Effects": false,
+  });
   const [activeCategory, setActiveCategory] = useState("All");
   const [favorites, setFavorites] = useState<string[]>([]);
   const [loadMoreCount, setLoadMoreCount] = useState(8);
@@ -838,6 +1136,22 @@ export function StylePanel({
     </div>
   );
 
+  const animCategories = [
+    { name: "Social Media", icon: "✨" },
+    { name: "Cinematic", icon: "🎬" },
+    { name: "Handwritten", icon: "✍️" },
+    { name: "Creative Effects", icon: "🔥" }
+  ] as const;
+
+  const filteredAnimations = useMemo(() => {
+    return ANIM_STYLES.filter((anim) => {
+      const matchSearch = anim.title.toLowerCase().includes(animSearchQuery.toLowerCase()) ||
+                          anim.description.toLowerCase().includes(animSearchQuery.toLowerCase());
+      const matchFilter = animFilter === "all" || anim.filterTags.includes(animFilter);
+      return matchSearch && matchFilter;
+    });
+  }, [animSearchQuery, animFilter]);
+
   const animTabContent = (
     <AccordionCard
       title="Animation Styles"
@@ -846,48 +1160,133 @@ export function StylePanel({
       icon="✨"
       isCollapsible={showTabsHeader}
     >
-      <div className="space-y-3">
-        {ANIM_STYLES.map((opt) => {
-          const active = opt.isActive(style);
-          return (
-            <button
-              key={opt.id}
-              onClick={() => onChange(opt.apply(style))}
-              className={`flex w-full items-center gap-3.5 rounded-xl border p-3 text-left transition-all cursor-pointer ${active
-                  ? "border-[#FF6B2C] bg-[#FF6B2C]/5 shadow-[0_0_12px_rgba(255,107,44,0.08)]"
-                  : "border-[#E8E8E8] dark:border-[#2C313C] bg-white dark:bg-[#1F232D] hover:border-[#FF6B2C]/40 hover:shadow-sm"
+      <div className="space-y-4">
+        {/* Search input */}
+        <div className="relative">
+          <input
+            type="text"
+            placeholder="Search animations..."
+            value={animSearchQuery}
+            onChange={(e) => setAnimSearchQuery(e.target.value)}
+            className="w-full rounded-lg border border-[#E8E8E8] dark:border-[#2C313C] bg-white dark:bg-[#181B22] pl-8.5 pr-4 py-2 text-xs text-[#111827] dark:text-white placeholder-[#999] focus:border-[#FF6B2C] focus:outline-none transition-colors"
+          />
+          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-neutral-400 dark:text-neutral-500 text-[11px]">
+            🔍
+          </div>
+        </div>
+
+        {/* Filter Chips */}
+        <div className="flex flex-wrap gap-1.5 pb-1">
+          {([
+            { id: "all", label: "All" },
+            { id: "popular", label: "Popular" },
+            { id: "trending", label: "Trending" },
+            { id: "new", label: "New" },
+            { id: "pro", label: "Pro" }
+          ] as const).map((chip) => {
+            const active = animFilter === chip.id;
+            return (
+              <button
+                key={chip.id}
+                type="button"
+                onClick={() => setAnimFilter(chip.id)}
+                className={`rounded-full px-3 py-1 text-[10px] font-bold border transition-all cursor-pointer ${
+                  active
+                    ? "bg-[#FF6B2C] text-white border-[#FF6B2C] shadow-sm"
+                    : "bg-white dark:bg-[#181B22] text-[#6B7280] dark:text-[#A1A8B5] border-[#E8E8E8] dark:border-[#2C313C] hover:border-[#FF6B2C]/40 hover:text-[#111827] dark:hover:text-white"
                 }`}
-            >
-              <div
-                className={`flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-lg text-sm font-bold ${active
-                    ? "bg-[#FF6B2C] text-white"
-                    : "bg-[#F5F5F5] dark:bg-[#181B22] text-[#6B7280] dark:text-[#A1A8B5]"
-                  }`}
               >
-                {opt.hasUnderline ? (
-                  <span className="underline decoration-2 underline-offset-4">{opt.iconText}</span>
-                ) : (
-                  opt.iconText
-                )}
-              </div>
+                {chip.label}
+              </button>
+            );
+          })}
+        </div>
 
-              <div className="flex-1 min-w-0">
-                <div className={`text-[12.5px] font-bold ${active ? "text-[#FF6B2C]" : "text-[#111827] dark:text-white"}`}>
-                  {opt.title}
-                </div>
-                <div className="text-[11px] text-[#6B7280] dark:text-[#A1A8B5] leading-snug mt-0.5">
-                  {opt.description}
+        {/* Collapsible Categories list */}
+        <div className="space-y-4 max-h-[360px] overflow-y-auto pr-1 scrollbar-thin select-none">
+          {animCategories.map((cat) => {
+            const catAnims = filteredAnimations.filter((a) => a.category === cat.name);
+            if (catAnims.length === 0) return null;
+
+            const isCollapsed = collapsedCategories[cat.name] || false;
+
+            return (
+              <div key={cat.name} className="space-y-2 border-b border-neutral-100 dark:border-neutral-900/60 pb-3 last:border-b-0">
+                <button
+                  type="button"
+                  onClick={() => setCollapsedCategories(prev => ({ ...prev, [cat.name]: !isCollapsed }))}
+                  className="w-full flex items-center justify-between text-left text-xs font-bold text-neutral-500 dark:text-[#A1A8B5] hover:text-[#FF6B2C] py-1 focus:outline-none"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <span>{cat.icon}</span>
+                    <span>{cat.name}</span>
+                    <span className="text-[10px] font-medium text-neutral-400 dark:text-neutral-500 ml-1">({catAnims.length})</span>
+                  </div>
+                  <ChevronDown className={`h-3.5 w-3.5 transition-transform duration-200 ${isCollapsed ? "-rotate-90 text-neutral-400" : "text-[#FF6B2C]"}`} />
+                </button>
+
+                <div className={`space-y-2 transition-all duration-300 ease-in-out ${isCollapsed ? "h-0 overflow-hidden opacity-0" : "opacity-100"}`}>
+                  {catAnims.map((opt) => {
+                    const active = opt.isActive(style);
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => onChange(opt.apply(style))}
+                        className={`flex w-full items-center gap-3 rounded-xl border p-2.5 text-left transition-all duration-200 hover:-translate-y-[1px] hover:shadow-sm cursor-pointer ${
+                          active
+                            ? "border-[#FF6B2C] bg-[#FF6B2C]/5 shadow-[0_0_12px_rgba(255,107,44,0.06)]"
+                            : "border-[#E8E8E8] dark:border-[#2C313C] bg-white dark:bg-[#1F232D] hover:border-[#FF6B2C]/40"
+                        }`}
+                      >
+                        <div
+                          className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-base font-bold ${
+                            active
+                              ? "bg-[#FF6B2C] text-white"
+                              : "bg-[#F5F5F5] dark:bg-[#181B22] text-[#6B7280] dark:text-[#A1A8B5]"
+                          }`}
+                        >
+                          {opt.iconText}
+                        </div>
+
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5">
+                            <span className={`text-[12px] font-bold truncate ${active ? "text-[#FF6B2C]" : "text-[#111827] dark:text-white"}`}>
+                              {opt.title}
+                            </span>
+                            {opt.badge && (
+                              <span className={`text-[8px] font-extrabold px-1.5 py-0.5 rounded leading-none ${
+                                opt.badge === "NEW" 
+                                  ? "bg-green-500/10 text-green-500 dark:bg-green-500/20" 
+                                  : "bg-[#FF6B2C]/10 text-[#FF6B2C] dark:bg-[#FF6B2C]/20"
+                              }`}>
+                                {opt.badge}
+                              </span>
+                            )}
+                            {opt.isPro && (
+                              <span className="text-[8px] font-extrabold bg-[#FF6B2C]/15 text-[#FF6B2C] px-1.5 py-0.5 rounded leading-none">
+                                PRO
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[10.5px] text-[#6B7280] dark:text-[#A1A8B5] truncate mt-0.5">
+                            {opt.description}
+                          </div>
+                        </div>
+
+                        {active && (
+                          <div className="flex h-4.5 w-4.5 flex-shrink-0 items-center justify-center rounded-full bg-[#FF6B2C] text-white">
+                            <Check className="h-2.5 w-2.5" strokeWidth={3.5} />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
-
-              {active && (
-                <div className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-[#FF6B2C] text-white">
-                  <Check className="h-3 w-3" strokeWidth={3.5} />
-                </div>
-              )}
-            </button>
-          );
-        })}
+            );
+          })}
+        </div>
 
         {style.animation === "typewriter" && (
           <div className="mt-4 space-y-4 border-t border-[#E8E8E8] dark:border-[#2C313C] pt-4">
