@@ -2,6 +2,30 @@ import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useSta
 import { Pencil, Play, Pause, Volume2, VolumeX, Maximize, Minimize } from "lucide-react";
 import type { Caption, CaptionStyle, CaptionAnimation } from "@/lib/captions/types";
 
+interface ExtendedDocument extends Document {
+  webkitFullscreenElement?: Element | null;
+  mozFullScreenElement?: Element | null;
+  msFullscreenElement?: Element | null;
+  webkitExitFullscreen?: () => Promise<void>;
+  mozCancelFullScreen?: () => Promise<void>;
+  msExitFullscreen?: () => Promise<void>;
+}
+
+interface ExtendedHTMLElement extends HTMLElement {
+  webkitRequestFullscreen?: (options?: FullscreenOptions) => Promise<void>;
+  mozRequestFullScreen?: (options?: FullscreenOptions) => Promise<void>;
+  msRequestFullscreen?: (options?: FullscreenOptions) => Promise<void>;
+}
+
+function hexToRgba(hex: string, alpha: number) {
+  const h = hex.replace("#", "");
+  const full = h.length === 3 ? h.split("").map((c) => c + c).join("") : h;
+  const r = parseInt(full.slice(0, 2), 16) || 0;
+  const g = parseInt(full.slice(2, 4), 16) || 0;
+  const b = parseInt(full.slice(4, 6), 16) || 0;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 type Props = {
   src: string;
   captions: Caption[];
@@ -116,10 +140,41 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
   // Track fullscreen state of the preview container
   useEffect(() => {
     const onFsChange = () => {
-      setIsFullscreen(document.fullscreenElement === containerRef.current);
+      const doc = document as ExtendedDocument;
+      const fsEl =
+        document.fullscreenElement ||
+        doc.webkitFullscreenElement ||
+        doc.mozFullScreenElement ||
+        doc.msFullscreenElement;
+      const nextFs = fsEl === containerRef.current;
+      setIsFullscreen(nextFs);
+      if (nextFs) {
+        setDimensions({
+          width: window.innerWidth,
+          height: window.innerHeight,
+        });
+      } else {
+        const container = containerRef.current;
+        if (container) {
+          setDimensions({
+            width: container.clientWidth || 640,
+            height: container.clientHeight || 360,
+          });
+        }
+      }
     };
+
     document.addEventListener("fullscreenchange", onFsChange);
-    return () => document.removeEventListener("fullscreenchange", onFsChange);
+    document.addEventListener("webkitfullscreenchange", onFsChange);
+    document.addEventListener("mozfullscreenchange", onFsChange);
+    document.addEventListener("MSFullscreenChange", onFsChange);
+
+    return () => {
+      document.removeEventListener("fullscreenchange", onFsChange);
+      document.removeEventListener("webkitfullscreenchange", onFsChange);
+      document.removeEventListener("mozfullscreenchange", onFsChange);
+      document.removeEventListener("MSFullscreenChange", onFsChange);
+    };
   }, []);
 
   const [dimensions, setDimensions] = useState({ width: 640, height: 360 });
@@ -203,13 +258,37 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
     const el = containerRef.current;
     if (!el) return;
     try {
-      if (document.fullscreenElement) {
-        await document.exitFullscreen();
+      const doc = document as ExtendedDocument;
+      const fsEl =
+        document.fullscreenElement ||
+        doc.webkitFullscreenElement ||
+        doc.mozFullScreenElement ||
+        doc.msFullscreenElement;
+
+      if (fsEl) {
+        if (document.exitFullscreen) {
+          await document.exitFullscreen();
+        } else if (doc.webkitExitFullscreen) {
+          await doc.webkitExitFullscreen();
+        } else if (doc.mozCancelFullScreen) {
+          await doc.mozCancelFullScreen();
+        } else if (doc.msExitFullscreen) {
+          await doc.msExitFullscreen();
+        }
       } else {
-        await el.requestFullscreen();
+        const htmlEl = el as ExtendedHTMLElement;
+        if (el.requestFullscreen) {
+          await el.requestFullscreen();
+        } else if (htmlEl.webkitRequestFullscreen) {
+          await htmlEl.webkitRequestFullscreen();
+        } else if (htmlEl.mozRequestFullScreen) {
+          await htmlEl.mozRequestFullScreen();
+        } else if (htmlEl.msRequestFullscreen) {
+          await htmlEl.msRequestFullscreen();
+        }
       }
-    } catch {
-      /* ignore */
+    } catch (err) {
+      console.warn("Fullscreen toggle failed:", err);
     }
   };
 
@@ -366,14 +445,6 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
       msRequestFullscreen?: (options?: FullscreenOptions) => Promise<void>;
     }
 
-    interface FullscreenVideo extends HTMLVideoElement {
-      webkitRequestFullscreen?: (options?: FullscreenOptions) => Promise<void>;
-      webkitEnterFullscreen?: (options?: FullscreenOptions) => Promise<void>;
-      webkitEnterFullScreen?: (options?: FullscreenOptions) => Promise<void>;
-      mozRequestFullScreen?: (options?: FullscreenOptions) => Promise<void>;
-      msRequestFullscreen?: (options?: FullscreenOptions) => Promise<void>;
-    }
-
     const customRequestFs = function (this: HTMLVideoElement, options?: FullscreenOptions) {
       const el = containerRef.current as FullscreenElement | null;
       if (!el) return Promise.reject(new Error("No container"));
@@ -390,13 +461,30 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
       return Promise.reject(new Error("Fullscreen not supported on container"));
     };
 
-    const fsVideo = video as FullscreenVideo;
-    fsVideo.requestFullscreen = customRequestFs;
-    fsVideo.webkitRequestFullscreen = customRequestFs;
-    fsVideo.webkitEnterFullscreen = customRequestFs;
-    fsVideo.webkitEnterFullScreen = customRequestFs;
-    fsVideo.mozRequestFullScreen = customRequestFs;
-    fsVideo.msRequestFullscreen = customRequestFs;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const fsVideo = video as any;
+    const methods = [
+      "requestFullscreen",
+      "webkitRequestFullscreen",
+      "webkitEnterFullscreen",
+      "webkitEnterFullScreen",
+      "mozRequestFullScreen",
+      "msRequestFullscreen"
+    ];
+
+    methods.forEach((m) => {
+      try {
+        if (m in fsVideo || m.startsWith("webkit")) {
+          Object.defineProperty(fsVideo, m, {
+            value: customRequestFs,
+            configurable: true,
+            writable: true,
+          });
+        }
+      } catch (e) {
+        console.warn(`Could not override video.${m}:`, e);
+      }
+    });
   }, []);
 
   const startEditing = (c: Caption) => {
@@ -536,8 +624,10 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
     <div
       ref={containerRef}
       onPointerMove={triggerControlsShow}
-      className={`group/preview relative mx-auto overflow-hidden bg-[#0F1117] flex items-center justify-center border border-[#2C313C] p-4 select-none ${
-        isFullscreen ? "h-full rounded-none border-none" : "w-full h-full rounded-2xl shadow-2xl"
+      className={`group/preview relative mx-auto overflow-hidden bg-[#0F1117] flex items-center justify-center select-none w-full h-full ${
+        isFullscreen 
+          ? "p-0 rounded-none border-none" 
+          : "p-4 border border-[#2C313C] rounded-2xl shadow-2xl"
       }`}
       style={{
         width: "100%",
@@ -555,7 +645,9 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
 
       <div
         ref={canvasRef}
-        className="relative flex items-center justify-center overflow-hidden flex-shrink-0 bg-black/40 rounded-xl"
+        className={`relative flex items-center justify-center overflow-hidden flex-shrink-0 bg-black/40 ${
+          isFullscreen ? "rounded-none" : "rounded-xl"
+        }`}
         style={{
           width: `${canvasWidth}px`,
           height: `${canvasHeight}px`,
@@ -572,7 +664,7 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
         <video
           ref={innerRef}
           src={src}
-          className="block h-full w-full"
+          className="block h-full w-full relative z-10"
           style={{ objectFit }}
           playsInline
           onDoubleClick={(e) => {
@@ -753,8 +845,8 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
                 const centerX = rect.left + rect.width / 2;
                 const centerY = rect.top + rect.height / 2;
                 setDragOffset({
-                  x: e.clientX - dragOffset.x - centerX, // Keep offsets correct
-                  y: e.clientY - dragOffset.y - centerY,
+                  x: e.clientX - centerX,
+                  y: e.clientY - centerY,
                 });
 
                 setDraggingCaptionId(activeItem.id);

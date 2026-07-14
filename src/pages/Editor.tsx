@@ -274,7 +274,12 @@ const Editor = () => {
 
   const [quality, setQuality] = useState<"standard" | "high">("standard");
   const [exportStage, setExportStage] = useState<"render" | "transcode">("render");
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
+  const videoRefCallback = useCallback((node: HTMLVideoElement | null) => {
+    videoRef.current = node;
+    setVideoElement(node);
+  }, []);
   const exportAbortRef = useRef<AbortController | null>(null);
   const srtInputRef = useRef<HTMLInputElement>(null);
 
@@ -447,7 +452,7 @@ const Editor = () => {
       video.removeEventListener("play", onPlay);
       video.removeEventListener("pause", onPause);
     };
-  }, [videoUrl, transcribing]);
+  }, [videoElement, videoUrl, transcribing]);
 
   // Global Spacebar Keydown Listener for Play/Pause
   useEffect(() => {
@@ -558,22 +563,21 @@ const Editor = () => {
           setTitle(data.title || "Untitled project");
           if (data.captions) setCaptions(data.captions as Caption[]);
           if (data.style) setStyle(data.style as CaptionStyle);
-          setStoredSourcePath(data.source_path);
-          setStoredSourceMime(data.source_mime);
-          setStoredSourceName(data.source_name);
-          setStoredExportPath(data.export_path);
-          setLanguage(data.language || "auto");
+          setStoredSourcePath(data.source_video_path);
+          setStoredSourceMime(data.source_video_mime);
+          setStoredSourceName(data.source_video_name);
+          setStoredExportPath(data.exported_video_path);
 
-          if (data.source_path) {
+          if (data.source_video_path) {
             const { data: urlData, error: urlError } = await supabase.storage
               .from("videos")
-              .createSignedUrl(data.source_path, 7200);
+              .createSignedUrl(data.source_video_path, 7200);
 
             if (urlError) throw urlError;
             if (urlData?.signedUrl) {
               setVideoUrl(urlData.signedUrl);
-              const mockFile = new File([], data.source_name || "project_video.mp4", {
-                type: data.source_mime || "video/mp4",
+              const mockFile = new File([], data.source_video_name || "project_video.mp4", {
+                type: data.source_video_mime || "video/mp4",
               });
               setFile(mockFile);
             }
@@ -582,7 +586,7 @@ const Editor = () => {
             captions: data.captions,
             style: data.style,
             title: data.title,
-            language: data.language || "auto",
+            language: "auto",
           });
         }
       } catch (err: unknown) {
@@ -594,6 +598,56 @@ const Editor = () => {
     };
     loadProject();
   }, [projectId]);
+
+  // Restore pending local project after login
+  useEffect(() => {
+    if (!user || loadingProject) return;
+
+    const pending = localStorage.getItem("subbly_pending_save");
+    if (!pending) return;
+
+    const restoreProject = async () => {
+      try {
+        const parsed = JSON.parse(pending);
+        if (parsed) {
+          setTitle(parsed.title || "Untitled project");
+          if (parsed.captions) setCaptions(parsed.captions);
+          if (parsed.style) setStyle(parsed.style);
+          if (parsed.language) setLanguage(parsed.language);
+
+          // Create the database project for this user
+          const { data: projData, error: dbError } = await supabase
+            .from("projects")
+            .insert({
+              user_id: user.id,
+              title: parsed.title || "Untitled project",
+              captions: parsed.captions || [],
+              style: parsed.style || DEFAULT_STYLE,
+            })
+            .select("id")
+            .single();
+
+          if (dbError) throw dbError;
+          if (projData) {
+            setSearchParams({ project: projData.id });
+            lastSavedRef.current = JSON.stringify({
+              captions: parsed.captions || [],
+              style: parsed.style || DEFAULT_STYLE,
+              title: parsed.title || "Untitled project",
+              language: parsed.language || "auto",
+            });
+            toast.success("Restored and saved your project!");
+          }
+        }
+      } catch (err) {
+        console.warn("Failed to restore pending project:", err);
+      } finally {
+        localStorage.removeItem("subbly_pending_save");
+      }
+    };
+
+    restoreProject();
+  }, [user, loadingProject, setSearchParams]);
 
   // Auto-Save Loop
   useEffect(() => {
@@ -617,7 +671,6 @@ const Editor = () => {
             title,
             captions: JSON.parse(JSON.stringify(captions)),
             style: JSON.parse(JSON.stringify(style)),
-            language,
             updated_at: new Date().toISOString(),
           })
           .eq("id", projectId);
@@ -635,34 +688,67 @@ const Editor = () => {
   }, [projectId, file, captions, style, title, language]);
 
   const handleManualSave = useCallback(async () => {
-    if (!projectId) {
-      toast.error("Save is only available for cloud projects");
+    if (!user) {
+      const localState = {
+        title,
+        captions,
+        style,
+        language,
+      };
+      localStorage.setItem("subbly_pending_save", JSON.stringify(localState));
+      toast.info("Please sign in to save your project. Redirecting...");
+      setTimeout(() => {
+        navigate("/auth");
+      }, 1500);
       return;
     }
+
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from("projects")
-        .update({
-          title,
-          captions: JSON.parse(JSON.stringify(captions)),
-          style: JSON.parse(JSON.stringify(style)),
-          language,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("id", projectId);
+      if (!projectId) {
+        // Create new project in DB
+        const { data: projData, error: dbError } = await supabase
+          .from("projects")
+          .insert({
+            user_id: user.id,
+            title,
+            captions: JSON.parse(JSON.stringify(captions)),
+            style: JSON.parse(JSON.stringify(style)),
+          })
+          .select("id")
+          .single();
 
-      if (error) throw error;
-      lastSavedRef.current = JSON.stringify({ captions, style, title, language });
-      setAutoSaveState("saved");
-      toast.success("Project saved successfully");
+        if (dbError) throw dbError;
+        if (projData) {
+          setSearchParams({ project: projData.id });
+          lastSavedRef.current = JSON.stringify({ captions, style, title, language });
+          setAutoSaveState("saved");
+          toast.success("Project saved successfully to your account!");
+        }
+      } else {
+        // Update existing project
+        const { error } = await supabase
+          .from("projects")
+          .update({
+            title,
+            captions: JSON.parse(JSON.stringify(captions)),
+            style: JSON.parse(JSON.stringify(style)),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", projectId);
+
+        if (error) throw error;
+        lastSavedRef.current = JSON.stringify({ captions, style, title, language });
+        setAutoSaveState("saved");
+        toast.success("Project saved successfully");
+      }
     } catch (err: unknown) {
-      console.error("Manual save failed:", err);
+      console.error("Save failed:", err);
       toast.error(`Save error: ${(err as Error).message}`);
     } finally {
       setSaving(false);
     }
-  }, [projectId, title, captions, style, language]);
+  }, [projectId, title, captions, style, language, user, navigate, setSearchParams]);
 
   const handleFile = async (f: File) => {
     setFile(f);
@@ -860,7 +946,7 @@ const Editor = () => {
         if (!uploadErr) {
           await supabase
             .from("projects")
-            .update({ export_path: randPath })
+            .update({ exported_video_path: randPath })
             .eq("id", projectId);
           setStoredExportPath(randPath);
         }
@@ -1006,7 +1092,7 @@ const Editor = () => {
         )}
       </div>
     ),
-    [file, exporting, exportProgress, exportStage, quality, saving, captions, exportVideo, handleExportSrt, handleManualSave, handleImportSrtClick],
+    [file, exporting, exportProgress, exportStage, quality, captions, exportVideo, handleExportSrt],
   );
 
   if (loadingProject) {
@@ -1191,7 +1277,7 @@ const Editor = () => {
                 }}
               >
                 <VideoPreview
-                  ref={videoRef}
+                  ref={videoRefCallback}
                   src={videoUrl}
                   captions={captions}
                   style={style}
@@ -1549,7 +1635,7 @@ const Editor = () => {
                       }}
                     >
                       <VideoPreview
-                        ref={videoRef}
+                        ref={videoRefCallback}
                         src={videoUrl}
                         captions={captions}
                         style={style}
