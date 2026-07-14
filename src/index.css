@@ -95,6 +95,9 @@
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "ss01", "cv11";
   }
+  html.dark, html.dark body {
+    background-color: #000000 !important;
+  }
 }
 
 @layer utilities {
