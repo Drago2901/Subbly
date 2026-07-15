@@ -85,13 +85,13 @@ Example output: [{"id": "1", "text": "Hello world 👋"}, {"id": "2", "text": "T
       try {
         const parsed = JSON.parse(errText);
         if (parsed?.error?.message) errMsg = parsed.error.message;
-      } catch {}
+      } catch { }
       throw new Error(errMsg);
     }
 
     const data = await res.json();
     const rawText: string = data?.choices?.[0]?.message?.content ?? "";
-    
+
     const clean = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
 
     try {

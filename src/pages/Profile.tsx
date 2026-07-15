@@ -46,7 +46,8 @@ export default function Profile() {
   const { signOut } = useAuth();
   const [deleting, setDeleting] = useState(false);
 
-  const handleDeleteAccount = async () => {
+  const handleDeleteAccount = async (e: React.MouseEvent) => {
+    e.preventDefault();
     setDeleting(true);
     try {
       const { error: deleteError } = await (supabase.rpc as any)("delete_own_account");
@@ -346,6 +347,7 @@ export default function Profile() {
                           Cancel
                         </AlertDialogCancel>
                         <AlertDialogAction
+                          type="button"
                           onClick={handleDeleteAccount}
                           disabled={deleting}
                           className="bg-red-600 hover:bg-red-700 text-white font-bold"

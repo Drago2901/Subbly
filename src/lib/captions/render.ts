@@ -34,7 +34,7 @@ export function computeExportResolution(
     const ar = (output?.width && output?.height && output.width > 0 && output.height > 0)
       ? (output.width / output.height)
       : (srcW / srcH);
-    
+
     if (ar >= 1) {
       // Landscape or Square: Shorter dimension is height
       height = targetShortDim;
@@ -591,15 +591,15 @@ function getRenderWords(
   const sourceWords = style.karaoke && caption.words?.length
     ? caption.words.map((word) => ({ text: word.text, start: word.start, end: word.end }))
     : (() => {
-        const tokens = splitIntoWordTokens(caption.text);
-        const duration = Math.max(0.1, caption.end - caption.start);
-        const wordDur = duration / tokens.length;
-        return tokens.map((text, idx) => ({
-          text,
-          start: caption.start + idx * wordDur,
-          end: caption.start + (idx + 1) * wordDur,
-        }));
-      })();
+      const tokens = splitIntoWordTokens(caption.text);
+      const duration = Math.max(0.1, caption.end - caption.start);
+      const wordDur = duration / tokens.length;
+      return tokens.map((text, idx) => ({
+        text,
+        start: caption.start + idx * wordDur,
+        end: caption.start + (idx + 1) * wordDur,
+      }));
+    })();
 
   return sourceWords.map((word, idx) => {
     let text = style.uppercase ? word.text.toUpperCase() : word.text;

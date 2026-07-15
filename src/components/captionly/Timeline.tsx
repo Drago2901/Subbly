@@ -201,7 +201,7 @@ export function Timeline({
       const half = Math.max(1, Math.floor(tokens.length / 2));
       const left: Caption = { ...c, end: time, text: tokens.slice(0, half).join(" ") };
       const right: Caption = {
-        id: crypto.randomUUID(),
+        id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15),
         start: time,
         end: c.end,
         text: tokens.slice(half).join(" ") || "...",
@@ -249,7 +249,7 @@ export function Timeline({
 
     const refCap = captions.find((c) => c.x !== undefined);
     const newCap: Caption = {
-      id: crypto.randomUUID(),
+      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15),
       start,
       end,
       text: "New Caption",

@@ -56,7 +56,7 @@ export function CaptionList({ captions, currentTime, onChange, onSeek, lockedTra
     onChange([
       ...captions,
       {
-        id: crypto.randomUUID(),
+        id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15),
         start,
         end: start + 2,
         text: "New caption",
@@ -91,7 +91,7 @@ export function CaptionList({ captions, currentTime, onChange, onSeek, lockedTra
 
     const left: Caption = { ...c, end: mid, text: leftText, words: leftWords };
     const right: Caption = {
-      id: crypto.randomUUID(),
+      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15),
       start: mid,
       end: c.end,
       text: rightText,

@@ -318,7 +318,7 @@ const Editor = () => {
     const start = last ? last.end : 0;
     const refCap = captions.find((c) => c.x !== undefined);
     const newCap: Caption = {
-      id: crypto.randomUUID(),
+      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15),
       start,
       end: start + 2,
       text: "New caption",
@@ -1027,15 +1027,7 @@ const Editor = () => {
   const headerRight = useMemo(
     () => (
       <div className="flex items-center gap-2">
-        {captions.length > 0 && (
-          <button
-            onClick={handleExportSrt}
-            className="inline-flex h-8.5 items-center gap-1.5 rounded-lg border border-[#E8E4DE] dark:border-[#2C313C] bg-[#F9F8F5] dark:bg-[#1F232D] px-3.5 text-[12px] font-bold text-[#1A1A1A] dark:text-white transition hover:bg-neutral-100 dark:hover:bg-[#2C313C] hover:scale-[1.02] active:scale-[0.98]"
-          >
-            <FileText className="h-3.5 w-3.5 text-blue-500" strokeWidth={2.4} />
-            <span>Export SRT</span>
-          </button>
-        )}
+
 
         {file && (
           <div className="flex items-center gap-2 border border-[#E8E4DE] dark:border-[#2C313C] bg-[#F9F8F5] dark:bg-[#1F232D] p-1.5 rounded-lg">
