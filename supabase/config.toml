@@ -5,3 +5,6 @@ verify_jwt = true
 
 [functions.translate-captions]
 verify_jwt = true
+
+[functions.align-emojis]
+verify_jwt = true
