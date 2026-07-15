@@ -14,7 +14,7 @@ const Auth = () => {
   const { theme, toggle } = useTheme();
   const navigate = useNavigate();
   const location = useLocation() as { state?: { from?: string } };
-  const redirectTo = location.state?.from || (isAdmin ? "/admin" : "/projects");
+  const redirectTo = location.state?.from || (isAdmin ? "/admin" : "/");
 
   const [tab, setTab] = useState<"signin" | "signup" | "forgot">("signin");
   const [email, setEmail] = useState("");
@@ -371,7 +371,7 @@ const Auth = () => {
                 toast.success(`Welcome back, ${matchedUser.name}!`);
                 setTimeout(() => {
                   const isStaff = activeRole === "super_admin" || activeRole === "admin";
-                  window.location.href = isStaff ? "/admin" : "/projects";
+                  window.location.href = isStaff ? "/admin" : "/";
                 }, 800);
                 return;
               }
@@ -389,7 +389,7 @@ const Auth = () => {
           email,
           password,
           options: {
-            emailRedirectTo: `${window.location.origin}/projects`,
+            emailRedirectTo: `${window.location.origin}/`,
             data: { full_name: name || undefined },
           },
         });
@@ -449,7 +449,7 @@ const Auth = () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: window.location.origin + "/projects",
+          redirectTo: window.location.origin + "/",
         },
       });
       if (error) {
