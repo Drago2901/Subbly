@@ -1,0 +1,351 @@
+:root{
+  --primary:#FF7A00;
+  --accent:#FFC857;
+  --bg:#030305;
+  --card-radius:24px;
+  --mx:38%;
+  --my:34%;
+  --glow-o:0;
+  --glow-scale:0.55;
+  --extra-glow:0;
+}
+.lamp-stage {
+  position:relative;
+  min-height:100vh;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  padding:48px 24px;
+  overflow:hidden;
+  background:
+    radial-gradient(ellipse 620px 520px at var(--mx) var(--my),
+      rgba(255,122,0, calc(0.55 * var(--glow-o) + var(--extra-glow))) 0%,
+      rgba(255,160,40, calc(0.20 * var(--glow-o))) 30%,
+      rgba(11,11,15,0) 62%),
+    radial-gradient(circle at 50% 100%, #14100c 0%, #0B0B0F 55%);
+  transition: background 0.6s ease;
+  background-color: var(--bg);
+  color: #fff;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+.lamp-on {
+  --glow-o: 1 !important;
+}
+
+/* logo */
+.lamp-logo{
+  position:absolute;
+  top:32px; left:32px;
+  display:flex; align-items:center; gap:10px;
+  font-weight:800; font-size:19px; letter-spacing:-0.02em;
+  z-index:5;
+}
+.lamp-logo .mark{
+  width:26px;height:26px;border-radius:7px;
+  background:var(--primary);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 16px rgba(255,122,0,0.55);
+}
+.lamp-logo .mark svg{width:12px;height:12px;fill:#0B0B0F;}
+
+/* badges */
+.lamp-badges{
+  position:absolute;
+  bottom:26px; left:50%; transform:translateX(-50%);
+  display:flex; gap:22px;
+  font-size:11.5px; letter-spacing:0.02em;
+  color:rgba(255,255,255,0.32);
+  z-index:5;
+}
+.lamp-badges span{display:flex;align-items:center;gap:6px;white-space:nowrap;}
+
+/* particles */
+.lamp-particles{
+  position:absolute; inset:0; pointer-events:none; z-index:2;
+  opacity:var(--glow-o); transition:opacity 1s ease;
+}
+.lamp-particle{
+  position:absolute;
+  width:3px;height:3px;border-radius:50%;
+  background:rgba(255,200,110,0.85);
+  filter:blur(0.3px);
+  animation: lampDrift linear infinite;
+  box-shadow:0 0 4px rgba(255,180,90,0.8);
+}
+@keyframes lampDrift{
+  0%{ transform:translateY(0) translateX(0); opacity:0;}
+  10%{opacity:0.9;}
+  90%{opacity:0.5;}
+  100%{ transform:translateY(-160px) translateX(var(--dx,20px)); opacity:0;}
+}
+
+/* lamp */
+.lamp-wrap{
+  position:relative;
+  width:260px;
+  display:flex; flex-direction:column; align-items:center;
+  margin-bottom:-6px;
+  z-index:4;
+  user-select:none;
+}
+.lamp-cord{
+  width:2px; height:56px;
+  background:linear-gradient(#3a3a3a,#222);
+}
+.lamp-shade-glow{
+  position:absolute;
+  top:130px;
+  width:14px;height:14px;border-radius:50%;
+  background:radial-gradient(circle, #fff 0%, var(--accent) 40%, transparent 75%);
+  opacity:var(--glow-o);
+  box-shadow:
+    0 0 40px 18px rgba(255,180,60, calc(0.9 * var(--glow-o))),
+    0 0 90px 60px rgba(255,140,30, calc(0.55 * var(--glow-o)));
+  transition:opacity 0.8s ease;
+  filter:blur(1px);
+}
+.lamp-shade{
+  width:150px; height:70px;
+  border-radius:0 0 90px 90px / 0 0 70px 70px;
+  background:linear-gradient(180deg,#1b1b1e,#0f0f11 70%);
+  border:2px solid #2a2a2d;
+  border-top:none;
+  position:relative;
+  box-shadow:0 6px 18px rgba(0,0,0,0.6);
+}
+.lamp-shade::after{
+  content:'';
+  position:absolute; left:8px; right:8px; bottom:6px; top:auto;
+  height:14px;
+  border-radius:50%;
+  background:radial-gradient(ellipse at center, rgba(255,190,90,var(--glow-o)) 0%, rgba(255,150,40,0) 75%);
+}
+.lamp-cone{
+  position:absolute; top:70px; left:50%; transform:translateX(-50%);
+  width:0; height:0;
+  border-left:120px solid transparent;
+  border-right:120px solid transparent;
+  border-top:340px solid rgba(255,160,50, calc(0.14 * var(--glow-o)));
+  filter:blur(6px);
+  pointer-events:none;
+  transition:border-top-color 0.8s ease;
+}
+
+/* chain */
+.lamp-chain{
+  position:relative;
+  display:flex; flex-direction:column; align-items:center;
+  margin-top:6px;
+  cursor:grab;
+  touch-action:none;
+}
+.lamp-chain:active{ cursor:grabbing; }
+.lamp-chain-line{
+  width:1px;
+  height:90px;
+  background:repeating-linear-gradient(#555 0, #555 4px, transparent 4px, transparent 8px);
+  transition:height 0.15s ease;
+}
+.lamp-on .lamp-chain-line{ background:repeating-linear-gradient(#8a7050 0,#8a7050 4px, transparent 4px, transparent 8px); }
+.lamp-chain-knob{
+  width:14px;height:20px;
+  border-radius:50% 50% 45% 45%;
+  background:linear-gradient(180deg,#d99a4a,#a5651f);
+  box-shadow:0 2px 6px rgba(0,0,0,0.5);
+  margin-top:-2px;
+}
+.lamp-pull-hint{
+  position:absolute;
+  top:100%;
+  margin-top:8px;
+  font-size:11.5px;
+  line-height:1.4;
+  color:rgba(255,255,255,0.55);
+  text-align:center;
+  width:130px;
+  left:50%; transform:translateX(-50%);
+  pointer-events:none;
+  transition:opacity 0.4s ease;
+}
+.lamp-on .lamp-pull-hint{ opacity:0; }
+
+/* mascot */
+.lamp-mascot{
+  position:absolute;
+  left:6%;
+  top:58%;
+  display:flex; flex-direction:column; align-items:flex-start;
+  z-index:4;
+  max-width:200px;
+}
+.lamp-bubble{
+  background:transparent;
+  border:1.5px solid rgba(255,255,255,0.35);
+  border-radius:18px;
+  padding:12px 16px;
+  font-size:13px;
+  line-height:1.5;
+  color:#eee;
+  margin-bottom:10px;
+  transition:opacity 0.5s ease, transform 0.5s ease;
+}
+.lamp-bubble b{color:var(--primary); font-weight:700;}
+.lamp-on .lamp-bubble{ opacity:0; transform:translateY(6px) scale(0.96); pointer-events:none; }
+.lamp-ghost{ width:66px; transition:transform 0.4s ease; filter:drop-shadow(0 6px 10px rgba(0,0,0,0.5));}
+.lamp-on .lamp-ghost{ transform:translateY(-4px); }
+
+/* login card */
+.lamp-login-card{
+  position:relative;
+  z-index:5;
+  width:380px;
+  max-width:90vw;
+  margin-top:34px;
+  padding:34px 30px 30px;
+  border-radius:var(--card-radius);
+  background:rgba(18,18,20,0.45);
+  backdrop-filter:blur(32px) saturate(160%);
+  -webkit-backdrop-filter:blur(32px) saturate(160%);
+  border:1px solid rgba(255,255,255,0.06);
+  border-top:1px solid rgba(255,255,255,0.12);
+  box-shadow:0 24px 64px rgba(0,0,0,0.6), inset 0 1px 0 rgba(255,255,255,0.06);
+  opacity:0;
+  transform:translateY(26px) scale(0.97);
+  pointer-events:none;
+  transition:opacity 0.7s cubic-bezier(.2,.8,.2,1), transform 0.7s cubic-bezier(.2,.8,.2,1);
+}
+.lamp-on .lamp-login-card.lamp-reveal{
+  opacity:1;
+  transform:translateY(0) scale(1);
+  pointer-events:auto;
+}
+.lamp-login-card h1{ margin:0 0 6px; font-size:25px; font-weight:700; color: #fff; font-family: 'Outfit', sans-serif; letter-spacing: -0.02em; }
+.lamp-login-card p.sub{ margin:0 0 22px; font-size:13.5px; color:rgba(255,255,255,0.55); }
+
+.lamp-field{
+  position:relative;
+  margin-bottom:14px;
+}
+.lamp-field input{
+  width:100%;
+  padding:13px 14px 13px 40px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,0.14);
+  background:rgba(255,255,255,0.02);
+  box-shadow:inset 0 2px 4px rgba(0,0,0,0.1);
+  color:#fff;
+  font-size:14px;
+  font-family:inherit;
+  outline:none;
+  transition:all 0.3s ease;
+}
+.lamp-field input::placeholder{ color:rgba(255,255,255,0.4); }
+.lamp-field input:focus{ border-color:var(--primary); background:rgba(255,122,0,0.06); }
+.lamp-field svg.icon{
+  position:absolute; left:13px; top:50%; transform:translateY(-50%);
+  width:16px;height:16px; opacity:0.55;
+}
+.lamp-field .eye{
+  position:absolute; right:13px; top:50%; transform:translateY(-50%);
+  width:17px;height:17px; opacity:0.55; cursor:pointer; background:none; border:none; padding:0;
+}
+.lamp-row-between{
+  display:flex; justify-content:flex-end; margin:-2px 0 18px;
+}
+.lamp-forgot{ font-size:12.5px; color:var(--primary); text-decoration:none; }
+.lamp-forgot:hover{ text-decoration:underline; }
+
+.lamp-btn-primary{
+  width:100%;
+  padding:13px;
+  border:none;
+  border-radius:12px;
+  background:linear-gradient(135deg,#FF8C20, #FF6A00);
+  color:#161005;
+  font-weight:700;
+  font-size:14.5px;
+  font-family:inherit;
+  cursor:pointer;
+  box-shadow:0 6px 18px rgba(255,122,0,0.3), inset 0 1px 0 rgba(255,255,255,0.25);
+  transition:all 0.3s ease; text-shadow:0 1px 2px rgba(0,0,0,0.2);
+}
+.lamp-btn-primary:hover{ transform:translateY(-1px); box-shadow:0 10px 26px rgba(255,122,0,0.45); }
+.lamp-btn-primary:active{ transform:translateY(0); }
+.lamp-btn-primary:disabled { opacity: 0.6; pointer-events: none; }
+
+.lamp-divider{
+  display:flex; align-items:center; gap:12px;
+  margin:20px 0;
+  color:rgba(255,255,255,0.35);
+  font-size:12px;
+}
+.lamp-divider::before,.lamp-divider::after{
+  content:''; flex:1; height:1px; background:rgba(255,255,255,0.12);
+}
+
+.lamp-btn-google{
+  width:100%;
+  padding:12px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,0.14);
+  background:rgba(255,255,255,0.03);
+  color:#fff;
+  font-weight:600;
+  font-size:14px;
+  font-family:inherit;
+  display:flex; align-items:center; justify-content:center; gap:10px;
+  cursor:pointer;
+  transition:all 0.3s ease; box-shadow:inset 0 1px 0 rgba(255,255,255,0.02);
+}
+.lamp-btn-google:hover{ background:rgba(255,255,255,0.06); border-color:rgba(255,255,255,0.25); transform:translateY(-1px); box-shadow:0 4px 12px rgba(0,0,0,0.1); }
+.lamp-btn-google:disabled { opacity: 0.6; pointer-events: none; }
+
+/* success overlay */
+.lamp-success{
+  position:absolute; inset:0;
+  border-radius:var(--card-radius);
+  background:rgba(20,16,12,0.85);
+  backdrop-filter:blur(10px);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:10px;
+  opacity:0; pointer-events:none;
+  transition:opacity 0.4s ease;
+  z-index: 10;
+}
+.lamp-success.show{ opacity:1; pointer-events:auto; }
+.lamp-success .check{
+  width:52px;height:52px;border-radius:50%;
+  border:2px solid var(--accent);
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 0 24px rgba(255,200,87,0.5);
+}
+.lamp-success .check svg{ width:22px;height:22px; }
+.lamp-success h3{ margin:2px 0 0; font-size:16px; color: #fff;}
+.lamp-success span{ font-size:12.5px; color:rgba(255,255,255,0.5); }
+
+/* Switch tabs inside glass card */
+.lamp-tab-switcher {
+  display: flex; gap: 4px; margin-bottom: 20px;
+  background: rgba(255,255,255,0.04); border-radius: 12px; padding: 4px;
+}
+.lamp-tab-btn {
+  flex: 1; padding: 8px; border-radius: 10px;
+  font-size: 13px; color: #a6a6a6; cursor: pointer; transition: all 0.2s;
+  background: transparent; border: none; font-family: inherit; font-weight: 500;
+}
+.lamp-tab-btn.active {
+  background: rgba(255,255,255,0.12); color: #fff; box-shadow:0 2px 8px rgba(0,0,0,0.15), inset 0 1px 0 rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.05);
+}
+
+@media (max-width:640px){
+  .lamp-mascot{ display:none; }
+  .lamp-stage{ padding:32px 18px; justify-content:flex-start; }
+  .lamp-wrap{ margin-top:40px; }
+  .lamp-login-card{
+    margin-top:26px;
+    transform:translateY(60px) scale(1);
+  }
+  .lamp-on .lamp-login-card.lamp-reveal{ transform:translateY(0); }
+  .lamp-badges{ gap:14px; font-size:10px; }
+}

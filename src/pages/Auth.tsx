@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { useTheme } from "@/hooks/useTheme";
 import { Seo } from "@/components/Seo";
+import { LampLayout } from "@/components/auth/LampLayout";
 
 const Auth = () => {
   const { user, loading, isAdmin } = useAuth();
@@ -23,6 +24,10 @@ const Auth = () => {
   const [submitting, setSubmitting] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+
+  // Lamp specific states
+  const [loginSuccess, setLoginSuccess] = useState(false);
+  const [loginError, setLoginError] = useState(false);
 
   // OTP/Forgot password wizard states
   const [forgotStep, setForgotStep] = useState<"email" | "otp" | "reset">("email");
@@ -54,7 +59,7 @@ const Auth = () => {
     if (hasLowercase) score += 1;
     if (hasNumber) score += 1;
     if (hasSpecial) score += 1;
-    
+
     if (score <= 2) return { text: "Weak", color: "bg-red-500", percent: 33 };
     if (score <= 4) return { text: "Medium", color: "bg-yellow-500", percent: 66 };
     return { text: "Strong", color: "bg-green-500", percent: 100 };
@@ -114,7 +119,8 @@ const Auth = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
-    
+    setLoginError(false);
+
     // Normalize input to handle case-sensitivity and leading/trailing spaces
     const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password.trim();
@@ -239,6 +245,7 @@ const Auth = () => {
           }
 
           toast.success("Welcome back, Super Admin!");
+          setLoginSuccess(true);
           setTimeout(() => {
             window.location.href = "/admin";
           }, 800);
@@ -350,8 +357,8 @@ const Auth = () => {
             const localUsers = JSON.parse(localUsersStr);
             if (Array.isArray(localUsers)) {
               const matchedUser = localUsers.find(
-                (u: LocalUser) => 
-                  u.email.trim().toLowerCase() === cleanEmail && 
+                (u: LocalUser) =>
+                  u.email.trim().toLowerCase() === cleanEmail &&
                   u.password?.trim() === cleanPassword
               ) as LocalUser | undefined;
 
@@ -369,6 +376,7 @@ const Auth = () => {
                   })
                 );
                 toast.success(`Welcome back, ${matchedUser.name}!`);
+                setLoginSuccess(true);
                 setTimeout(() => {
                   const isStaff = activeRole === "super_admin" || activeRole === "admin";
                   window.location.href = isStaff ? "/admin" : "/";
@@ -383,6 +391,7 @@ const Auth = () => {
 
         const { error } = await supabase.auth.signInWithPassword({ email: cleanEmail, password: cleanPassword });
         if (error) throw error;
+        setLoginSuccess(true);
         toast.success("Welcome back!");
       } else if (tab === "signup") {
         const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
@@ -393,22 +402,23 @@ const Auth = () => {
             data: { full_name: name || undefined },
           },
         });
-        
+
         const userExistsByLink = signUpData?.user && (!signUpData.user.identities || signUpData.user.identities.length === 0);
-        
+
         if (signUpError || userExistsByLink) {
           const isRegisteredError = signUpError && (
-            signUpError.message.toLowerCase().includes("already") || 
-            signUpError.message.toLowerCase().includes("registered") || 
+            signUpError.message.toLowerCase().includes("already") ||
+            signUpError.message.toLowerCase().includes("registered") ||
             signUpError.message.toLowerCase().includes("exists")
           );
-          
+
           if (isRegisteredError || userExistsByLink) {
             try {
               const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
               if (signInError) {
                 throw new Error("This email is already registered, and auto-login failed (incorrect password).");
               }
+              setLoginSuccess(true);
               toast.success("Welcome back! Logged in automatically.");
               return;
             } catch (loginErr) {
@@ -417,7 +427,7 @@ const Auth = () => {
           }
           if (signUpError) throw signUpError;
         }
-        
+
         try {
           const existingUsers = JSON.parse(localStorage.getItem("rbac_users") || "[]") as { email: string }[];
           if (!existingUsers.some((u) => u.email === email)) {
@@ -437,6 +447,7 @@ const Auth = () => {
         toast.success("Check your inbox to confirm your email.");
       }
     } catch (err) {
+      setLoginError(true);
       toast.error(err instanceof Error ? err.message : "Authentication failed");
     } finally {
       setSubmitting(false);
@@ -453,10 +464,13 @@ const Auth = () => {
         },
       });
       if (error) {
+        setLoginError(true);
         toast.error(error.message || "Google sign-in failed");
         return;
       }
+      setLoginSuccess(true);
     } catch (err) {
+      setLoginError(true);
       toast.error(err instanceof Error ? err.message : "Google sign-in failed");
     } finally {
       setGoogleLoading(false);
@@ -640,7 +654,7 @@ const Auth = () => {
       // Check old password
       const localUsersStr = localStorage.getItem("rbac_users");
       const localUsers = localUsersStr ? JSON.parse(localUsersStr) as { email: string; password?: string }[] : [];
-      const userIndex = Array.isArray(localUsers) 
+      const userIndex = Array.isArray(localUsers)
         ? localUsers.findIndex((u) => u.email.toLowerCase() === otpData.email.toLowerCase())
         : -1;
 
@@ -668,7 +682,7 @@ const Auth = () => {
       localStorage.removeItem("password_reset_otp");
 
       toast.success("Your password has been reset successfully.");
-      
+
       setTimeout(() => {
         setTab("signin");
         setForgotStep("email");
@@ -723,479 +737,282 @@ const Auth = () => {
     }
   };
 
-  const inputCls =
-    "w-full rounded-[9px] border border-[#e8e4de] bg-white px-3.5 py-2.5 text-[14px] text-[#1a1a1a] outline-none transition placeholder:text-[#b0aba4] focus:border-[#ff5c3a] focus:shadow-[0_0_0_3px_rgba(255,92,58,0.1)]";
-  const labelCls = "mb-[7px] block text-[12.5px] font-medium text-[#333]";
-
   return (
-    <div className="flex min-h-screen flex-col bg-[#f5f3ee] text-[#1a1a1a]" style={{ fontFamily: "'Outfit', sans-serif" }}>
+    <LampLayout isSuccess={loginSuccess}>
       <Seo
         title="Sign in — Subbly"
         description="Sign in or create a free Subbly account to auto-caption your videos, style subtitles, and export captioned MP4s."
         path="/auth"
       />
-      <nav className="sticky top-0 z-[200] flex h-[62px] items-center justify-between border-b border-[#e8e4de] bg-white/95 px-6 backdrop-blur-xl md:px-12">
-        <BrandLogo size="md" />
-        <div className="flex items-center gap-3">
-          <button
-            onClick={toggle}
-            aria-label="Toggle dark mode"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#e8e4de] bg-white text-[#666] transition hover:text-[#1a1a1a]"
-          >
-            {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
-          </button>
-          <button
-            onClick={() => {
-              if (window.history.length > 1) {
-                navigate(-1);
-              } else {
-                navigate("/");
-              }
-            }}
-            className="text-[13.5px] text-[#666] transition hover:text-[#1a1a1a] bg-transparent border-none cursor-pointer"
-          >
-            ← Back
-          </button>
-        </div>
-      </nav>
+      <form onSubmit={tab === "forgot" ? (forgotStep === "email" ? handleRequestOtp : forgotStep === "otp" ? handleVerifyOtp : handleSavePassword) : handleSubmit} autoComplete="off">
+        <h1>
+          {(tab === "signin" || tab === "signup") && (tab === "signin" ? "Welcome back 👋" : "Create your account")}
+          {tab === "forgot" && (
+            forgotStep === "email" ? "Reset your password" :
+            forgotStep === "otp" ? "Verify Code" : "Set new password"
+          )}
+        </h1>
+        <p className="sub">
+          {tab === "signin" && "Sign in to continue to Subbly"}
+          {tab === "signup" && "Start captioning videos for free"}
+          {tab === "forgot" && (
+            forgotStep === "email" ? "We'll send you a password reset link to your email." :
+            forgotStep === "otp" ? "Enter the 6-digit verification code sent to your email." :
+            "Enter a new password for your account."
+          )}
+        </p>
 
-      <main className="flex flex-1 items-center justify-center px-6 py-12">
-        <div className="w-full max-w-[420px] rounded-[20px] border border-[#e8e4de] bg-white p-10 shadow-[0_4px_40px_rgba(26,26,26,0.07)] md:p-12">
-          <div className="mb-6 flex flex-col items-center justify-center">
-            <BrandLogo size="lg" hideText />
+        {(tab === "signin" || tab === "signup") && (
+          <div className="lamp-tab-switcher">
+            <button
+              type="button"
+              onClick={() => setTab("signin")}
+              className={`lamp-tab-btn ${tab === "signin" ? "active" : ""}`}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("signup")}
+              className={`lamp-tab-btn ${tab === "signup" ? "active" : ""}`}
+            >
+              Create account
+            </button>
           </div>
-          <h1 className="font-serif-display mb-2 text-center text-[30px] font-normal tracking-[-0.5px]">
-            {(tab === "signin" || tab === "signup") && (tab === "signin" ? "Welcome back" : "Create your account")}
-            {tab === "forgot" && (
-              forgotStep === "email" ? "Reset your password" :
-              forgotStep === "otp" ? "Verify Code" : "Set new password"
-            )}
-          </h1>
-          <p className="mb-8 text-center text-[13.5px] text-[#b0aba4]">
-            {tab === "signin" && "Sign in to continue captioning"}
-            {tab === "signup" && "Start captioning videos for free"}
-            {tab === "forgot" && (
-              forgotStep === "email" ? "We'll send you a password reset link to your email." :
-              forgotStep === "otp" ? "Enter the 6-digit verification code sent to your email." :
-              "Enter a new password for your account."
-            )}
-          </p>
+        )}
 
-          {(tab === "signin" || tab === "signup") && (
-            <div className="mb-7 flex gap-[3px] rounded-[9px] bg-[#f5f3ee] p-[3px]">
+        {(tab === "signin" || tab === "signup") && (
+          <>
+            {tab === "signup" && (
+              <div className="lamp-field">
+                <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.7"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+                <input
+                  id="name"
+                  type="text"
+                  autoComplete="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Your name"
+                />
+              </div>
+            )}
+            <div className="lamp-field">
+              <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.7"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
+              <input
+                id="email"
+                type="email"
+                autoComplete="email"
+                required
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Email address"
+              />
+            </div>
+            <div className="lamp-field">
+              <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.7"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+              <input
+                id="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete={tab === "signin" ? "current-password" : "new-password"}
+                minLength={tab === "signup" ? 6 : undefined}
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Password"
+              />
               <button
                 type="button"
-                onClick={() => setTab("signin")}
-                className={`flex-1 rounded-[7px] px-2 py-2 text-[13px] transition ${
-                  tab === "signin"
-                    ? "bg-white font-medium text-[#1a1a1a] shadow-[0_1px_4px_rgba(26,26,26,0.08)]"
-                    : "text-[#666]"
-                }`}
+                className="eye"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? "Hide password" : "Show password"}
               >
-                Sign in
-              </button>
-              <button
-                type="button"
-                onClick={() => setTab("signup")}
-                className={`flex-1 rounded-[7px] px-2 py-2 text-[13px] transition ${
-                  tab === "signup"
-                    ? "bg-white font-medium text-[#1a1a1a] shadow-[0_1px_4px_rgba(26,26,26,0.08)]"
-                    : "text-[#666]"
-                }`}
-              >
-                Create account
+                <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.7"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
               </button>
             </div>
-          )}
+            
+            {tab === "signin" && (
+              <div className="lamp-row-between">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTab("forgot");
+                    setForgotStep("email");
+                  }}
+                  className="lamp-forgot bg-transparent border-none cursor-pointer"
+                >
+                  Forgot Password?
+                </button>
+              </div>
+            )}
 
-          <form onSubmit={tab === "forgot" ? (forgotStep === "email" ? handleRequestOtp : forgotStep === "otp" ? handleVerifyOtp : handleSavePassword) : handleSubmit}>
-            {(tab === "signin" || tab === "signup") && (
-              <>
-                {tab === "signup" && (
-                  <div className="mb-[18px]">
-                    <label htmlFor="name" className={labelCls}>Name</label>
-                    <input
-                      id="name"
-                      type="text"
-                      autoComplete="name"
-                      value={name}
-                      onChange={(e) => setName(e.target.value)}
-                      className={inputCls}
-                      placeholder="Your name"
-                    />
+            <button
+              type="submit"
+              disabled={submitting}
+              className="lamp-btn-primary"
+            >
+              {tab === "signin" ? "Sign In" : "Create account"}
+            </button>
+          </>
+        )}
+
+        {tab === "forgot" && (
+          <div>
+            <div className="flex items-center justify-between mb-6">
+              {[
+                { id: "email", label: "Email" },
+                { id: "otp", label: "OTP" },
+                { id: "reset", label: "Reset" }
+              ].map((step, idx) => {
+                const isActive = forgotStep === step.id;
+                const isCompleted =
+                  (step.id === "email" && (forgotStep === "otp" || forgotStep === "reset")) ||
+                  (step.id === "otp" && forgotStep === "reset");
+
+                return (
+                  <div key={step.id} className="flex flex-col items-center">
+                    <div className={`flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-bold ${isActive
+                        ? "bg-[#FF7A00] text-[#161005]"
+                        : isCompleted
+                          ? "bg-[#FFC857] text-[#161005]"
+                          : "bg-[rgba(255,255,255,0.1)] text-[rgba(255,255,255,0.4)]"
+                      }`}>
+                      {idx + 1}
+                    </div>
                   </div>
-                )}
-                <div className="mb-[18px]">
-                  <label htmlFor="email" className={labelCls}>Email address</label>
+                );
+              })}
+            </div>
+
+            {forgotStep === "email" && (
+              <>
+                <div className="lamp-field">
+                  <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.7"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="M3 7l9 6 9-6"/></svg>
                   <input
-                    id="email"
                     type="email"
-                    autoComplete="email"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className={inputCls}
-                    placeholder="you@example.com"
+                    placeholder="Enter your email"
                   />
                 </div>
-                <div className="mb-[18px]">
-                  <div className="flex justify-between items-center mb-[7px]">
-                    <label htmlFor="password" className={labelCls + " mb-0"}>Password</label>
-                    {tab === "signin" && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setTab("forgot");
-                          setForgotStep("email");
-                        }}
-                        className="text-[12.5px] font-medium text-[#ff5c3a] hover:underline focus:outline-none bg-transparent border-none cursor-pointer"
-                      >
-                        Forgot password?
-                      </button>
-                    )}
-                  </div>
-                  <div className="relative w-full">
-                    <input
-                      id="password"
-                      type={showPassword ? "text" : "password"}
-                      autoComplete={tab === "signin" ? "current-password" : "new-password"}
-                      minLength={tab === "signup" ? 6 : undefined}
-                      required
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className={`${inputCls} pr-24`}
-                      placeholder="••••••••"
-                    />
-                    <div className="absolute right-2 top-1/2 z-10 -translate-y-1/2 flex items-center gap-0.5">
-                      <button
-                        type="button"
-                        onClick={() => setShowPassword(!showPassword)}
-                        className="text-neutral-400 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors focus:outline-none flex items-center justify-center p-2 cursor-pointer"
-                        aria-label={showPassword ? "Hide password" : "Show password"}
-                      >
-                        {showPassword ? (
-                          <EyeOff className="h-5 w-5" />
-                        ) : (
-                          <Eye className="h-5 w-5" />
-                        )}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={handleCopyPassword}
-                        className="text-neutral-400 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors focus:outline-none flex items-center justify-center p-2 cursor-pointer"
-                        aria-label="Copy password"
-                      >
-                        <Copy className="h-5 w-5" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="mt-1 flex w-full items-center justify-center gap-2 rounded-[9px] bg-[#ff5c3a] px-4 py-3 text-[14px] font-medium text-white transition hover:-translate-y-px hover:bg-[#ff7558] hover:shadow-[0_4px_16px_rgba(255,92,58,0.3)] disabled:opacity-60 disabled:hover:translate-y-0"
-                >
-                  {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                  {tab === "signin" ? "Continue" : "Create account"}
+                <button type="submit" disabled={submitting} className="lamp-btn-primary">
+                  Send Reset Link
                 </button>
               </>
             )}
 
-            {tab === "forgot" && (
-              <div>
-                {/* Progress Indicator */}
-                <div className="mb-8 flex items-center justify-between">
-                  {[
-                    { id: "email", label: "Verify Email" },
-                    { id: "otp", label: "Verify OTP" },
-                    { id: "reset", label: "Reset Password" }
-                  ].map((step, idx) => {
-                    const isActive = forgotStep === step.id;
-                    const isCompleted = 
-                      (step.id === "email" && (forgotStep === "otp" || forgotStep === "reset")) ||
-                      (step.id === "otp" && forgotStep === "reset");
-                      
-                    return (
-                      <div key={step.id} className="flex flex-1 items-center">
-                        <div className="flex flex-col items-center flex-1">
-                          <div className={`flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition ${
-                            isActive 
-                              ? "bg-[#ff5c3a] text-white shadow-[0_0_8px_rgba(255,92,58,0.4)]"
-                              : isCompleted
-                                ? "bg-green-500 text-white"
-                                : "bg-[#e8e4de] dark:bg-[#2a2622] text-[#666] dark:text-[#a8a39c]"
-                          }`}>
-                            {idx + 1}
-                          </div>
-                          <span className={`mt-1.5 text-[10.5px] font-medium transition ${
-                            isActive ? "text-[#ff5c3a]" : isCompleted ? "text-green-500" : "text-[#b0aba4]"
-                          }`}>
-                            {step.label}
-                          </span>
-                        </div>
-                        {idx < 2 && (
-                          <div className={`h-[2px] w-full -mt-4 transition ${
-                            isCompleted ? "bg-green-500" : "bg-[#e8e4de] dark:bg-[#2a2622]"
-                          }`} />
-                        )}
-                      </div>
-                    );
-                  })}
+            {forgotStep === "otp" && (
+              <>
+                <div className="flex justify-between gap-2 mb-4" onPaste={handleOtpPaste}>
+                  {otpVal.map((v, i) => (
+                    <input
+                      key={i}
+                      id={`otp-${i}`}
+                      type="text"
+                      maxLength={1}
+                      value={v}
+                      onChange={(e) => {
+                        const newOtp = [...otpVal];
+                        newOtp[i] = e.target.value;
+                        setOtpVal(newOtp);
+                        if (e.target.value && i < 5) {
+                          const next = document.getElementById(`otp-${i + 1}`);
+                          if (next) next.focus();
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Backspace" && !otpVal[i] && i > 0) {
+                          const prev = document.getElementById(`otp-${i - 1}`);
+                          if (prev) {
+                            prev.focus();
+                            const newOtp = [...otpVal];
+                            newOtp[i - 1] = "";
+                            setOtpVal(newOtp);
+                          }
+                        }
+                      }}
+                      className="w-10 h-10 text-center rounded-[8px] border border-[rgba(255,255,255,0.14)] bg-[rgba(255,255,255,0.04)] text-white text-[16px] focus:border-[#FF7A00] outline-none"
+                    />
+                  ))}
                 </div>
-
-                {forgotStep === "email" && (
-                  <div className="space-y-4">
-                    <div>
-                      <label htmlFor="reset-email" className={labelCls}>Email address</label>
-                      <input
-                        id="reset-email"
-                        type="email"
-                        required
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        className={inputCls}
-                        placeholder="you@example.com"
-                      />
-                    </div>
-                    <button
-                      type="submit"
-                      disabled={submitting}
-                      className="mt-2 flex w-full items-center justify-center gap-2 rounded-[9px] bg-[#ff5c3a] px-4 py-3 text-[14px] font-medium text-white transition hover:-translate-y-px hover:bg-[#ff7558] hover:shadow-[0_4px_16px_rgba(255,92,58,0.3)] disabled:opacity-60"
-                    >
-                      {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                      Send verification code
-                    </button>
-                  </div>
-                )}
-
-                {forgotStep === "otp" && (
-                  <div className="space-y-4">
-                    <p className="text-xs text-[#666] leading-relaxed">
-                      We've sent a verification code to your email.
-                    </p>
-                    
-                    <div className="flex justify-between gap-2.5 my-4">
-                      {otpVal.map((digit, idx) => (
-                        <input
-                          key={idx}
-                          id={`otp-${idx}`}
-                          type="text"
-                          maxLength={1}
-                          value={digit}
-                          onChange={(e) => handleOtpChange(idx, e.target.value)}
-                          onKeyDown={(e) => handleOtpKeyDown(idx, e)}
-                          onPaste={idx === 0 ? handleOtpPaste : undefined}
-                          className="w-12 h-12 rounded-[9px] border border-[#e8e4de] text-center text-lg font-bold bg-white text-[#1a1a1a] outline-none transition focus:border-[#ff5c3a] focus:shadow-[0_0_0_3px_rgba(255,92,58,0.1)]"
-                          autoFocus={idx === 0}
-                        />
-                      ))}
-                    </div>
-
-                    {otpError && (
-                      <p className="text-xs text-red-500 font-medium">{otpError}</p>
-                    )}
-
-                    <div className="flex justify-between items-center text-[12.5px] text-[#666]">
-                      <span>Code expires in: <strong className="text-[#1a1a1a]">{formatTime(otpTimer)}</strong></span>
-                      <button
-                        type="button"
-                        onClick={handleResendOtp}
-                        disabled={resendTimer > 0 || resendCount >= 5}
-                        className="text-[#ff5c3a] hover:underline disabled:text-[#b0aba4] disabled:hover:no-underline font-medium bg-transparent border-none cursor-pointer"
-                      >
-                        {resendTimer > 0 ? `Resend in ${resendTimer}s` : "Resend code"}
-                      </button>
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={submitting}
-                      className="mt-2 flex w-full items-center justify-center gap-2 rounded-[9px] bg-[#ff5c3a] px-4 py-3 text-[14px] font-medium text-white transition hover:-translate-y-px hover:bg-[#ff7558] hover:shadow-[0_4px_16px_rgba(255,92,58,0.3)] disabled:opacity-60"
-                    >
-                      {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                      Verify code
-                    </button>
-                  </div>
-                )}
-
-                {forgotStep === "reset" && (
-                  <div className="space-y-4">
-                    <div className="relative w-full">
-                      <label htmlFor="new-password" className={labelCls}>New Password</label>
-                      <div className="relative">
-                        <input
-                          id="new-password"
-                          type={showPassword ? "text" : "password"}
-                          required
-                          value={newPassword}
-                          onChange={(e) => setNewPassword(e.target.value)}
-                          className={`${inputCls} pr-24`}
-                          placeholder="New password"
-                        />
-                        <div className="absolute right-2 top-1/2 z-10 -translate-y-1/2 flex items-center gap-0.5">
-                          <button
-                            type="button"
-                            onClick={() => setShowPassword(!showPassword)}
-                            className="text-neutral-400 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors focus:outline-none flex items-center justify-center p-2 cursor-pointer"
-                          >
-                            {showPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              navigator.clipboard.writeText(newPassword);
-                              toast.success("Password copied!");
-                            }}
-                            className="text-neutral-400 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors focus:outline-none flex items-center justify-center p-2 cursor-pointer"
-                          >
-                            <Copy className="h-5 w-5" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="relative w-full mt-[18px]">
-                      <label htmlFor="confirm-password" className={labelCls}>Confirm Password</label>
-                      <div className="relative">
-                        <input
-                          id="confirm-password"
-                          type={showConfirmPassword ? "text" : "password"}
-                          required
-                          value={confirmPassword}
-                          onChange={(e) => setConfirmPassword(e.target.value)}
-                          className={`${inputCls} pr-24`}
-                          placeholder="Confirm password"
-                        />
-                        <div className="absolute right-2 top-1/2 z-10 -translate-y-1/2 flex items-center gap-0.5">
-                          <button
-                            type="button"
-                            onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                            className="text-neutral-400 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors focus:outline-none flex items-center justify-center p-2 cursor-pointer"
-                          >
-                            {showConfirmPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => {
-                              navigator.clipboard.writeText(confirmPassword);
-                              toast.success("Password copied!");
-                            }}
-                            className="text-neutral-400 dark:text-neutral-400 hover:text-neutral-600 dark:hover:text-neutral-200 transition-colors focus:outline-none flex items-center justify-center p-2 cursor-pointer"
-                          >
-                            <Copy className="h-5 w-5" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Password Strength Indicator */}
-                    {newPassword && (
-                      <div className="mb-4 mt-2">
-                        <div className="flex justify-between items-center mb-1 text-[11.5px] font-medium text-[#666]">
-                          <span>Password strength:</span>
-                          <span className={
-                            getPasswordStrength().text === "Weak" ? "text-red-500" : 
-                            getPasswordStrength().text === "Medium" ? "text-yellow-500" : "text-green-500"
-                          }>{getPasswordStrength().text}</span>
-                        </div>
-                        <div className="h-1.5 w-full bg-[#e8e4de] dark:bg-[#2a2622] rounded-full overflow-hidden">
-                          <div className={`h-full transition-all duration-300 ${getPasswordStrength().color}`} style={{ width: `${getPasswordStrength().percent}%` }} />
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Password Requirements */}
-                    <div className="mb-4 mt-2 space-y-1.5">
-                      <label className={labelCls}>Password requirements:</label>
-                      <div className="grid grid-cols-2 gap-x-4 gap-y-1.5 text-[11px]">
-                        <div className={`flex items-center gap-1.5 ${hasMinLength ? "text-green-500 font-medium" : "text-[#b0aba4]"}`}>
-                          <div className={`h-1.5 w-1.5 rounded-full ${hasMinLength ? "bg-green-500" : "bg-[#b0aba4]"}`} />
-                          Min 8 characters
-                        </div>
-                        <div className={`flex items-center gap-1.5 ${hasUppercase ? "text-green-500 font-medium" : "text-[#b0aba4]"}`}>
-                          <div className={`h-1.5 w-1.5 rounded-full ${hasUppercase ? "bg-green-500" : "bg-[#b0aba4]"}`} />
-                          One uppercase letter
-                        </div>
-                        <div className={`flex items-center gap-1.5 ${hasLowercase ? "text-green-500 font-medium" : "text-[#b0aba4]"}`}>
-                          <div className={`h-1.5 w-1.5 rounded-full ${hasLowercase ? "bg-green-500" : "bg-[#b0aba4]"}`} />
-                          One lowercase letter
-                        </div>
-                        <div className={`flex items-center gap-1.5 ${hasNumber ? "text-green-500 font-medium" : "text-[#b0aba4]"}`}>
-                          <div className={`h-1.5 w-1.5 rounded-full ${hasNumber ? "bg-green-500" : "bg-[#b0aba4]"}`} />
-                          One number
-                        </div>
-                        <div className={`flex items-center gap-1.5 ${hasSpecial ? "text-green-500 font-medium" : "text-[#b0aba4]"}`}>
-                          <div className={`h-1.5 w-1.5 rounded-full ${hasSpecial ? "bg-green-500" : "bg-[#b0aba4]"}`} />
-                          One special character
-                        </div>
-                      </div>
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={submitting || !meetsAllRequirements || newPassword !== confirmPassword}
-                      className="mt-2 flex w-full items-center justify-center gap-2 rounded-[9px] bg-[#ff5c3a] px-4 py-3 text-[14px] font-medium text-white transition hover:-translate-y-px hover:bg-[#ff7558] hover:shadow-[0_4px_16px_rgba(255,92,58,0.3)] disabled:opacity-60"
-                    >
-                      {submitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                      Save Password
-                    </button>
-                  </div>
-                )}
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTab("signin");
-                    setForgotStep("email");
-                  }}
-                  className="mt-6 text-center text-xs text-[#ff5c3a] hover:underline block w-full focus:outline-none bg-transparent border-none cursor-pointer"
-                >
-                  Back to sign in
+                <button type="submit" disabled={submitting || otpVal.join("").length !== 6} className="lamp-btn-primary">
+                  Verify Code
                 </button>
-              </div>
+              </>
             )}
-          </form>
 
-          {(tab === "signin" || tab === "signup") && (
-            <>
-              <div className="my-5 flex items-center gap-3 text-xs text-[#b0aba4]">
-                <div className="h-px flex-1 bg-[#e8e4de]" />
-                or
-                <div className="h-px flex-1 bg-[#e8e4de]" />
-              </div>
+            {forgotStep === "reset" && (
+              <>
+                <div className="lamp-field">
+                  <svg className="icon" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.7"><rect x="4" y="10" width="16" height="10" rx="2"/><path d="M8 10V7a4 4 0 018 0v3"/></svg>
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="New password"
+                  />
+                  <button
+                    type="button"
+                    className="eye"
+                    onClick={() => setShowPassword(!showPassword)}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="1.7"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>
+                  </button>
+                </div>
+                <div className="lamp-field">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="Confirm new password"
+                  />
+                </div>
+                <button type="submit" disabled={submitting} className="lamp-btn-primary">
+                  Save Password
+                </button>
+              </>
+            )}
 
-              <button
-                type="button"
-                onClick={handleGoogle}
-                disabled={googleLoading}
-                className="flex w-full items-center justify-center gap-2.5 rounded-[9px] border border-[#e8e4de] bg-white px-4 py-2.5 text-[13.5px] text-[#666] transition hover:border-[#b0aba4] hover:text-[#1a1a1a] disabled:opacity-60"
-              >
-                {googleLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <GoogleIcon className="h-4 w-4" />}
-                Continue with Google
-              </button>
-            </>
-          )}
+            <button
+              type="button"
+              onClick={() => {
+                setTab("signin");
+                setForgotStep("email");
+              }}
+              className="mt-6 text-center text-[12px] text-[#FF7A00] hover:underline block w-full focus:outline-none bg-transparent border-none cursor-pointer"
+            >
+              Back to sign in
+            </button>
+          </div>
+        )}
 
-          <p className="mt-5 text-center text-xs text-[#b0aba4]">
-            By continuing you agree to our{" "}
-            <Link to="/terms" className="text-[#ff5c3a] hover:underline">Terms</Link> and{" "}
-            <Link to="/privacy" className="text-[#ff5c3a] hover:underline">Privacy Policy</Link>
-          </p>
+        {(tab === "signin" || tab === "signup") && (
+          <>
+            <div className="lamp-divider">or</div>
+            <button
+              type="button"
+              onClick={handleGoogle}
+              disabled={googleLoading}
+              className="lamp-btn-google"
+            >
+              {googleLoading ? "Loading..." : (
+                <svg width="17" height="17" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.1 8 2.9l6-6C34.5 5.5 29.5 3.5 24 3.5 12.7 3.5 3.5 12.7 3.5 24S12.7 44.5 24 44.5 44.5 35.3 44.5 24c0-1.2-.1-2.4-.3-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.6 16 18.9 13.5 24 13.5c3.1 0 5.8 1.1 8 2.9l6-6C34.5 5.5 29.5 3.5 24 3.5c-7.7 0-14.4 4.4-17.7 11.2z"/><path fill="#4CAF50" d="M24 44.5c5.4 0 10.3-1.8 14.1-5l-6.5-5.3c-2 1.4-4.6 2.3-7.6 2.3-5.3 0-9.7-3.3-11.3-7.9l-6.6 5C9.5 40 16.2 44.5 24 44.5z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.3-2.3 4.2-4.2 5.7l6.5 5.3c-.5.4 6.9-5 6.9-15.5 0-1.2-.1-2.4-.3-3.5z"/></svg>
+              )}
+              Continue with Google
+            </button>
+          </>
+        )}
+
+        <div className={`lamp-success ${loginSuccess ? 'show' : ''}`}>
+          <div className="check"><svg viewBox="0 0 24 24" fill="none" stroke="#FFC857" strokeWidth="2.5"><path d="M20 6L9 17l-5-5"/></svg></div>
+          <h3>Welcome back!</h3>
+          <span>Redirecting to your dashboard…</span>
         </div>
-      </main>
-    </div>
+      </form>
+    </LampLayout>
   );
 };
-
-function GoogleIcon({ className }: { className?: string }) {
-  return (
-    <svg className={className} viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <path d="M15.68 8.18c0-.57-.05-1.12-.14-1.64H8v3.1h4.31a3.68 3.68 0 0 1-1.6 2.41v2h2.6c1.52-1.4 2.4-3.47 2.4-5.87z" fill="#4285F4" />
-      <path d="M8 16c2.16 0 3.97-.72 5.3-1.94l-2.6-2.02c-.72.48-1.63.77-2.7.77-2.08 0-3.84-1.4-4.47-3.29H.85v2.08A8 8 0 0 0 8 16z" fill="#34A853" />
-      <path d="M3.53 9.52A4.8 4.8 0 0 1 3.28 8c0-.53.09-1.04.25-1.52V4.4H.85A8 8 0 0 0 0 8c0 1.29.31 2.51.85 3.6l2.68-2.08z" fill="#FBBC05" />
-      <path d="M8 3.18c1.17 0 2.22.4 3.05 1.2l2.28-2.28C11.96.72 10.15 0 8 0A8 8 0 0 0 .85 4.4L3.53 6.48C4.16 4.59 5.92 3.18 8 3.18z" fill="#EA4335" />
-    </svg>
-  );
-}
 
 export default Auth;
