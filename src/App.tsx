@@ -25,6 +25,7 @@ import AICaptionGenerator from "./pages/landing/AICaptionGenerator.tsx";
 
 import { HelmetProvider } from 'react-helmet-async';
 import { RainBackground } from '@/components/ui/RainBackground';
+import { CookieConsent } from '@/components/ui/CookieConsent';
 
 const queryClient = new QueryClient();
 
@@ -37,6 +38,7 @@ const App = () => (
       <BrowserRouter>
         <ThemeProvider>
           <RainBackground initialDensity={150} initialWind={20} initialSpeed={180} />
+          <CookieConsent />
           <AuthProvider>
           <AvatarProvider>
             <Routes>
