@@ -689,6 +689,16 @@ const Editor = () => {
     return () => clearInterval(timer);
   }, [projectId, file, captions, style, title, language]);
 
+  // Toggle rain background based on editing state
+  useEffect(() => {
+    if (file || videoUrl) {
+      document.body.classList.add('hide-rain');
+    } else {
+      document.body.classList.remove('hide-rain');
+    }
+    return () => document.body.classList.remove('hide-rain');
+  }, [file, videoUrl]);
+
   const handleManualSave = useCallback(async () => {
     if (!user) {
       const localState = {
@@ -1430,7 +1440,7 @@ const Editor = () => {
             {!isMobile && (
               <div className="flex flex-1 overflow-hidden">
                 {/* 2.1 SLIM NAVIGATION SIDEBAR */}
-                <aside className="w-16 flex-shrink-0 bg-white dark:bg-[#181B22] border-r border-[#E8E4DE] dark:border-[#2C313C] flex flex-col items-center justify-between py-4 select-none">
+                <aside className="w-16 flex-shrink-0 bg-white dark:bg-[#0A0A0A] border-r border-[#E8E4DE] dark:border-[#222] flex flex-col items-center justify-between py-4 select-none">
                   <div className="flex flex-col gap-4.5 w-full items-center">
                     {/* Captions */}
                     <SidebarIcon title="Captions" icon={Type} active={activeTab === "style"} onClick={() => setActiveTab("style")} />
@@ -1485,15 +1495,15 @@ const Editor = () => {
 
 
                 {/* 2.2 HORIZONTAL WORKSPACE ROW */}
-                <div className="flex-1 flex flex-col overflow-hidden bg-[#F9F8F6] dark:bg-[#0F1117] bg-grid-dark-pattern dark:bg-grid-white-pattern relative">
+                <div className="flex-1 flex flex-col overflow-hidden bg-[#F9F8F6] dark:bg-black bg-grid-dark-pattern dark:bg-grid-white-pattern relative">
                   {/* Soft ambient background glows */}
-                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-[#FF6B2C]/5 via-transparent to-purple-500/5 dark:from-[#FF6B2C]/10 dark:to-purple-500/10 opacity-70" />
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-[#FF6B2C]/5 via-transparent to-transparent dark:from-[#FF6B2C]/5 dark:to-transparent opacity-40" />
 
                   {/* Top Workspace Panels */}
                   <div className="flex-1 min-h-0 overflow-hidden px-4 py-3 z-10">
                     <ResizablePanelGroup direction="horizontal" className="h-full w-full gap-3">
                       {/* Left: captionsPanel */}
-                      <ResizablePanel defaultSize={26} minSize={15} maxSize={40} className="rounded-2xl border border-[#E8E4DE] dark:border-[#2C313C] bg-white dark:bg-[#181B22] overflow-hidden shadow-2xl">
+                      <ResizablePanel defaultSize={26} minSize={15} maxSize={40} className="rounded-2xl border border-[#E8E4DE] dark:border-[#222] bg-white dark:bg-[#0F0F0F] overflow-hidden shadow-2xl">
                         {captionsPanel}
                       </ResizablePanel>
 
@@ -1507,14 +1517,14 @@ const Editor = () => {
                       <ResizableHandle className="bg-transparent hover:bg-[#FF6B2C]/20 transition w-1 cursor-col-resize" />
 
                       {/* Right: stylePanel */}
-                      <ResizablePanel defaultSize={26} minSize={15} maxSize={40} className="rounded-2xl border border-[#E8E4DE] dark:border-[#2C313C] bg-white dark:bg-[#181B22] overflow-hidden shadow-2xl">
+                      <ResizablePanel defaultSize={26} minSize={15} maxSize={40} className="rounded-2xl border border-[#E8E4DE] dark:border-[#222] bg-white dark:bg-[#0F0F0F] overflow-hidden shadow-2xl">
                         {stylePanel}
                       </ResizablePanel>
                     </ResizablePanelGroup>
                   </div>
 
                   {/* Bottom Timeline Panel Container */}
-                  <div className="flex-shrink-0 h-[260px] flex flex-col overflow-hidden bg-white dark:bg-[#181B22] border border-[#E8E4DE] dark:border-[#2C313C] mx-4 mb-3 rounded-2xl shadow-2xl select-none">
+                  <div className="flex-shrink-0 h-[260px] flex flex-col overflow-hidden bg-white dark:bg-[#0F0F0F] border border-[#E8E4DE] dark:border-[#222] mx-4 mb-3 rounded-2xl shadow-2xl select-none">
                     {combinedToolbar}
                     <div className="flex-1 overflow-hidden">
                       {timelinePanel}

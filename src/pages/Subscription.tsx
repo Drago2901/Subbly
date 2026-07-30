@@ -482,7 +482,7 @@ export default function Subscription() {
                 return (
                   <div
                     key={plan.key}
-                    className={`relative flex flex-col rounded-2xl p-5 border transition-all duration-300 ${
+                    className={`relative flex flex-col rounded-2xl p-5 border transition-all duration-300 hover:-translate-y-1.5 hover:shadow-orange-glow hover:border-[#ff5c3a]/60 dark:hover:border-[#ff5c3a]/50 ${
                       featured
                         ? "border-2 border-[#ff5c3a] bg-[#fff5f3] dark:bg-zinc-900/60"
                         : "border-[#e8e4de] dark:border-zinc-800 bg-white dark:bg-zinc-900"

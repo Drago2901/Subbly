@@ -397,10 +397,27 @@ export function Timeline({
       <div ref={scrollRef} className="scrollbar-thin overflow-x-auto overflow-y-auto flex-1 min-h-0">
         <div className="relative" style={{ width: totalWidth + 96 }}>
 
+          {/* PLAYHEAD FULL HEIGHT OVERLAY */}
+          <div
+            className="absolute top-0 bottom-0 z-20 w-px bg-[#FF6B2C] pointer-events-none"
+            style={{ left: 96 + currentTime * pxPerSec }}
+          >
+            <div className="absolute top-0 -left-[3.5px] h-0 w-0 border-x-[4px] border-t-[5.5px] border-x-transparent border-t-[#FF6B2C]" />
+          </div>
+
           {/* TIME RULE GRID HEADER */}
           <div className="relative flex h-6 select-none items-end border-b border-[#E8E4DE] dark:border-[#2C313C] bg-white dark:bg-[#181B22]">
             <div className="sticky left-0 z-30 w-24 flex-shrink-0 border-r border-[#E8E4DE] dark:border-[#2C313C] bg-white dark:bg-[#181B22]" />
-            <div className="relative flex-1 h-full">
+            <div
+              className="relative flex-1 h-full cursor-col-resize"
+              onPointerDown={(e) => {
+                const rect = e.currentTarget.getBoundingClientRect();
+                const t = Math.max(0, Math.min(duration, (e.clientX - rect.left) / pxPerSec));
+                onSeek(t);
+                setSelected(null);
+                setDrag({ kind: "scrub", startX: e.clientX });
+              }}
+            >
               {ticks.arr.map((t) => {
                 const major = Math.round(t / ticks.step) % 5 === 0;
                 return (
@@ -418,14 +435,6 @@ export function Timeline({
                   </div>
                 );
               })}
-
-              {/* Playhead needle */}
-              <div
-                className="absolute top-0 bottom-0 z-20 w-px bg-[#FF6B2C] pointer-events-none"
-                style={{ left: currentTime * pxPerSec }}
-              >
-                <div className="absolute -top-px -left-[3.5px] h-0 w-0 border-x-[4px] border-t-[5.5px] border-x-transparent border-t-[#FF6B2C]" />
-              </div>
             </div>
           </div>
 

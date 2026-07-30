@@ -318,4 +318,6 @@
   box-shadow: 0 20px 40px -15px rgba(255, 92, 58, 0.15), 0 0 1px rgba(255, 92, 58, 0.2);
 }
 
-
+body.hide-rain #rain-background-wrapper {
+  display: none !important;
+}

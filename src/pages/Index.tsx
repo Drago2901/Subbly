@@ -952,10 +952,10 @@ export default function Index() {
               return (
                 <div
                   key={plan.key}
-                  className={`relative flex flex-col rounded-2xl p-6 transition-all duration-300 ${
+                  className={`relative flex flex-col rounded-2xl p-6 transition-all duration-300 hover:-translate-y-1.5 hover:shadow-orange-glow hover:border-[#ff5c3a]/60 dark:hover:border-[#ff5c3a]/50 ${
                     featured
-                      ? "border-2 border-[#ff5c3a] bg-orange-50/20 dark:bg-orange-950/10 shadow-orange-glow hover:-translate-y-1"
-                      : "border border-zinc-200 dark:border-zinc-900 bg-white dark:bg-zinc-950 hover:border-zinc-300 dark:hover:border-zinc-800 hover:-translate-y-1 shadow-sm"
+                      ? "border-2 border-[#ff5c3a] bg-orange-50/20 dark:bg-orange-950/10"
+                      : "border border-zinc-200 dark:border-zinc-900 bg-white dark:bg-zinc-950 shadow-sm"
                   }`}
                 >
                   {featured && (

@@ -24,6 +24,7 @@ import TypewriterDemo from "./pages/TypewriterDemo.tsx";
 import AICaptionGenerator from "./pages/landing/AICaptionGenerator.tsx";
 
 import { HelmetProvider } from 'react-helmet-async';
+import { RainBackground } from '@/components/ui/RainBackground';
 
 const queryClient = new QueryClient();
 
@@ -35,7 +36,8 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <ThemeProvider>
-        <AuthProvider>
+          <RainBackground initialDensity={150} initialWind={20} initialSpeed={180} />
+          <AuthProvider>
           <AvatarProvider>
             <Routes>
               <Route path="/" element={<Index />} />
