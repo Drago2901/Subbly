@@ -321,7 +321,7 @@ const Editor = () => {
       id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15),
       start,
       end: start + 2,
-      text: "New caption",
+      text: "",
       track: targetTrack,
       x: refCap?.x ?? 0.5,
       y: refCap?.y ?? 0.88,
@@ -783,30 +783,24 @@ const Editor = () => {
 
 
   const transcribe = async () => {
+    if (!user) {
+      toast.error("Please login to generate captions.");
+      return;
+    }
     if (!file) return;
     setTranscribing(true);
     setTranscribeStage("Extracting audio…");
     const stageToast = toast.loading("Auto-transcription: Extracting audio tracks…");
 
     try {
-      let targetFile = file;
-      if (file.name.endsWith(".webm")) {
-        setTranscribeStage("Webm transcoding…");
-        toast.loading("Converting webm containers to mp4 segments…", { id: stageToast });
-        const mp4Blob = await transcodeWebmToMp4({ webmBlob: file });
-        targetFile = new File([mp4Blob], file.name.replace(/\.[^/.]+$/, "") + ".mp4", {
-          type: "video/mp4",
-        });
-      }
-
       setTranscribeStage("Processing voice…");
       toast.loading("Extracting speech tracks from video metadata…", { id: stageToast });
-      const audioBlob = await extractAudioNative(targetFile);
+      const audioBlob = await extractAudioNative(file);
 
       setTranscribeStage("Transcribing…");
       toast.loading("☕ Grab a coffee while we do the magic...", { id: stageToast });
       const form = new FormData();
-      form.append("file", audioBlob, "audio.mp4");
+      form.append("file", audioBlob, "audio.wav");
       if (language && language !== "auto") form.append("language", language);
 
       // Use direct fetch so the browser sets the correct multipart Content-Type
@@ -1150,7 +1144,7 @@ const Editor = () => {
                 ) : (
                   <span className="text-[#22C55E] flex items-center gap-1 font-bold animate-pulse">
                     <Check className="h-3.5 w-3.5 text-[#22C55E]" strokeWidth={3.5} />
-                    ✔ Saved just now
+                    Saved just now
                   </span>
                 )}
               </span>

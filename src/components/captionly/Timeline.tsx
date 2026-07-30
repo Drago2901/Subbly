@@ -252,7 +252,7 @@ export function Timeline({
       id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15),
       start,
       end,
-      text: "New Caption",
+      text: "",
       track: targetTrack,
       x: refCap?.x ?? 0.5,
       y: refCap?.y ?? 0.88,

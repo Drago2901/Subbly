@@ -59,7 +59,7 @@ export function CaptionList({ captions, currentTime, onChange, onSeek, lockedTra
         id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15),
         start,
         end: start + 2,
-        text: "New caption",
+        text: "",
         track: targetTrack,
         x: refCap?.x ?? 0.5,
         y: refCap?.y ?? 0.88,
@@ -260,6 +260,7 @@ export function CaptionList({ captions, currentTime, onChange, onSeek, lockedTra
 
               {/* Caption Textarea Preview */}
               <textarea
+                autoFocus={c.text === ""}
                 value={c.text}
                 aria-label="Caption text content"
                 disabled={isLocked}

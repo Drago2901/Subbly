@@ -1,5 +1,5 @@
 // translate-captions — powered by OpenRouter (multi-model AI translation)
-import { createClient } from "npm:@supabase/supabase-js@2";
+import { withSupabase } from "npm:@supabase/server";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -92,25 +92,32 @@ async function translateWithOpenRouter(
   // Strip markdown fences and trim
   const clean = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
 
+  // Helper to clean leading numbers like "0. " or "1: "
+  const cleanItem = (item: unknown) => {
+    if (typeof item !== "string") return "";
+    return item.replace(/^\d+[.:)]\s*/, "").trim();
+  };
+
   // Try JSON parse first
   try {
     const parsed = JSON.parse(clean);
 
     if (Array.isArray(parsed)) {
-      return texts.map((orig, i) =>
-        typeof parsed[i] === "string" && parsed[i].trim() ? parsed[i] : orig
-      );
+      return texts.map((orig, i) => {
+        const text = cleanItem(parsed[i]);
+        return text ? text : orig;
+      });
     }
     if (Array.isArray(parsed?.translations)) {
-      return texts.map((orig, i) =>
-        typeof parsed.translations[i] === "string" && parsed.translations[i].trim()
-          ? parsed.translations[i] : orig
-      );
+      return texts.map((orig, i) => {
+        const text = cleanItem(parsed.translations[i]);
+        return text ? text : orig;
+      });
     }
     if (typeof parsed === "object" && parsed !== null) {
       return texts.map((orig, i) => {
-        const v = parsed[i] ?? parsed[String(i)];
-        return typeof v === "string" && v.trim() ? v : orig;
+        const text = cleanItem(parsed[i] ?? parsed[String(i)]);
+        return text ? text : orig;
       });
     }
   } catch { /* fall through to regex fallback */ }
@@ -134,32 +141,13 @@ async function translateWithOpenRouter(
   return texts;
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+export default {
+  fetch: withSupabase({ auth: 'user' }, async (req, ctx) => {
+    if (req.method === "OPTIONS") {
+      return new Response(null, { headers: corsHeaders });
+    }
 
-  try {
-    // Auth check
-    const authHeader = req.headers.get("Authorization");
-    if (!authHeader) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
-    const token = authHeader.replace("Bearer ", "");
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_ANON_KEY")!,
-    );
-    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-    if (authError || !user) {
-      return new Response(JSON.stringify({ error: "Unauthorized" }), {
-        status: 401,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    try {
 
     const body = await req.json();
     const texts: string[] = body?.texts ?? [];
@@ -210,11 +198,12 @@ Deno.serve(async (req) => {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (err) {
-    console.error("translate-captions error:", err);
-    const msg = err instanceof Error ? err.message : "Translation failed. Please try again.";
-    return new Response(JSON.stringify({ error: msg }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
-  }
-});
+      console.error("translate-captions error:", err);
+      const msg = err instanceof Error ? err.message : "Translation failed. Please try again.";
+      return new Response(JSON.stringify({ error: msg }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+  }),
+};

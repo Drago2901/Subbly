@@ -879,6 +879,7 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
               {isEditing ? (
                 <textarea
                   autoFocus
+                  placeholder="New caption"
                   value={editText}
                   onChange={(e) => setEditText(e.target.value)}
                   onBlur={commitEdit}
@@ -1034,6 +1035,9 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
                           </span>
                         );
                       });
+                    }
+                    if (!activeItem.text) {
+                      return <span style={{ opacity: 0.5 }}>New caption</span>;
                     }
                     return itemStyle.uppercase ? activeItem.text.toUpperCase() : activeItem.text;
                   })()}
