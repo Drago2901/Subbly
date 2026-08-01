@@ -1,12 +1,13 @@
 import { useCallback, useState } from "react";
-import { UploadCloud, FolderOpen } from "lucide-react";
+import { UploadCloud, FolderOpen, Play, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Props = {
   onFile: (file: File) => void;
+  onDemo?: () => void;
 };
 
-export function VideoDropzone({ onFile }: Props) {
+export function VideoDropzone({ onFile, onDemo }: Props) {
   const [drag, setDrag] = useState(false);
 
   const handleFiles = useCallback(
@@ -36,7 +37,7 @@ export function VideoDropzone({ onFile }: Props) {
           handleFiles(e.dataTransfer.files);
         }}
         className={cn(
-          "relative flex w-full cursor-pointer flex-col items-center gap-6 overflow-hidden rounded-2xl border-[1.5px] border-dashed px-10 py-[60px] text-center transition-all duration-300 shadow-xl",
+          "relative flex w-full cursor-pointer flex-col items-center gap-6 overflow-hidden rounded-2xl border-[1.5px] border-dashed px-10 py-[50px] text-center transition-all duration-300 shadow-xl",
           drag
             ? "border-[#FF6B2C] bg-[#FF6B2C]/10 shadow-[0_0_20px_rgba(255,107,44,0.15)]"
             : "border-[#E8E4DE] bg-white hover:border-[#FF6B2C] hover:bg-neutral-50/50 hover:shadow-[0_0_20px_rgba(255,107,44,0.08)] dark:border-[#2C313C] dark:bg-[#1F232D] dark:text-white dark:hover:bg-[#1F232D]/85 dark:hover:shadow-[0_0_20px_rgba(255,107,44,0.08)]",
@@ -70,15 +71,28 @@ export function VideoDropzone({ onFile }: Props) {
             <br className="hidden sm:inline" /> edit, style, and burn captions right in your browser.
           </span>
         </div>
-        <div className="flex w-full max-w-[240px] items-center gap-3">
-          <div className="h-px flex-1 bg-[#E8E4DE] dark:bg-[#2C313C]" />
-          <span className="text-[10px] tracking-wider text-[#666] dark:text-[#A1A8B5] font-bold">OR</span>
-          <div className="h-px flex-1 bg-[#E8E4DE] dark:bg-[#2C313C]" />
+
+        <div className="flex flex-wrap items-center justify-center gap-3">
+          <span className="inline-flex items-center gap-1.5 rounded-lg border border-[#E8E4DE] bg-[#F9F8F5] px-4 py-2 text-[12.5px] text-[#666] transition hover:border-[#FF6B2C] hover:bg-white hover:text-[#1A1A1A] shadow-sm hover:scale-[1.02] duration-200 dark:border-[#2C313C] dark:bg-[#181B22] dark:text-[#A1A8B5] dark:hover:bg-[#1F232D] dark:hover:text-white">
+            <FolderOpen className="h-3.5 w-3.5" strokeWidth={1.8} />
+            Click to browse file
+          </span>
+
+          {onDemo && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                onDemo();
+              }}
+              className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#FF6B2C] to-[#FF874D] px-5 py-2 text-[12.5px] font-bold text-white shadow-md hover:shadow-orange-500/20 hover:scale-[1.02] transition-all"
+            >
+              <Sparkles className="h-3.5 w-3.5 fill-white" />
+              Try Sample Demo Video
+            </button>
+          )}
         </div>
-        <span className="inline-flex items-center gap-1.5 rounded-lg border border-[#E8E4DE] bg-[#F9F8F5] px-[20px] py-2.5 text-[12.5px] text-[#666] transition hover:border-[#FF6B2C] hover:bg-white hover:text-[#1A1A1A] shadow-sm hover:scale-[1.02] duration-200 dark:border-[#2C313C] dark:bg-[#181B22] dark:text-[#A1A8B5] dark:hover:bg-[#1F232D] dark:hover:text-white">
-          <FolderOpen className="h-3.5 w-3.5" strokeWidth={1.8} />
-          Click to browse file · up to ~50MB recommended
-        </span>
       </label>
 
       <div className="flex flex-wrap justify-center gap-2">
@@ -94,3 +108,4 @@ export function VideoDropzone({ onFile }: Props) {
     </div>
   );
 }
+

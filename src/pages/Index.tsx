@@ -251,26 +251,27 @@ export default function Index() {
               >
                 Start Captioning Free <ArrowRight className="h-4 w-4" strokeWidth={2.5} />
               </Link>
-              
+
               <Dialog>
                 <DialogTrigger asChild>
                   <button className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white/60 dark:bg-zinc-900/60 hover:bg-zinc-50 dark:hover:bg-zinc-850 px-6 py-4 text-[15px] font-semibold text-zinc-650 dark:text-zinc-300 hover:text-zinc-900 dark:hover:text-white transition-all">
                     <Play className="h-4 w-4 fill-zinc-650 group-hover:fill-white" /> Watch Demo
                   </button>
                 </DialogTrigger>
-                <DialogContent className="max-w-[720px] border-zinc-200 dark:border-zinc-800 bg-[#fffaf5] dark:bg-[#0c0b08] p-0 overflow-hidden shadow-2xl">
-                  <DialogHeader className="p-4 border-b border-zinc-100 dark:border-zinc-850 bg-white dark:bg-zinc-950">
+                <DialogContent className="max-w-[880px] border-zinc-200 dark:border-zinc-800 bg-[#fffaf5] dark:bg-[#0c0b08] p-3 overflow-hidden shadow-2xl">
+                  <DialogHeader className="p-3 border-b border-zinc-100 dark:border-zinc-850 bg-white dark:bg-zinc-950 flex flex-row items-center justify-between mb-2">
                     <DialogTitle className="text-zinc-900 dark:text-white text-base font-bold flex items-center gap-2">
-                      <Film className="h-4 w-4 text-[#ff5c3a]" /> Subbly Product Tour Walkthrough
+                      <Sparkles className="h-4 w-4 text-[#ff5c3a]" /> Subbly AI Interactive Live Demo
                     </DialogTitle>
+                    <Link
+                      to="/editor"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-[#ff5c3a] px-3.5 py-1.5 text-xs font-bold text-white shadow hover:bg-[#ff7558] transition"
+                    >
+                      Open Full Editor <ArrowRight className="h-3.5 w-3.5" />
+                    </Link>
                   </DialogHeader>
-                  <div className="aspect-video bg-black relative flex items-center justify-center">
-                    <video
-                      src="https://assets.mixkit.co/videos/preview/mixkit-forest-stream-in-the-sunlight-529-large.mp4"
-                      controls
-                      autoPlay
-                      className="w-full h-full object-cover"
-                    />
+                  <div className="w-full overflow-hidden">
+                    <HeroAnimation />
                   </div>
                 </DialogContent>
               </Dialog>

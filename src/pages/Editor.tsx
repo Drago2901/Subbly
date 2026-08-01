@@ -133,6 +133,67 @@ const FRAME_PRESETS: FramePreset[] = [
   { id: "portrait", label: "Portrait", width: 4, height: 5, fit: "contain" },
 ];
 
+const DEMO_VIDEO_URL = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4";
+
+const DEMO_CAPTIONS: Caption[] = [
+  {
+    id: "demo-1",
+    start: 0.5,
+    end: 2.8,
+    text: "Welcome to Subbly! 🚀",
+    words: [
+      { text: "Welcome", start: 0.5, end: 1.0 },
+      { text: "to", start: 1.0, end: 1.3 },
+      { text: "Subbly!", start: 1.3, end: 2.0 },
+      { text: "🚀", start: 2.0, end: 2.8 },
+    ],
+  },
+  {
+    id: "demo-2",
+    start: 3.0,
+    end: 5.5,
+    text: "World-class AI video caption editor 🎬",
+    words: [
+      { text: "World-class", start: 3.0, end: 3.6 },
+      { text: "AI", start: 3.6, end: 3.9 },
+      { text: "video", start: 3.9, end: 4.3 },
+      { text: "caption", start: 4.3, end: 4.8 },
+      { text: "editor", start: 4.8, end: 5.2 },
+      { text: "🎬", start: 5.2, end: 5.5 },
+    ],
+  },
+  {
+    id: "demo-3",
+    start: 5.8,
+    end: 8.5,
+    text: "Customize fonts, colors, and viral animations ✨",
+    words: [
+      { text: "Customize", start: 5.8, end: 6.4 },
+      { text: "fonts,", start: 6.4, end: 6.9 },
+      { text: "colors,", start: 6.9, end: 7.4 },
+      { text: "and", start: 7.4, end: 7.6 },
+      { text: "viral", start: 7.6, end: 8.0 },
+      { text: "animations", start: 8.0, end: 8.3 },
+      { text: "✨", start: 8.3, end: 8.5 },
+    ],
+  },
+  {
+    id: "demo-4",
+    start: 8.8,
+    end: 11.5,
+    text: "Export high-resolution videos in seconds! 🔥",
+    words: [
+      { text: "Export", start: 8.8, end: 9.3 },
+      { text: "high-resolution", start: 9.3, end: 10.0 },
+      { text: "videos", start: 10.0, end: 10.5 },
+      { text: "in", start: 10.5, end: 10.7 },
+      { text: "seconds!", start: 10.7, end: 11.2 },
+      { text: "🔥", start: 11.2, end: 11.5 },
+    ],
+  },
+];
+
+
 const invokeEdgeFunction = async (
   name: string,
   options?: Parameters<typeof supabase.functions.invoke>[1],
@@ -791,7 +852,20 @@ const Editor = () => {
     }
   };
 
+  const loadDemoProject = useCallback(() => {
+    const mockDemoFile = new File([], "subbly_demo_video.mp4", { type: "video/mp4" });
+    setFile(mockDemoFile);
+    setVideoUrl(DEMO_VIDEO_URL);
+    setCaptions(DEMO_CAPTIONS);
+    setTitle("Subbly Live Demo Project");
+    toast.success("Demo video & captions loaded! Edit text, change styles, or export.");
+  }, []);
 
+  useEffect(() => {
+    if (searchParams.get("demo") === "true" && !file) {
+      loadDemoProject();
+    }
+  }, [searchParams, file, loadDemoProject]);
   const transcribe = async () => {
     if (!user) {
       toast.error("Please login to generate captions.");
@@ -1217,7 +1291,7 @@ const Editor = () => {
             </p>
           </div>
           <div className="w-full">
-            <VideoDropzone onFile={handleFile} />
+            <VideoDropzone onFile={handleFile} onDemo={loadDemoProject} />
           </div>
         </main>
       )}

@@ -664,6 +664,7 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
         <video
           ref={innerRef}
           src={src}
+          crossOrigin="anonymous"
           className="block h-full w-full relative z-10"
           style={{ objectFit }}
           playsInline
