@@ -1404,7 +1404,7 @@ const Editor = () => {
               {meta && (
                 <div className="flex items-center gap-2.5">
                   <Globe className="h-4 w-4 text-[#666] dark:text-[#A1A8B5]" strokeWidth={2} />
-                  <span className="hidden text-[11.5px] font-bold text-[#666] dark:text-[#A1A8B5] sm:inline">Caption Language</span>
+                  <span className="text-[11.5px] font-bold text-[#666] dark:text-[#A1A8B5]">Caption Language</span>
                   <Select value={language} onValueChange={handleLanguageChange}>
                     <SelectTrigger className="h-7.5 w-[130px] rounded-lg border border-[#E8E4DE] dark:border-[#2C313C] bg-[#F9F8F5] dark:bg-[#1F232D] px-2.5 text-[11.5px] font-bold text-[#1A1A1A] dark:text-white focus:ring-0 focus:ring-offset-0 transition hover:bg-neutral-50 dark:hover:bg-[#2C313C] cursor-pointer">
                       <SelectValue />
@@ -1642,7 +1642,7 @@ const Editor = () => {
                           <MoreVertical className="h-4 w-4" />
                         </button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-44 bg-[#1F232D] border border-[#2C313C] text-white shadow-xl rounded-xl">
+                      <DropdownMenuContent align="end" className="w-52 bg-[#1F232D] border border-[#2C313C] text-white shadow-xl rounded-xl">
                         <DropdownMenuLabel className="text-[10px] font-bold text-[#A1A8B5] uppercase tracking-wider px-2 py-1">Actions</DropdownMenuLabel>
                         <DropdownMenuItem onClick={handleImportSrtClick} className="text-xs cursor-pointer py-2 hover:bg-[#2C313C] rounded-lg">Import SRT</DropdownMenuItem>
                         {captions.length > 0 && (
@@ -1651,6 +1651,23 @@ const Editor = () => {
                         {file && (
                           <DropdownMenuItem onClick={handleManualSave} className="text-xs cursor-pointer py-2 hover:bg-[#2C313C] rounded-lg">Save Project</DropdownMenuItem>
                         )}
+                        <DropdownMenuSeparator className="bg-[#2C313C]" />
+                        <DropdownMenuLabel className="text-[10px] font-bold text-[#A1A8B5] uppercase tracking-wider px-2 py-1 flex items-center justify-between">
+                          <span className="flex items-center gap-1.5"><Globe className="h-3 w-3 text-[#FF6B2C]" /> Caption Language</span>
+                          {translating && <Loader2 className="h-3 w-3 animate-spin text-[#FF6B2C]" />}
+                        </DropdownMenuLabel>
+                        <div className="max-h-40 overflow-y-auto scrollbar-thin">
+                          {LANGUAGES.map((l) => (
+                            <DropdownMenuItem
+                              key={l.code}
+                              onClick={() => handleLanguageChange(l.code)}
+                              className="text-xs cursor-pointer py-1.5 hover:bg-[#2C313C] rounded-lg flex items-center justify-between"
+                            >
+                              <span>{l.label}</span>
+                              {language === l.code && <Check className="h-3.5 w-3.5 text-[#FF6B2C]" />}
+                            </DropdownMenuItem>
+                          ))}
+                        </div>
                         <DropdownMenuSeparator className="bg-[#2C313C]" />
                         <DropdownMenuLabel className="text-[10px] font-bold text-[#A1A8B5] uppercase tracking-wider px-2 py-1">Export Quality</DropdownMenuLabel>
                         <DropdownMenuItem
@@ -1689,6 +1706,31 @@ const Editor = () => {
 
                 {/* Vertical Scroll Area */}
                 <div className="flex-1 overflow-y-auto scrollbar-thin">
+                  {/* Mobile Caption Language Bar */}
+                  <div className="flex items-center justify-between px-4 py-2.5 bg-[#1F232D] border-b border-[#2C313C] select-none sticky top-0 z-20 shadow-sm">
+                    <div className="flex items-center gap-2">
+                      <Globe className="h-4 w-4 text-[#FF6B2C]" strokeWidth={2} />
+                      <span className="text-[12px] font-bold text-white">Caption Language</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Select value={language} onValueChange={handleLanguageChange}>
+                        <SelectTrigger className="h-8 w-[140px] rounded-lg border border-[#2C313C] bg-[#181B22] px-2.5 text-[11.5px] font-bold text-white focus:ring-0 cursor-pointer">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[260px] overflow-y-auto bg-[#1F232D] border border-[#2C313C] text-white z-50 shadow-xl">
+                          {LANGUAGES.map((l) => (
+                            <SelectItem key={l.code} value={l.code} className="text-xs font-semibold cursor-pointer hover:bg-[#2C313C] focus:bg-[#2C313C]">
+                              {l.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {translating && (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin text-[#FF6B2C]" />
+                      )}
+                    </div>
+                  </div>
+
                   {/* Video Preview */}
                   <div className="w-full bg-[#F9F8F6] dark:bg-[#0F1117] flex flex-col items-center justify-center p-3">
                     <div
