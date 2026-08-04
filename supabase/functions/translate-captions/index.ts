@@ -9,8 +9,8 @@ const corsHeaders = {
 
 const LANGUAGE_NAMES: Record<string, string> = {
   en: "English", es: "Spanish", fr: "French", de: "German", it: "Italian",
-  pt: "Portuguese", nl: "Dutch", ru: "Russian", hi: "Hindi",
-  hinglish: "Hinglish (Hindi written in Roman/Latin script mixed with English — NOT Devanagari)",
+  pt: "Portuguese", nl: "Dutch", ru: "Russian", hi: "Hindi (Devanagari script)",
+  hinglish: "Hinglish (conversational spoken Hindi written strictly in Roman/Latin script, e.g., 'Aap kaise ho', 'Yeh video bohot awesome hai')",
   ja: "Japanese", ko: "Korean", zh: "Chinese (Simplified)", ar: "Arabic",
   tr: "Turkish", pl: "Polish", id: "Indonesian", bn: "Bengali",
   mr: "Marathi", ta: "Tamil", te: "Telugu", gu: "Gujarati",
@@ -37,22 +37,33 @@ function localAddEmojis(text: string): string {
   }).join("");
 }
 
-async function translateWithOpenRouter(
+const CANDIDATE_MODELS = [
+  "google/gemini-2.0-flash-001",
+  "openai/gpt-4o-mini",
+  "meta-llama/llama-3.3-70b-instruct",
+  "qwen/qwen-2.5-72b-instruct",
+];
+
+async function translateBatchSingleModel(
   texts: string[],
   targetName: string,
   apiKey: string,
+  model: string,
 ): Promise<string[]> {
   const numbered = texts.map((t, i) => `${i}. ${t}`).join("\n");
+  const isHinglish = targetName.toLowerCase().includes("hinglish");
 
   const systemPrompt =
     `You are a subtitle translator. You MUST respond with ONLY a valid JSON array of strings. ` +
     `No explanation, no markdown fences, no extra text. Just the raw JSON array. ` +
-    `Example output for 3 inputs: ["translated 1","translated 2","translated 3"]`;
+    `Example output for 3 inputs: ["translated 1","translated 2","translated 3"]` +
+    (isHinglish
+      ? `\nCRITICAL HINGLISH MANDATE: Translate into natural conversational Hinglish (spoken Hindi mixed with English terms, written STRICTLY in the English/Latin alphabet, e.g. "Aap kaise ho", "Yeh bohot awesome hai"). ABSOLUTELY NO Devanagari script or Hindi characters (like आप, हैं, क्या). Use ONLY Latin letters (a-z, A-Z).`
+      : "");
 
-  const userPrompt =
-    `Translate each line below into ${targetName}. ` +
-    `Keep each translation short (subtitle length). Return a JSON array with exactly ${texts.length} strings.\n\n` +
-    numbered;
+  const userPrompt = isHinglish
+    ? `Translate each line below into Hinglish (conversational spoken Hindi written strictly in Roman/Latin script, e.g., "Aapka kya scene hai?"). Do NOT output Devanagari script. Return a JSON array with exactly ${texts.length} strings:\n\n${numbered}`
+    : `Translate each line below into ${targetName}. Keep each translation short (subtitle length). Return a JSON array with exactly ${texts.length} strings.\n\n${numbered}`;
 
   const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
     method: "POST",
@@ -63,7 +74,7 @@ async function translateWithOpenRouter(
       "X-Title": "Subbly Caption Translator",
     },
     body: JSON.stringify({
-      model: "qwen/qwen3-8b",
+      model,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
@@ -71,23 +82,17 @@ async function translateWithOpenRouter(
       temperature: 0.1,
       max_tokens: 4096,
     }),
-    signal: AbortSignal.timeout(40000),
+    signal: AbortSignal.timeout(12000),
   });
 
   if (!res.ok) {
     const errText = await res.text();
-    console.error(`OpenRouter API error ${res.status}:`, errText.substring(0, 500));
-    let errMsg = `OpenRouter API error: ${res.status}`;
-    try {
-      const parsed = JSON.parse(errText);
-      if (parsed?.error?.message) errMsg = parsed.error.message;
-    } catch { /* not JSON */ }
-    throw new Error(errMsg);
+    console.warn(`Model ${model} returned HTTP ${res.status}:`, errText.substring(0, 300));
+    throw new Error(`OpenRouter API error ${res.status}`);
   }
 
   const data = await res.json();
   const rawText: string = data?.choices?.[0]?.message?.content ?? "";
-  console.info("OpenRouter raw response:", rawText.substring(0, 600));
 
   // Strip markdown fences and trim
   const clean = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
@@ -123,7 +128,6 @@ async function translateWithOpenRouter(
   } catch { /* fall through to regex fallback */ }
 
   // Regex fallback: extract lines like "0. text", "0: text", or "0) text"
-  console.warn("JSON parse failed, trying regex fallback on:", clean.substring(0, 300));
   const lines = clean.split("\n");
   const extracted: Record<number, string> = {};
   for (const line of lines) {
@@ -137,8 +141,44 @@ async function translateWithOpenRouter(
     return texts.map((orig, i) => extracted[i] ?? orig);
   }
 
-  console.error("All parsers failed. Raw:", rawText.substring(0, 300));
+  throw new Error(`Failed to parse response from model ${model}`);
+}
+
+async function translateBatchWithFallback(
+  texts: string[],
+  targetName: string,
+  apiKey: string,
+): Promise<string[]> {
+  for (const model of CANDIDATE_MODELS) {
+    try {
+      const result = await translateBatchSingleModel(texts, targetName, apiKey, model);
+      return result;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`Translation attempt with model '${model}' failed: ${msg}. Retrying with next model...`);
+    }
+  }
+  console.error("All translation models failed for batch. Returning original texts as fallback.");
   return texts;
+}
+
+async function translateWithOpenRouter(
+  texts: string[],
+  targetName: string,
+  apiKey: string,
+): Promise<string[]> {
+  const BATCH_SIZE = 35;
+  const chunks: string[][] = [];
+
+  for (let i = 0; i < texts.length; i += BATCH_SIZE) {
+    chunks.push(texts.slice(i, i + BATCH_SIZE));
+  }
+
+  const batchResults = await Promise.all(
+    chunks.map((chunk) => translateBatchWithFallback(chunk, targetName, apiKey))
+  );
+
+  return batchResults.flat();
 }
 
 export default {

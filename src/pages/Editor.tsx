@@ -973,7 +973,11 @@ const Editor = () => {
       }
     } catch (e: unknown) {
       console.error("Translation issue:", e);
-      toast.error(`Translation error: ${(e as Error).message}`);
+      const rawMsg = (e as Error).message || "";
+      const errMsg = rawMsg.toLowerCase().includes("timed out")
+        ? "Translation request timed out. Please try again."
+        : rawMsg;
+      toast.error(`Translation error: ${errMsg}`);
     } finally {
       setTranslating(false);
       toast.dismiss(stageToast);
