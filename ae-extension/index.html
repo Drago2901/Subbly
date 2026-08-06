@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Subbly AI Captions</title>
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Header Navigation -->
+    <header>
+      <div class="brand">
+        <div class="logo-dot"></div>
+        <span class="brand-name">Subbly AI</span>
+      </div>
+      <nav class="tabs" id="tabBar">
+        <button class="tab-btn active" data-view="view-projects">Projects</button>
+        <button class="tab-btn" data-view="view-templates">Templates</button>
+        <button class="tab-btn" data-view="view-import">Import</button>
+        <button class="tab-btn" data-view="view-settings">Settings</button>
+      </nav>
+    </header>
+
+    <!-- VIEWS -->
+
+    <!-- Login View (shown overlay if not logged in) -->
+    <div id="view-login" class="view-content active">
+      <div class="auth-container">
+        <h2 style="margin: 0; color: #fff;">Connect to Subbly</h2>
+        <p style="color: var(--text-dim); margin-top: 4px; margin-bottom: 20px;">Import your captions directly into After Effects.</p>
+        
+        <form id="loginForm" onsubmit="return false;">
+          <div class="form-group" style="margin-bottom: 12px;">
+            <label for="emailInput">Email</label>
+            <input type="email" id="emailInput" required placeholder="name@example.com">
+          </div>
+          <div class="form-group" style="margin-bottom: 16px;">
+            <label for="passwordInput">Password</label>
+            <input type="password" id="passwordInput" required placeholder="••••••••">
+          </div>
+          <button type="submit" class="btn-primary" style="width: 100%;">Log In</button>
+        </form>
+        
+        <div style="margin-top: 15px; font-size: 10px; color: var(--text-dim);">
+          Don't have an account? <span style="color: var(--accent-color); cursor: pointer;" onclick="window.open('https://subbly.app')">Sign Up</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Projects View -->
+    <div id="view-projects" class="view-content">
+      <div class="search-bar-container">
+        <input type="text" class="search-input" id="searchProjects" placeholder="Search projects...">
+        <select class="sort-select" id="sortProjects">
+          <option value="recent">Recent</option>
+          <option value="name">Name</option>
+        </select>
+      </div>
+
+      <div id="projectsLoader" class="spinner hidden"></div>
+      
+      <div class="projects-list" id="projectsContainer">
+        <!-- Rendered dynamically -->
+        <div style="text-align: center; color: var(--text-dim); padding-top: 40px;">
+          Log in to view your projects.
+        </div>
+      </div>
+    </div>
+
+    <!-- Templates View -->
+    <div id="view-templates" class="view-content">
+      <div class="section-title">Built-In Caption Styles</div>
+      <div class="templates-grid" id="templatesContainer">
+        <!-- Rendered dynamically from templates.json -->
+      </div>
+    </div>
+
+    <!-- Import Controls View -->
+    <div id="view-import" class="view-content">
+      <div class="settings-section">
+        <div class="section-title">Timing & Mode</div>
+        <div class="form-group">
+          <label for="importMode">Import Mode</label>
+          <select id="importMode">
+            <option value="word">Word-by-Word (Dynamic Pop)</option>
+            <option value="sentence">Sentence / Segment-level</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="section-title">Typography & Style</div>
+        
+        <div class="row-group">
+          <div class="form-group">
+            <label for="styleFont">Font Family</label>
+            <select id="styleFont">
+              <option value="Bebas Neue">Bebas Neue</option>
+              <option value="Inter">Inter</option>
+              <option value="Anton">Anton</option>
+              <option value="Russo One">Russo One</option>
+              <option value="Montserrat">Montserrat</option>
+              <option value="Arial">Arial</option>
+            </select>
+          </div>
+          <div class="form-group" style="max-width: 80px;">
+            <label for="styleSize">Font Size</label>
+            <input type="text" id="styleSize" value="60">
+          </div>
+        </div>
+
+        <div class="row-group" style="margin-top: 8px;">
+          <div class="form-group">
+            <label>Text Color</label>
+            <div class="color-input-wrapper">
+              <input type="color" class="color-picker" id="styleColor" value="#ffffff">
+              <span id="styleColorText" style="font-family: monospace;">#ffffff</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Highlight Color</label>
+            <div class="color-input-wrapper">
+              <input type="color" class="color-picker" id="styleHighlight" value="#facc15">
+              <span id="styleHighlightText" style="font-family: monospace;">#facc15</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="row-group" style="margin-top: 8px;">
+          <div class="form-group">
+            <label for="styleStroke">Stroke Width</label>
+            <input type="text" id="styleStroke" value="4">
+          </div>
+          <div class="form-group">
+            <label>Stroke Color</label>
+            <div class="color-input-wrapper">
+              <input type="color" class="color-picker" id="styleStrokeColor" value="#000000">
+              <span id="styleStrokeColorText" style="font-family: monospace;">#000000</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="row-group" style="margin-top: 8px;">
+          <div class="form-group">
+            <label for="stylePosition">Position Preset</label>
+            <select id="stylePosition">
+              <option value="bottom">Bottom Lower-Third</option>
+              <option value="middle">Center Screen</option>
+              <option value="top">Top Header</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="styleAnimation">Animation Preset</label>
+            <select id="styleAnimation">
+              <option value="pop">Pop In (Bounce scale)</option>
+              <option value="fade">Fade In</option>
+              <option value="slide-up">Slide Up</option>
+              <option value="bounce">Word Bounce</option>
+              <option value="typewriter">Typewriter</option>
+              <option value="none">None (Static)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="import-footer">
+        <div class="progress-bar-container" id="progressBar">
+          <div class="progress-bar-fill" id="progressFill"></div>
+        </div>
+        <div class="progress-text" id="progressText">Importing captions...</div>
+        
+        <button id="importBtn" class="btn-primary" disabled style="width: 100%; height: 36px; display: flex; align-items: center; justify-content: center; gap: 6px;">
+          <svg style="width: 14px; height: 14px; fill: currentColor;" viewBox="0 0 24 24"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg>
+          Import to Composition
+        </button>
+      </div>
+    </div>
+
+    <!-- Settings View -->
+    <div id="view-settings" class="view-content">
+      <div class="settings-section">
+        <div class="section-title">User Account</div>
+        <div style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px;">
+          <span style="font-weight: 700; color: #fff;" id="profileEmail">Not signed in</span>
+          <span style="color: var(--text-dim); font-size: 11px;" id="profileStatus">Please log in to sync captions.</span>
+        </div>
+        <button id="logoutBtn" class="btn-secondary" style="width: 100%;">Sign Out</button>
+      </div>
+
+      <div class="settings-section">
+        <div class="section-title">SaaS Integration Info</div>
+        <div style="font-size: 11px; line-height: 1.4; color: var(--text-dim);">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+            <span>Extension Version</span>
+            <span style="color: #fff;">1.0.0</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 4px;">
+            <span>Host Application</span>
+            <span style="color: #fff;" id="aeHostName">After Effects v22+</span>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span>Server Status</span>
+            <span style="color: #4ade80;" id="serverStatus">Connected</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-section">
+        <div class="section-title">Architectural Roadmap (Future Features)</div>
+        <ul style="margin: 0; padding-left: 16px; font-size: 11px; color: var(--text-dim); line-height: 1.6;">
+          <li>AI Auto Translation Sync</li>
+          <li>Auto B-Roll & Sound Effects Markers</li>
+          <li>Team Brand Style Presets & Cloud Sync</li>
+          <li>AI Scene Detection Integration</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Toast Popup Notifications -->
+    <div id="toast" class="toast-msg">Success!</div>
+  </div>
+
+  <script src="index.js"></script>
+</body>
+</html>

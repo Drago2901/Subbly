@@ -1,0 +1,90 @@
+[
+  {
+    "id": "tiktok-bold",
+    "name": "TikTok Bold",
+    "description": "Big uppercase text, yellow word highlight, bold outline.",
+    "style": {
+      "fontFamily": "Bebas Neue",
+      "fontSize": 72,
+      "color": "#FFFFFF",
+      "bgOpacity": 0,
+      "uppercase": true,
+      "karaoke": true,
+      "highlightColor": "#FACC15",
+      "animation": "pop",
+      "strokeWidth": 5,
+      "strokeColor": "#000000",
+      "position": "bottom"
+    }
+  },
+  {
+    "id": "youtube-shorts",
+    "name": "YouTube Shorts",
+    "description": "Clean modern sans, red highlight, thick stroke.",
+    "style": {
+      "fontFamily": "Inter",
+      "fontSize": 54,
+      "color": "#FFFFFF",
+      "bgOpacity": 0,
+      "uppercase": true,
+      "karaoke": true,
+      "highlightColor": "#EF4444",
+      "animation": "slide-up",
+      "strokeWidth": 6,
+      "strokeColor": "#000000",
+      "position": "bottom"
+    }
+  },
+  {
+    "id": "gaming-stream",
+    "name": "Gaming Stream",
+    "description": "Twitch-style bold punch with purple border.",
+    "style": {
+      "fontFamily": "Russo One",
+      "fontSize": 56,
+      "color": "#FFFFFF",
+      "bgOpacity": 0,
+      "uppercase": true,
+      "karaoke": true,
+      "highlightColor": "#A855F7",
+      "animation": "bounce",
+      "strokeWidth": 5,
+      "strokeColor": "#1E1B4B",
+      "position": "bottom"
+    }
+  },
+  {
+    "id": "cinematic-serif",
+    "name": "Cinematic Serif",
+    "description": "Elegant lower-third with soft background.",
+    "style": {
+      "fontFamily": "Abril Fatface",
+      "fontSize": 50,
+      "color": "#FFFFFF",
+      "bgColor": "#000000",
+      "bgOpacity": 0.45,
+      "uppercase": false,
+      "karaoke": false,
+      "animation": "fade",
+      "strokeWidth": 0,
+      "position": "bottom"
+    }
+  },
+  {
+    "id": "minimal-mono",
+    "name": "Minimal Mono",
+    "description": "Clean transparent black-border mono look.",
+    "style": {
+      "fontFamily": "Archivo Black",
+      "fontSize": 52,
+      "color": "#FFFFFF",
+      "bgOpacity": 0,
+      "uppercase": true,
+      "karaoke": false,
+      "animation": "fade",
+      "strokeWidth": 3,
+      "strokeColor": "#000000",
+      "position": "bottom"
+    }
+  }
+]

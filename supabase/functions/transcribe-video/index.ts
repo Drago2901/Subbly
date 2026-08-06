@@ -15,6 +15,7 @@ export default {
 
     try {
     const apiKey = Deno.env.get("ELEVENLABS_API_KEY");
+    console.log("ElevenLabs API Key check - starts with 'sk_':", apiKey?.startsWith("sk_"), "Length:", apiKey?.length, "Prefix (first 5 chars):", apiKey ? apiKey.substring(0, 5) : "none");
     if (!apiKey) {
       console.error("ELEVENLABS_API_KEY not configured");
       return new Response(
@@ -23,6 +24,19 @@ export default {
         }),
         {
           status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    if (!apiKey.startsWith("sk_")) {
+      const displayPrefix = apiKey.substring(0, 5);
+      return new Response(
+        JSON.stringify({
+          error: `The configured ELEVENLABS_API_KEY is invalid. It must start with 'sk_', but it starts with '${displayPrefix}' (length: ${apiKey.length}). Please set it to a valid ElevenLabs secret API key.`,
+        }),
+        {
+          status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         },
       );

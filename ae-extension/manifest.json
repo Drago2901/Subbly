@@ -1,0 +1,40 @@
+{
+  "id": "com.subbly.ae",
+  "name": "Subbly AI Captions",
+  "version": "1.0.0",
+  "main": "index.html",
+  "manifestVersion": 5,
+  "host": [
+    {
+      "app": "AE",
+      "minVersion": "22.0.0"
+    }
+  ],
+  "entrypoints": [
+    {
+      "type": "panel",
+      "id": "subblyPanel",
+      "label": {
+        "default": "Subbly AI Captions"
+      },
+      "minimumSize": {
+        "width": 300,
+        "height": 450
+      },
+      "preferredSize": {
+        "width": 350,
+        "height": 600
+      }
+    }
+  ],
+  "requiredPermissions": {
+    "network": {
+      "domains": [
+        "https://polshaqgsqhzcvtipssx.supabase.co",
+        "https://openrouter.ai"
+      ]
+    },
+    "clipboard": "readAndWrite",
+    "localFileSystem": "all"
+  }
+}

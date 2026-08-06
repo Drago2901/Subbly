@@ -105,6 +105,17 @@ export function NavBar({ activeView, isPublic = false }: NavBarProps) {
 
         {/* Right Actions */}
         <div className="flex items-center gap-3">
+          {/* AE Extension Download */}
+          <a
+            href="/subbly-ae-extension.zip"
+            download="subbly-ae-extension.zip"
+            className="hidden items-center gap-1.5 rounded-lg border border-[#e8e4de] dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-1.5 text-[12.5px] font-semibold text-zinc-700 dark:text-zinc-300 transition-all duration-200 hover:text-[#ff5c3a] dark:hover:text-[#ff7558] hover:border-[#ff5c3a]/50 md:inline-flex cursor-pointer shadow-sm"
+            title="Download After Effects Extension"
+          >
+            <Film className="h-4 w-4 text-[#ff5c3a]" />
+            <span>AE Extension</span>
+          </a>
+
           {/* Theme Toggle */}
           <button
             onClick={toggle}
