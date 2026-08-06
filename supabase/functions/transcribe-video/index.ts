@@ -15,7 +15,6 @@ export default {
 
     try {
     const apiKey = Deno.env.get("ELEVENLABS_API_KEY");
-    console.log("ElevenLabs API Key check - starts with 'sk_':", apiKey?.startsWith("sk_"), "Length:", apiKey?.length, "Prefix (first 5 chars):", apiKey ? apiKey.substring(0, 5) : "none");
     if (!apiKey) {
       console.error("ELEVENLABS_API_KEY not configured");
       return new Response(
