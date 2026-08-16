@@ -61,7 +61,7 @@ function importCaptionsToAE(captions, styleParams, onProgress) {
       textLayer.outPoint = caption.end;
 
       // Access Source Text property and text document structure
-      const sourceTextProp = textLayer.property("Source Text");
+      const sourceTextProp = textLayer.property("ADBE Text Document") || textLayer.property("Source Text");
       const textDocument = sourceTextProp.value;
 
       // Set Font and Typography
@@ -80,21 +80,24 @@ function importCaptionsToAE(captions, styleParams, onProgress) {
         textDocument.applyStroke = false;
       }
 
-      // Set Alignment to Center
-      textDocument.justification = ParagraphJustification.CENTER_JUSTIFY;
+      // Set Alignment to Center (4814 = ParagraphJustification.CENTER_JUSTIFY)
+      textDocument.justification = (typeof ParagraphJustification !== "undefined") ? ParagraphJustification.CENTER_JUSTIFY : 4814;
 
       // Commit changes to Source Text
       sourceTextProp.setValue(textDocument);
 
       // Set layer center coordinates
-      textLayer.property("Position").setValue([compWidth / 2, targetY]);
+      const posProp = textLayer.property("ADBE Position") || textLayer.property("Position");
+      posProp.setValue([compWidth / 2, targetY]);
 
       // Apply Animations
       const animType = styleParams.animation;
+      const scaleProp = textLayer.property("ADBE Scale") || textLayer.property("Scale");
+      const opacityProp = textLayer.property("ADBE Opacity") || textLayer.property("Opacity");
       
       // 1. Pop In Scale Animation (Overshoot scaling expression)
       if (animType === "pop") {
-        textLayer.property("Scale").expression = `
+        scaleProp.expression = `
           t = time - inPoint;
           if (t < 0.15) {
             s = easeOut(t, 0, 0.15, 75, 112);
@@ -108,7 +111,7 @@ function importCaptionsToAE(captions, styleParams, onProgress) {
       
       // 2. Fade In Animation
       else if (animType === "fade") {
-        textLayer.property("Opacity").expression = `
+        opacityProp.expression = `
           t = time - inPoint;
           ease(t, 0, 0.2, 0, 100);
         `;
@@ -116,12 +119,12 @@ function importCaptionsToAE(captions, styleParams, onProgress) {
       
       // 3. Slide Up Animation
       else if (animType === "slide-up") {
-        textLayer.property("Position").expression = `
+        posProp.expression = `
           t = time - inPoint;
           yOffset = easeOut(t, 0, 0.25, 60, 0);
           value + [0, yOffset];
         `;
-        textLayer.property("Opacity").expression = `
+        opacityProp.expression = `
           t = time - inPoint;
           ease(t, 0, 0.2, 0, 100);
         `;
@@ -129,7 +132,7 @@ function importCaptionsToAE(captions, styleParams, onProgress) {
       
       // 4. Word Bounce (For word-by-word emphasis)
       else if (animType === "bounce") {
-        textLayer.property("Scale").expression = `
+        scaleProp.expression = `
           t = time - inPoint;
           if (t < 0.25) {
             s = Math.sin(t * Math.PI * 4) * 8 * easeOut(t, 0, 0.25, 1, 0);
@@ -142,13 +145,15 @@ function importCaptionsToAE(captions, styleParams, onProgress) {
       
       // 5. Typewriter Animation (Requires character range selector)
       else if (animType === "typewriter") {
-        const textAnimators = textLayer.property("Text").property("Animators");
+        const textProp = textLayer.property("ADBE Text Properties") || textLayer.property("Text");
+        const textAnimators = textProp.property("ADBE Text Animators") || textProp.property("Animators");
         const typewriterAnim = textAnimators.addAnimator();
         typewriterAnim.name = "Typewriter";
         
         // Add a Start property to Range Selector
-        const selector = typewriterAnim.property("Selectors").addProperty("ADBE Text Range Selector");
-        const startProp = selector.property("Start");
+        const selectors = typewriterAnim.property("ADBE Text Selectors") || typewriterAnim.property("Selectors");
+        const selector = selectors.addProperty("ADBE Text Range Selector");
+        const startProp = selector.property("ADBE Text Percent Start") || selector.property("Start");
         
         // Keyframe the Start property from 0% to 100%
         startProp.setValueAtTime(caption.start, 0);
@@ -157,20 +162,24 @@ function importCaptionsToAE(captions, styleParams, onProgress) {
 
       // Apply Word-by-Word Highlight (Karaoke style)
       if (styleParams.mode === "word" && caption.words && caption.words.length > 0) {
-        const textAnimators = textLayer.property("Text").property("Animators");
+        const textProp = textLayer.property("ADBE Text Properties") || textLayer.property("Text");
+        const textAnimators = textProp.property("ADBE Text Animators") || textProp.property("Animators");
         const highlightAnimator = textAnimators.addAnimator();
         highlightAnimator.name = "Word Highlight";
 
         // Add fill color property to animator
-        const fillProp = highlightAnimator.property("Properties").addProperty("ADBE Text Fill Color");
+        const properties = highlightAnimator.property("ADBE Text Animator Properties") || highlightAnimator.property("Properties");
+        const fillProp = properties.addProperty("ADBE Text Fill Color");
         fillProp.setValue(hexToRGB(styleParams.highlightColor || "#facc15").slice(0, 3));
 
         // Add expression selector
-        const expSelector = highlightAnimator.property("Selectors").addProperty("ADBE Text Express Selector");
+        const selectors = highlightAnimator.property("ADBE Text Selectors") || highlightAnimator.property("Selectors");
+        const expSelector = selectors.addProperty("ADBE Text Express Selector");
         expSelector.name = "Active Word Selector";
         
         // Unit set to "Words" (Based On: 1 = Characters, 2 = Words)
-        expSelector.property("Based On").setValue(2);
+        const basedOnProp = expSelector.property("ADBE Text Express Based On") || expSelector.property("Based On");
+        basedOnProp.setValue(2);
 
         // Serialize words array timing for the expression
         const timings = caption.words.map(w => ({
@@ -179,7 +188,8 @@ function importCaptionsToAE(captions, styleParams, onProgress) {
         }));
 
         // Inject timing values and expression to selector
-        expSelector.property("Amount").expression = `
+        const amountProp = expSelector.property("ADBE Text Express Amount") || expSelector.property("Amount");
+        amountProp.expression = `
           var wordTimes = ${JSON.stringify(timings)};
           var activeIndex = -1;
           for (var i = 0; i < wordTimes.length; i++) {
