@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Link } from "react-router-dom";
 import { BrandLogo } from "@/components/BrandLogo";
+import { supabase } from "@/integrations/supabase/client";
 
 import {
   ArrowRight, Play, Upload, Sparkles, Type, Check,
@@ -196,6 +197,74 @@ export default function Index() {
   const { user } = useAuth();
   const [period, setPeriod] = useState<"monthly" | "yearly">("monthly");
   const [openFaq, setOpenFaq] = useState<number | null>(0);
+
+  const [newsletterEmail, setNewsletterEmail] = useState("");
+  const [newsletterLoading, setNewsletterLoading] = useState(false);
+  const [newsletterStatus, setNewsletterStatus] = useState<"idle" | "success" | "error">("idle");
+  const [newsletterMessage, setNewsletterMessage] = useState("");
+
+  const handleSubscribe = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setNewsletterStatus("idle");
+    setNewsletterMessage("");
+
+    const trimmedEmail = newsletterEmail.trim();
+    if (!trimmedEmail) {
+      setNewsletterStatus("error");
+      setNewsletterMessage("Please enter a valid email address.");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      setNewsletterStatus("error");
+      setNewsletterMessage("Please enter a valid email address.");
+      return;
+    }
+
+    const lowercasedEmail = trimmedEmail.toLowerCase();
+    setNewsletterLoading(true);
+
+    try {
+      const { data, error: checkError } = await supabase
+        .from("newsletter_subscribers")
+        .select("id")
+        .eq("email", lowercasedEmail)
+        .maybeSingle();
+
+      if (checkError) throw checkError;
+
+      if (data) {
+        setNewsletterStatus("error");
+        setNewsletterMessage("You're already subscribed!");
+        setNewsletterLoading(false);
+        return;
+      }
+
+      const { error: insertError } = await supabase
+        .from("newsletter_subscribers")
+        .insert([{ email: lowercasedEmail }]);
+
+      if (insertError) {
+        if (insertError.code === "23505") {
+          setNewsletterStatus("error");
+          setNewsletterMessage("You're already subscribed!");
+        } else {
+          throw insertError;
+        }
+      } else {
+        setNewsletterStatus("success");
+        setNewsletterMessage("✓ You're subscribed! Thanks for joining us.");
+        setNewsletterEmail("");
+      }
+    } catch (error) {
+      console.error("Newsletter subscription error:", error);
+      setNewsletterStatus("error");
+      setNewsletterMessage("Something went wrong. Please try again.");
+    } finally {
+      setNewsletterLoading(false);
+    }
+  };
   const [showcaseTab, setShowcaseTab] = useState<"transcribe" | "styles" | "edit" | "translate" | "export">("transcribe");
   const [activeStyle, setActiveStyle] = useState<"amber" | "tiktok" | "neon" | "srt">("amber");
   const [sampleText, setSampleText] = useState("AMBER GLOW");
@@ -1127,15 +1196,32 @@ export default function Index() {
           {/* Newsletter signup Column */}
           <div className="col-span-2 md:col-span-1">
             <h5 className="font-bold text-zinc-800 dark:text-white uppercase tracking-wider text-[10px] mb-4">Get Updates</h5>
-            <form onSubmit={(e) => e.preventDefault()} className="flex flex-col gap-2">
+            <form onSubmit={handleSubscribe} className="flex flex-col gap-2">
               <input
                 type="email"
+                required
                 placeholder="Enter email..."
-                className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-850 dark:text-white focus:outline-none focus:border-[#ff5c3a] transition-colors text-xs placeholder:text-zinc-400 dark:placeholder:text-zinc-500"
+                value={newsletterEmail}
+                onChange={(e) => setNewsletterEmail(e.target.value)}
+                disabled={newsletterLoading}
+                className="w-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 rounded-lg px-3 py-2 text-zinc-850 dark:text-white focus:outline-none focus:border-[#ff5c3a] transition-colors text-xs placeholder:text-zinc-400 dark:placeholder:text-zinc-500 disabled:opacity-50"
               />
-              <button className="w-full rounded-lg bg-[#ff5c3a] py-2 text-white font-bold hover:bg-[#ff7558] transition-colors">
-                Subscribe
+              <button
+                type="submit"
+                disabled={newsletterLoading}
+                className="w-full rounded-lg bg-[#ff5c3a] py-2 text-white font-bold hover:bg-[#ff7558] transition-colors disabled:opacity-50 flex items-center justify-center gap-1.5"
+              >
+                {newsletterLoading ? "Subscribing..." : "Subscribe"}
               </button>
+              {newsletterMessage && (
+                <p className={`text-[11px] font-medium mt-1 leading-normal ${
+                  newsletterStatus === "success" 
+                    ? "text-emerald-600 dark:text-emerald-400" 
+                    : "text-red-500 dark:text-[#ff5c3a]"
+                }`}>
+                  {newsletterMessage}
+                </p>
+              )}
             </form>
           </div>
 
