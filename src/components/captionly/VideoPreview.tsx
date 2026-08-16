@@ -870,7 +870,7 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
                 if (lockedTracks?.includes(activeItem.track || 1)) return;
                 startEditing(activeItem);
               }}
-              className={`group/caption absolute z-40 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center ${
+              className={`group/caption absolute z-40 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center touch-none ${
                 isEditing
                   ? "cursor-text"
                   : lockedTracks?.includes(activeItem.track || 1)
@@ -1067,7 +1067,7 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
                   {/* Left Resize Handle */}
                   <div
                     onPointerDown={(e) => handleResizeStart(e, activeItem.id, "left")}
-                    className="absolute top-0 bottom-0 left-0 w-4 -translate-x-1/2 cursor-ew-resize flex items-center justify-center z-50 group/handle"
+                    className="absolute top-0 bottom-0 left-0 w-4 -translate-x-1/2 cursor-ew-resize flex items-center justify-center z-50 group/handle touch-none"
                   >
                     <div className={`w-1.5 h-6 rounded-full bg-[#FF6B2C] border border-white transition-all duration-150 group-hover/handle:bg-[#FF874D] group-hover/handle:scale-y-110 group-hover/handle:w-2 ${isSelected ? "opacity-100" : "opacity-0 group-hover/caption:opacity-100"}`} />
                   </div>
@@ -1075,7 +1075,7 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
                   {/* Right Resize Handle */}
                   <div
                     onPointerDown={(e) => handleResizeStart(e, activeItem.id, "right")}
-                    className="absolute top-0 bottom-0 right-0 w-4 translate-x-1/2 cursor-ew-resize flex items-center justify-center z-50 group/handle"
+                    className="absolute top-0 bottom-0 right-0 w-4 translate-x-1/2 cursor-ew-resize flex items-center justify-center z-50 group/handle touch-none"
                   >
                     <div className={`w-1.5 h-6 rounded-full bg-[#FF6B2C] border border-white transition-all duration-150 group-hover/handle:bg-[#FF874D] group-hover/handle:scale-y-110 group-hover/handle:w-2 ${isSelected ? "opacity-100" : "opacity-0 group-hover/caption:opacity-100"}`} />
                   </div>
@@ -1083,7 +1083,7 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
                   {/* Top Resize Handle */}
                   <div
                     onPointerDown={(e) => handleResizeStart(e, activeItem.id, "top")}
-                    className="absolute top-0 left-0 right-0 h-4 -translate-y-1/2 cursor-ns-resize flex items-center justify-center z-50 group/handle"
+                    className="absolute top-0 left-0 right-0 h-4 -translate-y-1/2 cursor-ns-resize flex items-center justify-center z-50 group/handle touch-none"
                   >
                     <div className={`h-1.5 w-6 rounded-full bg-[#FF6B2C] border border-white transition-all duration-150 group-hover/handle:bg-[#FF874D] group-hover/handle:scale-x-110 group-hover/handle:h-2 ${isSelected ? "opacity-100" : "opacity-0 group-hover/caption:opacity-100"}`} />
                   </div>
@@ -1091,7 +1091,7 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
                   {/* Bottom Resize Handle */}
                   <div
                     onPointerDown={(e) => handleResizeStart(e, activeItem.id, "bottom")}
-                    className="absolute bottom-0 left-0 right-0 h-4 translate-y-1/2 cursor-ns-resize flex items-center justify-center z-50 group/handle"
+                    className="absolute bottom-0 left-0 right-0 h-4 translate-y-1/2 cursor-ns-resize flex items-center justify-center z-50 group/handle touch-none"
                   >
                     <div className={`h-1.5 w-6 rounded-full bg-[#FF6B2C] border border-white transition-all duration-150 group-hover/handle:bg-[#FF874D] group-hover/handle:scale-x-110 group-hover/handle:h-2 ${isSelected ? "opacity-100" : "opacity-0 group-hover/caption:opacity-100"}`} />
                   </div>
