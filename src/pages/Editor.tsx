@@ -1614,7 +1614,7 @@ const Editor = () => {
 
             {/* Mobile Layout */}
             {isMobile && (
-              <div className="flex flex-1 flex-col overflow-hidden bg-[#181B22] pb-16">
+              <div className="flex flex-1 flex-col overflow-hidden bg-[#181B22] h-full relative">
                 {/* 1. Top Nav Bar */}
                 <div className="h-11 flex-shrink-0 flex items-center justify-between px-3 border-b border-[#2C313C] bg-[#181B22]">
                   <button
@@ -1708,94 +1708,50 @@ const Editor = () => {
                   </div>
                 </div>
 
-                {/* Vertical Scroll Area */}
-                <div className="flex-1 overflow-y-auto scrollbar-thin">
-                  {/* Mobile Caption Language Bar */}
-                  <div className="flex items-center justify-between px-4 py-2.5 bg-[#1F232D] border-b border-[#2C313C] select-none sticky top-0 z-20 shadow-sm">
-                    <div className="flex items-center gap-2">
-                      <Globe className="h-4 w-4 text-[#FF6B2C]" strokeWidth={2} />
-                      <span className="text-[12px] font-bold text-white">Caption Language</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Select value={language} onValueChange={handleLanguageChange}>
-                        <SelectTrigger className="h-8 w-[140px] rounded-lg border border-[#2C313C] bg-[#181B22] px-2.5 text-[11.5px] font-bold text-white focus:ring-0 cursor-pointer">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent className="max-h-[260px] overflow-y-auto bg-[#1F232D] border border-[#2C313C] text-white z-50 shadow-xl">
-                          {LANGUAGES.map((l) => (
-                            <SelectItem key={l.code} value={l.code} className="text-xs font-semibold cursor-pointer hover:bg-[#2C313C] focus:bg-[#2C313C]">
-                              {l.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {translating && (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin text-[#FF6B2C]" />
-                      )}
-                    </div>
+                {/* 2. Video Preview (Fixed/Sticky at the top) */}
+                <div className="flex-shrink-0 bg-[#0F1117] flex flex-col items-center justify-center p-3 relative border-b border-[#2C313C]">
+                  <div
+                    className="w-full flex items-center justify-center overflow-hidden"
+                    style={{
+                      maxHeight: "30vh",
+                      aspectRatio: framePreset.id !== "original"
+                        ? `${framePreset.width}/${framePreset.height}`
+                        : (meta ? `${meta.width}/${meta.height}` : "9/16"),
+                    }}
+                  >
+                    <VideoPreview
+                      ref={videoRefCallback}
+                      src={videoUrl}
+                      captions={captions}
+                      style={style}
+                      selectedCaptionId={selectedCaptionId}
+                      onSelect={setSelectedCaptionId}
+                      onTimeUpdate={setCurrentTime}
+                      onLoaded={setMeta}
+                      onCaptionStyleChange={handleCaptionStyleChange}
+                      onCaptionPositionChange={handleCaptionPositionChange}
+                      onCaptionChange={(id, text) =>
+                        setCaptions((cur) =>
+                          cur.map((c) => (c.id === id ? { ...c, text, words: undefined } : c)),
+                        )
+                      }
+                      frame={frame}
+                      lockedTracks={lockedTracks}
+                      quality={quality}
+                    />
                   </div>
+                </div>
 
-                  {/* Video Preview */}
-                  <div className="w-full bg-[#F9F8F6] dark:bg-[#0F1117] flex flex-col items-center justify-center p-3">
-                    <div
-                      className="w-full flex items-center justify-center overflow-hidden"
-                      style={{
-                        maxWidth: "100%",
-                        aspectRatio: framePreset.id !== "original"
-                          ? `${framePreset.width}/${framePreset.height}`
-                          : (meta ? `${meta.width}/${meta.height}` : "9/16"),
-                      }}
-                    >
-                      <VideoPreview
-                        ref={videoRefCallback}
-                        src={videoUrl}
-                        captions={captions}
-                        style={style}
-                        selectedCaptionId={selectedCaptionId}
-                        onSelect={setSelectedCaptionId}
-                        onTimeUpdate={setCurrentTime}
-                        onLoaded={setMeta}
-                        onCaptionStyleChange={handleCaptionStyleChange}
-                        onCaptionPositionChange={handleCaptionPositionChange}
-                        onCaptionChange={(id, text) =>
-                          setCaptions((cur) =>
-                            cur.map((c) => (c.id === id ? { ...c, text, words: undefined } : c)),
-                          )
-                        }
-                        frame={frame}
-                        lockedTracks={lockedTracks}
-                        quality={quality}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Format Selector Chips */}
-                  <div className="flex overflow-x-auto scrollbar-none gap-2 px-4 py-3 bg-[#F9F8F6] dark:bg-[#0F1117] border-b border-[#E8E4DE] dark:border-[#2C313C] select-none">
-                    {FRAME_PRESETS.map((p) => {
-                      const active = framePreset.id === p.id;
-                      return (
-                        <button
-                          key={p.id}
-                          onClick={() => setFramePreset(p)}
-                          className={`whitespace-nowrap px-4 py-2 rounded-full text-xs font-bold select-none transition min-h-[44px] min-w-[44px] flex items-center justify-center cursor-pointer ${active
-                            ? "bg-[#FF6B2C] text-white shadow-sm"
-                            : "bg-[#F9F8F5] text-[#666] border border-[#E8E4DE] hover:bg-neutral-50 dark:bg-[#1F232D] dark:text-[#A1A8B5] dark:border-[#2C313C] dark:hover:bg-[#2C313C] dark:hover:text-white"
-                            }`}
-                        >
-                          {p.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {/* Condensed Audio Strip / Expanded Timeline */}
+                {/* 3. Small Playback and Presets Controls Toolbar */}
+                <div className="flex-shrink-0 bg-[#181B22] border-b border-[#2C313C] select-none flex flex-col">
+                  {/* Timeline Row */}
                   {timelineExpanded ? (
-                    <div className="border-b border-[#E8E4DE] dark:border-[#2C313C] bg-white dark:bg-[#181B22] p-2">
-                      <div className="flex justify-between items-center px-2 pb-2 border-b border-[#E8E4DE] dark:border-[#2C313C] mb-2">
-                        <span className="text-[11px] font-bold text-[#666] dark:text-[#A1A8B5] uppercase tracking-wider">Multi-track Editor</span>
+                    <div className="bg-[#181B22] p-2 border-b border-[#2C313C]">
+                      <div className="flex justify-between items-center px-2 pb-1.5">
+                        <span className="text-[10px] font-bold text-[#A1A8B5] uppercase tracking-wider">Multi-track Editor</span>
                         <button
                           onClick={() => setTimelineExpanded(false)}
-                          className="text-[11px] font-bold text-[#FF6B2C] hover:underline px-3 py-1.5 min-h-[44px] flex items-center cursor-pointer"
+                          className="text-[10px] font-bold text-[#FF6B2C] hover:underline cursor-pointer"
                         >
                           Collapse
                         </button>
@@ -1805,8 +1761,8 @@ const Editor = () => {
                       </div>
                     </div>
                   ) : (
-                    <div className="flex items-center gap-3 px-4 py-3 border-b border-[#2C313C] bg-[#181B22]">
-                      <span className="text-[11px] font-mono text-[#FF6B2C] font-semibold select-none flex-shrink-0">
+                    <div className="flex items-center gap-2.5 px-3 py-2 border-b border-[#2C313C]">
+                      <span className="text-[10px] font-mono text-[#FF6B2C] font-semibold select-none flex-shrink-0">
                         {formatTime(currentTime)}
                       </span>
                       <CondensedTimeline
@@ -1814,115 +1770,146 @@ const Editor = () => {
                         currentTime={currentTime}
                         onSeek={seek}
                       />
-                      <span className="text-[11px] font-mono text-[#A1A8B5] font-semibold select-none flex-shrink-0">
+                      <span className="text-[10px] font-mono text-[#A1A8B5] font-semibold select-none flex-shrink-0">
                         {formatTime(meta?.duration ?? 0)}
                       </span>
                       <button
                         onClick={() => setTimelineExpanded(true)}
-                        className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#2C313C] bg-[#1F232D] text-[#A1A8B5] hover:text-white hover:bg-[#2C313C] cursor-pointer min-h-[44px] min-w-[44px] flex-shrink-0"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#2C313C] bg-[#1F232D] text-[#A1A8B5] hover:text-white cursor-pointer flex-shrink-0"
                         title="Expand Timeline"
                         aria-label="Expand Timeline"
                       >
-                        <ChevronsUpDown className="h-4 w-4" />
+                        <ChevronsUpDown className="h-3.5 w-3.5" />
                       </button>
                     </div>
                   )}
 
-                  {/* Caption List / Empty State */}
-                  <div className="flex-1 bg-[#181B22]">
-                    {captions.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center text-center py-8 px-6 bg-[#1F232D] border border-[#2C313C] rounded-xl my-4 mx-4 shadow-md">
-                        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[#FF6B2C]/10 text-[#FF6B2C] mb-4">
-                          <FileText className="h-6 w-6" strokeWidth={2} />
-                        </div>
-                        <h3 className="text-[14px] font-bold text-white mb-1">No captions yet</h3>
-                        <p className="text-[12.5px] text-[#A1A8B5] mb-5 max-w-[280px] leading-relaxed">
-                          Auto-transcribe your speech or manually add captions to this video.
-                        </p>
-                        <div className="flex flex-col w-full gap-2">
-                          <button
-                            onClick={transcribe}
-                            disabled={transcribing}
-                            className="w-full flex h-11 items-center justify-center gap-2 rounded-lg bg-[#FF6B2C] text-xs font-bold text-white shadow-md hover:bg-[#FF874D] transition disabled:opacity-50 min-h-[44px] cursor-pointer"
-                          >
-                            {transcribing ? (
-                              <>
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                <span>{transcribeStage || "Transcribing..."}</span>
-                              </>
-                            ) : (
-                              <>
-                                <Wand2 className="h-3.5 w-3.5" />
-                                <span>Auto-transcribe</span>
-                              </>
-                            )}
-                          </button>
-                          <button
-                            onClick={handleAddCaptionMobile}
-                            className="w-full flex h-11 items-center justify-center gap-2 rounded-lg border border-[#2C313C] bg-[#1F232D] text-xs font-bold text-[#A1A8B5] hover:text-white hover:bg-[#2C313C] transition min-h-[44px] cursor-pointer"
-                          >
-                            <Plus className="h-3.5 w-3.5" />
-                            <span>Add caption</span>
-                          </button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="border-b border-[#2C313C]">
-                        {captionsPanel}
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Settings Panel Sheet */}
-                  {activeMobileTab !== "captions" && (
-                    <div className="border-t border-[#2C313C] bg-[#181B22] pb-6">
-                      <div className="px-4 py-2.5 bg-[#1F232D] border-b border-[#2C313C] flex justify-between items-center select-none">
-                        <span className="text-[11px] font-bold uppercase tracking-wider text-[#A1A8B5]">
-                          {activeMobileTab === "style" && "Text Style"}
-                          {activeMobileTab === "anim" && "Caption Animation"}
-                          {activeMobileTab === "tmpl" && "Style Templates"}
-                          {activeMobileTab === "brand" && "Brand Settings"}
-                        </span>
+                  {/* Format Selector Chips Horizontal Scroll */}
+                  <div className="flex overflow-x-auto scrollbar-none gap-2 px-3 py-2 bg-[#1F232D]/40">
+                    {FRAME_PRESETS.map((p) => {
+                      const active = framePreset.id === p.id;
+                      return (
                         <button
-                          onClick={() => setActiveMobileTab("captions")}
-                          className="text-[11px] font-bold text-[#A1A8B5] hover:text-white px-3 py-1.5 min-h-[44px] flex items-center cursor-pointer"
+                          key={p.id}
+                          onClick={() => setFramePreset(p)}
+                          className={`whitespace-nowrap px-3.5 py-1.5 rounded-full text-[10.5px] font-bold select-none transition cursor-pointer flex-shrink-0 ${active
+                            ? "bg-[#FF6B2C] text-white shadow-sm"
+                            : "bg-[#1F232D] text-[#A1A8B5] border border-[#2C313C] hover:text-white"
+                            }`}
                         >
-                          Close
+                          {p.label}
                         </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 4. Active Workspace Tab Panel (scrolls independently) */}
+                <div className="flex-1 overflow-hidden flex flex-col bg-[#181B22]">
+                  {activeMobileTab === "captions" ? (
+                    <div className="flex-1 flex flex-col overflow-hidden">
+                      {/* Mobile Caption Language Bar */}
+                      <div className="flex items-center justify-between px-3 py-2 bg-[#1F232D] border-b border-[#2C313C] select-none flex-shrink-0">
+                        <div className="flex items-center gap-1.5">
+                          <Globe className="h-3.5 w-3.5 text-[#FF6B2C]" strokeWidth={2} />
+                          <span className="text-[11px] font-bold text-white">Caption Language</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Select value={language} onValueChange={handleLanguageChange}>
+                            <SelectTrigger className="h-7.5 w-[120px] rounded-lg border border-[#2C313C] bg-[#181B22] px-2 text-[10.5px] font-bold text-white focus:ring-0 cursor-pointer">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-[200px] overflow-y-auto bg-[#1F232D] border border-[#2C313C] text-white z-50 shadow-xl">
+                              {LANGUAGES.map((l) => (
+                                <SelectItem key={l.code} value={l.code} className="text-xs font-semibold cursor-pointer hover:bg-[#2C313C] focus:bg-[#2C313C]">
+                                  {l.label}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                          {translating && (
+                            <Loader2 className="h-3 w-3 animate-spin text-[#FF6B2C]" />
+                          )}
+                        </div>
                       </div>
-                      <div className="p-1">
-                        <StylePanel
-                          style={selectedCaption?.style ? { ...style, ...selectedCaption.style } : style}
-                          onChange={handleStyleChange}
-                          selectedCaption={selectedCaption}
-                          onCaptionChange={(id, patch) => {
-                            setCaptions((cur) => {
-                              const target = cur.find((c) => c.id === id);
-                              const targetTrack = target ? (target.track || 1) : 1;
-                              return cur.map((c) => {
-                                const cTrack = c.track || 1;
-                                if (cTrack === targetTrack) {
-                                  return {
-                                    ...c,
-                                    ...patch,
-                                    style: patch.style ? { ...c.style, ...patch.style } : c.style
-                                  };
-                                }
-                                return c;
-                              });
+
+                      {/* Captions List Content Area */}
+                      <div className="flex-1 overflow-y-auto">
+                        {captions.length === 0 ? (
+                          <div className="flex flex-col items-center justify-center text-center py-8 px-6 bg-[#1F232D] border border-[#2C313C] rounded-xl my-4 mx-4 shadow-md">
+                            <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#FF6B2C]/10 text-[#FF6B2C] mb-3.5">
+                              <FileText className="h-5.5 w-5.5" strokeWidth={2} />
+                            </div>
+                            <h3 className="text-[13px] font-bold text-white mb-0.5">No captions yet</h3>
+                            <p className="text-[11.5px] text-[#A1A8B5] mb-4.5 max-w-[260px] leading-relaxed">
+                              Auto-transcribe your speech or manually add captions to this video.
+                            </p>
+                            <div className="flex flex-col w-full gap-2">
+                              <button
+                                onClick={transcribe}
+                                disabled={transcribing}
+                                className="w-full flex h-10 items-center justify-center gap-1.5 rounded-lg bg-[#FF6B2C] text-[11px] font-bold text-white shadow-md hover:bg-[#FF874D] transition disabled:opacity-50 cursor-pointer"
+                              >
+                                {transcribing ? (
+                                  <>
+                                    <Loader2 className="h-3 w-3 animate-spin" />
+                                    <span>{transcribeStage || "Transcribing..."}</span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <Wand2 className="h-3 w-3" />
+                                    <span>Auto-transcribe</span>
+                                  </>
+                                )}
+                              </button>
+                              <button
+                                onClick={handleAddCaptionMobile}
+                                className="w-full flex h-10 items-center justify-center gap-1.5 rounded-lg border border-[#2C313C] bg-[#1F232D] text-[11px] font-bold text-[#A1A8B5] hover:text-white hover:bg-[#2C313C] transition cursor-pointer"
+                              >
+                                <Plus className="h-3 w-3" />
+                                <span>Add caption</span>
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          captionsPanel
+                        )}
+                      </div>
+                    </div>
+                  ) : (
+                    /* Renders the style panels corresponding to Style, Anim, Templates, and Brand settings tabs */
+                    <div className="flex-1 overflow-y-auto">
+                      <StylePanel
+                        style={selectedCaption?.style ? { ...style, ...selectedCaption.style } : style}
+                        onChange={handleStyleChange}
+                        selectedCaption={selectedCaption}
+                        onCaptionChange={(id, patch) => {
+                          setCaptions((cur) => {
+                            const target = cur.find((c) => c.id === id);
+                            const targetTrack = target ? (target.track || 1) : 1;
+                            return cur.map((c) => {
+                              const cTrack = c.track || 1;
+                              if (cTrack === targetTrack) {
+                                return {
+                                  ...c,
+                                  ...patch,
+                                  style: patch.style ? { ...c.style, ...patch.style } : c.style
+                                };
+                              }
+                              return c;
                             });
-                          }}
-                          isLocked={selectedCaption ? lockedTracks.includes(selectedCaption.track || 1) : false}
-                          activeTab={activeMobileTab === "tmpl" ? "tmpl" : activeMobileTab === "brand" ? "brand" : activeMobileTab === "anim" ? "anim" : "style"}
-                          showTabsHeader={false}
-                        />
-                      </div>
+                          });
+                        }}
+                        isLocked={selectedCaption ? lockedTracks.includes(selectedCaption.track || 1) : false}
+                        activeTab={activeMobileTab === "tmpl" ? "tmpl" : activeMobileTab === "brand" ? "brand" : activeMobileTab === "anim" ? "anim" : "style"}
+                        showTabsHeader={false}
+                      />
                     </div>
                   )}
                 </div>
 
-                {/* Bottom Navigation Tab Bar (Mobile) */}
-                <div className="fixed bottom-0 left-0 right-0 z-50 h-16 bg-[#1F232D] border-t border-[#2C313C] flex items-center justify-around px-2 pb-safe shadow-[0_-2px_10px_rgba(0,0,0,0.1)]">
+                {/* 5. Bottom Navigation Tab Bar (Mobile) */}
+                <div className="h-16 flex-shrink-0 flex items-center justify-around px-2 pb-safe border-t border-[#2C313C] bg-[#1F232D] shadow-[0_-2px_10px_rgba(0,0,0,0.15)] select-none">
                   {([
                     { id: "captions", label: "Captions", icon: FileText },
                     { id: "style", label: "Style", icon: Type },
