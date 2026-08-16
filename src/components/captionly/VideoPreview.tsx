@@ -204,6 +204,7 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
   // Controls visibility and auto-hide timer
   const [showControls, setShowControls] = useState(true);
   const controlsTimeoutRef = useRef<number | null>(null);
+  const controlsBarRef = useRef<HTMLDivElement>(null);
 
   const triggerControlsShow = () => {
     setShowControls(true);
@@ -219,10 +220,24 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
   };
 
   useEffect(() => {
+    const handleDocumentClick = (e: MouseEvent) => {
+      if (!showControls) return;
+      if (controlsBarRef.current?.contains(e.target as Node)) {
+        return;
+      }
+      const canvasEl = canvasRef.current;
+      if (canvasEl && (canvasEl.contains(e.target as Node) || e.target === innerRef.current)) {
+        return;
+      }
+      setShowControls(false);
+    };
+
+    document.addEventListener("mousedown", handleDocumentClick);
     return () => {
+      document.removeEventListener("mousedown", handleDocumentClick);
       if (controlsTimeoutRef.current) window.clearTimeout(controlsTimeoutRef.current);
     };
-  }, []);
+  }, [showControls]);
 
   // Custom progress bar seeking scrubbing logic
   const scrubberRef = useRef<HTMLDivElement>(null);
@@ -654,10 +669,7 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
         }}
         onClick={(e) => {
           if (e.target === e.currentTarget || (e.target as HTMLElement).tagName === "VIDEO") {
-            if (innerRef.current) {
-              if (isPlaying) innerRef.current.pause();
-              else innerRef.current.play();
-            }
+            setShowControls((prev) => !prev);
           }
         }}
       >
@@ -693,6 +705,7 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
 
         {/* Floating Custom player controls bar */}
         <div
+          ref={controlsBarRef}
           className={`absolute bottom-4 left-4 right-4 p-3.5 bg-black/85 backdrop-blur-md rounded-xl border border-[#2C313C] flex flex-col gap-2 z-50 transition-opacity duration-300 pointer-events-auto shadow-2xl ${
             showControls ? "opacity-100" : "opacity-0 pointer-events-none"
           }`}
