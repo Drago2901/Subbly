@@ -1631,9 +1631,12 @@ const Editor = () => {
                     <ArrowLeft className="h-4 w-4" strokeWidth={2.2} />
                   </button>
 
-                  <span className="text-[13px] font-bold text-white max-w-[160px] truncate">
-                    {title}
-                  </span>
+                  <Input
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    placeholder="Project title"
+                    className="h-8 flex-1 border-transparent bg-transparent px-1 text-center text-xs font-bold text-white hover:border-[#2C313C] focus-visible:border-[#2C313C] focus-visible:ring-0 placeholder-[#A1A8B5] max-w-[150px] mx-1"
+                  />
 
                   <div className="flex items-center gap-1">
                     <DropdownMenu>
@@ -1655,23 +1658,6 @@ const Editor = () => {
                         {file && (
                           <DropdownMenuItem onClick={handleManualSave} className="text-xs cursor-pointer py-2 hover:bg-[#2C313C] rounded-lg">Save Project</DropdownMenuItem>
                         )}
-                        <DropdownMenuSeparator className="bg-[#2C313C]" />
-                        <DropdownMenuLabel className="text-[10px] font-bold text-[#A1A8B5] uppercase tracking-wider px-2 py-1 flex items-center justify-between">
-                          <span className="flex items-center gap-1.5"><Globe className="h-3 w-3 text-[#FF6B2C]" /> Caption Language</span>
-                          {translating && <Loader2 className="h-3 w-3 animate-spin text-[#FF6B2C]" />}
-                        </DropdownMenuLabel>
-                        <div className="max-h-40 overflow-y-auto scrollbar-thin">
-                          {LANGUAGES.map((l) => (
-                            <DropdownMenuItem
-                              key={l.code}
-                              onClick={() => handleLanguageChange(l.code)}
-                              className="text-xs cursor-pointer py-1.5 hover:bg-[#2C313C] rounded-lg flex items-center justify-between"
-                            >
-                              <span>{l.label}</span>
-                              {language === l.code && <Check className="h-3.5 w-3.5 text-[#FF6B2C]" />}
-                            </DropdownMenuItem>
-                          ))}
-                        </div>
                         <DropdownMenuSeparator className="bg-[#2C313C]" />
                         <DropdownMenuLabel className="text-[10px] font-bold text-[#A1A8B5] uppercase tracking-wider px-2 py-1">Export Quality</DropdownMenuLabel>
                         <DropdownMenuItem
@@ -1709,11 +1695,10 @@ const Editor = () => {
                 </div>
 
                 {/* 2. Video Preview (Fixed/Sticky at the top) */}
-                <div className="flex-shrink-0 bg-[#0F1117] flex flex-col items-center justify-center p-3 relative border-b border-[#2C313C]">
+                <div className="flex-shrink-0 h-[240px] bg-[#0F1117] flex items-center justify-center p-2.5 relative border-b border-[#2C313C] w-full">
                   <div
-                    className="w-full flex items-center justify-center overflow-hidden"
+                    className="h-full flex items-center justify-center overflow-hidden"
                     style={{
-                      maxHeight: "30vh",
                       aspectRatio: framePreset.id !== "original"
                         ? `${framePreset.width}/${framePreset.height}`
                         : (meta ? `${meta.width}/${meta.height}` : "9/16"),
