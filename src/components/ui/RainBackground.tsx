@@ -17,6 +17,39 @@ export const RainBackground: React.FC<RainBackgroundProps> = ({
   const [density, setDensity] = useState(initialDensity);
   const [wind, setWind] = useState(initialWind);
   const [speed, setSpeed] = useState(initialSpeed);
+  const [visible, setVisible] = useState(true);
+
+  useEffect(() => {
+    let lastY = window.scrollY;
+
+    const handleScroll = () => {
+      const currentY = window.scrollY;
+
+      // Always show at the top of the page
+      if (currentY <= 10) {
+        setVisible(true);
+        lastY = currentY;
+        return;
+      }
+
+      const diff = currentY - lastY;
+      // Filter out small scroll movements (less than 8px)
+      if (Math.abs(diff) < 8) return;
+
+      if (diff > 0) {
+        setVisible(false); // scrolling down
+      } else {
+        setVisible(true); // scrolling up
+      }
+
+      lastY = currentY;
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -162,8 +195,11 @@ export const RainBackground: React.FC<RainBackgroundProps> = ({
           padding: '16px',
           borderRadius: '12px',
           border: '1px solid rgba(255, 255, 255, 0.1)',
-          pointerEvents: 'auto',
           boxShadow: '0 4px 24px -4px rgba(0, 0, 0, 0.5)',
+          opacity: visible ? 1 : 0,
+          transform: visible ? 'translateY(0)' : 'translateY(-20px)',
+          pointerEvents: visible ? 'auto' : 'none',
+          transition: 'opacity 350ms cubic-bezier(0.16, 1, 0.3, 1), transform 350ms cubic-bezier(0.16, 1, 0.3, 1)',
         }}
       >
         <label style={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '11px', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
