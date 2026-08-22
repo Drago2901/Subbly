@@ -363,8 +363,8 @@ export default function Index() {
             </div>
 
             {/* Social Proof Row */}
-            <div className="flex items-center gap-3.5 border-t border-zinc-200 dark:border-zinc-800/80 pt-6 w-full">
-              <div className="flex -space-x-2.5">
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-3 border-t border-zinc-200 dark:border-zinc-800/80 pt-6 w-full">
+              <div className="flex -space-x-2.5 flex-shrink-0">
                 {[
                   "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=80&h=80&q=80",
                   "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=80&h=80&q=80",
@@ -375,11 +375,11 @@ export default function Index() {
                     key={i}
                     src={src}
                     alt="Creator Avatar"
-                    className="h-8.5 w-8.5 rounded-full border-2 border-[#fffaf5] dark:border-[#0c0b08] object-cover"
+                    className="h-8 w-8 rounded-full border-2 border-[#fffaf5] dark:border-[#0c0b08] object-cover flex-shrink-0"
                   />
                 ))}
               </div>
-              <div>
+              <div className="flex-shrink-0">
                 <div className="flex items-center gap-0.5 text-amber-400">
                   {Array.from({ length: 5 }).map((_, i) => (
                      <Star key={i} className="h-3 w-3 fill-amber-400" />

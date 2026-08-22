@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes } from "react-router-dom";
+import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -29,6 +29,12 @@ import { CookieConsent } from '@/components/ui/CookieConsent';
 
 const queryClient = new QueryClient();
 
+const RainBackgroundWrapper = () => {
+  const location = useLocation();
+  if (location.pathname !== "/") return null;
+  return <RainBackground initialDensity={150} initialWind={20} initialSpeed={180} />;
+};
+
 const App = () => (
   <HelmetProvider>
   <QueryClientProvider client={queryClient}>
@@ -37,7 +43,7 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <ThemeProvider>
-          <RainBackground initialDensity={150} initialWind={20} initialSpeed={180} />
+          <RainBackgroundWrapper />
           <CookieConsent />
           <AuthProvider>
           <AvatarProvider>
