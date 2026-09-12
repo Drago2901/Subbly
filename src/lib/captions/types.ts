@@ -5,6 +5,8 @@ export type Word = {
   type?: string;
 };
 
+export type MediaType = "image" | "gif" | "video" | "meme" | "sticker";
+
 export type Caption = {
   id: string;
   start: number;
@@ -17,6 +19,10 @@ export type Caption = {
   y?: number;
   width?: number;
   height?: number;
+  mediaType?: MediaType;
+  mediaUrl?: string;
+  mediaTitle?: string;
+  mediaAspectRatio?: number;
 };
 
 export type CaptionAnimation =

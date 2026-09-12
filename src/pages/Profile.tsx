@@ -50,7 +50,7 @@ export default function Profile() {
     e.preventDefault();
     setDeleting(true);
     try {
-      const { error: deleteError } = await (supabase.rpc as any)("delete_own_account");
+      const { error: deleteError } = await (supabase.rpc as unknown as (fn: string) => Promise<{ error: { message?: string } | null }>)("delete_own_account");
       if (deleteError) {
         toast.error(deleteError.message || "Failed to delete account.");
       } else {

@@ -32,7 +32,11 @@ import {
   Music,
   Play,
   Pause,
+  Smile,
 } from "lucide-react";
+import { MediaAddDropdown } from "@/components/captionly/MemeStudio/MediaAddDropdown";
+import { MemeStudioPanel } from "@/components/captionly/MemeStudio/MemeStudioPanel";
+import type { MemeItem, MemeStudioTab, MemeType } from "@/lib/memeStudio/types";
 import { useTheme } from "@/hooks/useTheme";
 import { supabase } from "@/integrations/supabase/client";
 import {
@@ -135,7 +139,7 @@ const FRAME_PRESETS: FramePreset[] = [
   { id: "portrait", label: "Portrait", width: 3, height: 4, fit: "contain" },
 ];
 
-const DEMO_VIDEO_URL = "https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4";
+const DEMO_VIDEO_URL = "/test-video.mp4";
 
 const DEMO_CAPTIONS: Caption[] = [
   {
@@ -364,6 +368,102 @@ const Editor = () => {
       ? { width: framePreset.width, height: framePreset.height, fit: framePreset.fit }
       : null;
   }, [framePreset]);
+
+  const [isMemeStudioOpen, setIsMemeStudioOpen] = useState(false);
+  const [memeStudioTab, setMemeStudioTab] = useState<MemeStudioTab>("memes");
+  const [memeStudioFilter, setMemeStudioFilter] = useState<MemeType | "all">("all");
+  const [replaceTargetId, setReplaceTargetId] = useState<string | null>(null);
+
+  const handleOpenMemeStudio = useCallback((options?: {
+    tab?: MemeStudioTab;
+    filter?: MemeType | "all";
+    replaceTargetId?: string;
+  }) => {
+    if (options?.tab) setMemeStudioTab(options.tab);
+    if (options?.filter) setMemeStudioFilter(options.filter);
+    setReplaceTargetId(options?.replaceTargetId || null);
+    setIsMemeStudioOpen(true);
+  }, []);
+
+  const handleInsertMedia = useCallback((item: MemeItem) => {
+    if (replaceTargetId) {
+      setCaptions((prev) =>
+        prev.map((c) =>
+          c.id === replaceTargetId
+            ? {
+                ...c,
+                mediaType: item.type,
+                mediaUrl: item.url,
+                mediaTitle: item.title,
+                text: item.title,
+              }
+            : c
+        )
+      );
+      setSelectedCaptionId(replaceTargetId);
+      setReplaceTargetId(null);
+      setIsMemeStudioOpen(false);
+      toast.success(`Replaced with ${item.title}`);
+      return;
+    }
+
+    // Pick an available track (default to track 2 for overlay media)
+    let targetTrack = 2;
+    if (lockedTracks.includes(targetTrack)) {
+      for (let t = 1; t <= 6; t++) {
+        if (!lockedTracks.includes(t)) {
+          targetTrack = t;
+          break;
+        }
+      }
+    }
+
+    const durationSec = 3.0;
+    const start = currentTime;
+    const end = meta ? Math.min(meta.duration, start + durationSec) : start + durationSec;
+
+    const newElement: Caption = {
+      id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15),
+      start,
+      end,
+      text: item.title,
+      track: targetTrack,
+      mediaType: item.type,
+      mediaUrl: item.url,
+      mediaTitle: item.title,
+      x: 0.5,
+      y: 0.5,
+      width: item.type === "sticker" ? 22 : 36,
+      height: item.type === "sticker" ? 22 : 36,
+      style: {
+        position: "free",
+        animation: "pop",
+      },
+    };
+
+    setCaptions((prev) => {
+      const next = [...prev, newElement].sort((a, b) => a.start - b.start);
+      return next;
+    });
+    setSelectedCaptionId(newElement.id);
+    setIsMemeStudioOpen(false);
+    toast.success(`Inserted ${item.title}`);
+  }, [currentTime, meta, lockedTracks, replaceTargetId]);
+
+  const handleDeleteCaption = useCallback((id: string) => {
+    setCaptions((prev) => prev.filter((c) => c.id !== id));
+    setSelectedCaptionId((curr) => (curr === id ? null : curr));
+    toast.info("Removed media overlay");
+  }, []);
+
+  const handleReplaceMedia = useCallback((id: string) => {
+    const cap = captions.find((c) => c.id === id);
+    handleOpenMemeStudio({
+      tab: "upload",
+      filter: cap?.mediaType || "all",
+      replaceTargetId: id,
+    });
+  }, [captions, handleOpenMemeStudio]);
 
   const handleAddCaptionMobile = () => {
     let targetTrack = 1;
@@ -855,11 +955,11 @@ const Editor = () => {
   };
 
   const loadDemoProject = useCallback(() => {
-    const mockDemoFile = new File([], "subbly_demo_video.mp4", { type: "video/mp4" });
+    const mockDemoFile = new File([], "Test video.mp4", { type: "video/mp4" });
     setFile(mockDemoFile);
     setVideoUrl(DEMO_VIDEO_URL);
     setCaptions(DEMO_CAPTIONS);
-    setTitle("Subbly Live Demo Project");
+    setTitle("Test Video Project");
     toast.success("Demo video & captions loaded! Edit text, change styles, or export.");
   }, []);
 
@@ -1359,6 +1459,8 @@ const Editor = () => {
                   onLoaded={setMeta}
                   onCaptionStyleChange={handleCaptionStyleChange}
                   onCaptionPositionChange={handleCaptionPositionChange}
+                  onCaptionDelete={handleDeleteCaption}
+                  onCaptionReplace={handleReplaceMedia}
                   onCaptionChange={(id, text) =>
                     setCaptions((cur) =>
                       cur.map((c) => (c.id === id ? { ...c, text, words: undefined } : c)),
@@ -1458,6 +1560,7 @@ const Editor = () => {
                   })()} · {meta.duration.toFixed(1)}s
                 </div>
               )}
+              <MediaAddDropdown onOpenMemeStudio={handleOpenMemeStudio} />
               <button
                 onClick={transcribe}
                 disabled={transcribing}
@@ -1530,6 +1633,30 @@ const Editor = () => {
                     <SidebarIcon title="Caption Templates" icon={Layers} active={activeTab === "tmpl"} onClick={() => setActiveTab("tmpl")} />
                     {/* Brand Kit */}
                     <SidebarIcon title="Brand Kit" icon={Palette} active={activeTab === "brand"} onClick={() => setActiveTab("brand")} />
+
+                    {/* Meme Studio (Beta) */}
+                    <div className="relative group flex items-center justify-center w-full select-none px-1">
+                      {isMemeStudioOpen && (
+                        <div className="absolute left-0 top-1 bottom-1 w-[3px] bg-[#FF6B2C] rounded-r-md" />
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleOpenMemeStudio({ tab: "memes" })}
+                        className={`flex h-11 w-11 items-center justify-center rounded-xl transition duration-300 hover:scale-[1.05] active:scale-95 cursor-pointer relative ${isMemeStudioOpen
+                          ? "bg-[#FF6B2C] text-white shadow-[0_0_15px_rgba(255,107,44,0.4)]"
+                          : "bg-transparent text-[#999] dark:text-[#A1A8B5] hover:text-[#1A1A1A] dark:hover:text-white hover:bg-[#F0EDE8] dark:hover:bg-[#1F232D]"
+                          }`}
+                        title="Meme Studio (Beta)"
+                      >
+                        <Smile className="h-[21px] w-[21px]" />
+                        <span className="absolute -top-1 -right-1 bg-[#FF6B2C] text-white text-[8px] font-bold px-1 rounded-full uppercase tracking-wider scale-90">
+                          Beta
+                        </span>
+                      </button>
+                      <span className="absolute left-16 rounded bg-[#1A1A1A] dark:bg-black border border-[#333] dark:border-[#2C313C] px-2 py-1 text-[10px] font-bold text-white opacity-0 transition-opacity pointer-events-none group-hover:opacity-100 z-50 whitespace-nowrap shadow-md">
+                        Meme Studio (Beta)
+                      </span>
+                    </div>
 
                     {/* Divider */}
                     <div className="w-8 h-px bg-[#E8E4DE] dark:bg-[#2C313C] rounded-full" />
@@ -1641,6 +1768,7 @@ const Editor = () => {
                   />
 
                   <div className="flex items-center gap-1">
+                    <MediaAddDropdown onOpenMemeStudio={handleOpenMemeStudio} />
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button
@@ -1721,6 +1849,8 @@ const Editor = () => {
                         onLoaded={setMeta}
                         onCaptionStyleChange={handleCaptionStyleChange}
                         onCaptionPositionChange={handleCaptionPositionChange}
+                        onCaptionDelete={handleDeleteCaption}
+                        onCaptionReplace={handleReplaceMedia}
                         onCaptionChange={(id, text) =>
                           setCaptions((cur) =>
                             cur.map((c) => (c.id === id ? { ...c, text, words: undefined } : c)),
@@ -1958,6 +2088,18 @@ const Editor = () => {
         progress={exportProgress}
         format="mp4"
         onCancel={cancelExport}
+      />
+
+      <MemeStudioPanel
+        isOpen={isMemeStudioOpen}
+        onClose={() => {
+          setIsMemeStudioOpen(false);
+          setReplaceTargetId(null);
+        }}
+        onInsertMedia={handleInsertMedia}
+        initialTab={memeStudioTab}
+        initialFilter={memeStudioFilter}
+        replaceTargetId={replaceTargetId}
       />
     </div>
   );

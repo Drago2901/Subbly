@@ -129,7 +129,7 @@ export const RainBackground: React.FC<RainBackgroundProps> = ({
       }
     }
 
-    let drops: Drop[] = [];
+    const drops: Drop[] = [];
     const setDropCount = (n: number) => {
       if (drops.length < n) {
         for (let i = drops.length; i < n; i++) drops.push(new Drop());

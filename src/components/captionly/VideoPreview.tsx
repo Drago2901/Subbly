@@ -1,5 +1,5 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { Pencil, Play, Pause, Volume2, VolumeX, Maximize, Minimize } from "lucide-react";
+import { Pencil, Play, Pause, Volume2, VolumeX, Maximize, Minimize, Trash2, RefreshCw } from "lucide-react";
 import type { Caption, CaptionStyle, CaptionAnimation } from "@/lib/captions/types";
 
 interface ExtendedDocument extends Document {
@@ -37,6 +37,8 @@ type Props = {
   onCaptionStyleChange?: (id: string, style: Partial<CaptionStyle>) => void;
   onCaptionChange?: (id: string, text: string) => void;
   onCaptionPositionChange?: (id: string, patch: Partial<Caption>) => void;
+  onCaptionDelete?: (id: string) => void;
+  onCaptionReplace?: (id: string) => void;
   frame?: { width: number; height: number; fit: "cover" | "contain" } | null;
   lockedTracks?: number[];
   quality?: "standard" | "high";
@@ -54,6 +56,8 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
     onCaptionStyleChange,
     onCaptionChange,
     onCaptionPositionChange,
+    onCaptionDelete,
+    onCaptionReplace,
     frame,
     lockedTracks,
     quality = "standard",
@@ -828,8 +832,10 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
             posY = Math.max(0.05, posY - (activeItem.track - 1) * 0.15);
           }
 
-          const boxWidth = activeItem.width ?? itemStyle.boxWidth ?? 84;
-          const boxHeight = activeItem.height ?? itemStyle.boxHeight;
+          const isMedia = Boolean(activeItem.mediaUrl);
+          const defaultMediaWidth = activeItem.mediaType === "sticker" ? 22 : 36;
+          const boxWidth = activeItem.width ?? (isMedia ? defaultMediaWidth : itemStyle.boxWidth ?? 84);
+          const boxHeight = activeItem.height ?? (isMedia ? defaultMediaWidth : itemStyle.boxHeight);
 
           const animProgress = Math.min(1, (time - activeItem.start) / 0.35);
           const exitProgress = Math.max(0, Math.min(1, (activeItem.end - time) / 0.25));
@@ -867,7 +873,7 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
               }}
               onDoubleClick={(e) => {
                 e.stopPropagation();
-                if (lockedTracks?.includes(activeItem.track || 1)) return;
+                if (lockedTracks?.includes(activeItem.track || 1) || activeItem.mediaUrl) return;
                 startEditing(activeItem);
               }}
               className={`group/caption absolute z-40 flex -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center touch-none ${
@@ -908,6 +914,61 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
                   style={{ textAlign: itemStyle.alignment || "center" }}
                   className="w-[min(70vw,420px)] resize-none rounded-lg border-2 border-[#FF6B2C] bg-black/90 px-3.5 py-2 text-[14px] leading-relaxed text-white outline-none"
                 />
+              ) : activeItem.mediaUrl ? (
+                <div className="relative w-full h-full flex items-center justify-center select-none rounded-lg group/media">
+                  {activeItem.mediaType === "video" ? (
+                    <video
+                      src={activeItem.mediaUrl}
+                      autoPlay
+                      loop
+                      muted
+                      playsInline
+                      className="w-full h-full object-contain rounded-lg shadow-lg pointer-events-none"
+                    />
+                  ) : (
+                    <img
+                      src={activeItem.mediaUrl}
+                      alt={activeItem.mediaTitle || activeItem.text || "Overlay"}
+                      className="w-full h-full object-contain rounded-lg drop-shadow-xl pointer-events-none select-none"
+                    />
+                  )}
+
+                  {/* Floating Action Badge on Select */}
+                  {isSelected && (
+                    <div className="absolute -top-8 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-2 py-0.5 bg-black/90 backdrop-blur-md rounded-md border border-[#2C313C] shadow-lg pointer-events-auto z-50 whitespace-nowrap">
+                      <span className="text-[9.5px] font-extrabold text-[#FF6B2C] uppercase tracking-wider">
+                        {activeItem.mediaType || "Media"}
+                      </span>
+                      {onCaptionReplace && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onCaptionReplace(activeItem.id);
+                          }}
+                          className="flex items-center gap-1 px-1.5 py-0.5 rounded text-[9.5px] font-bold text-[#A1A8B5] hover:text-white hover:bg-white/10 transition cursor-pointer"
+                          title="Replace media"
+                        >
+                          <RefreshCw className="h-2.5 w-2.5" />
+                          <span>Replace</span>
+                        </button>
+                      )}
+                      {onCaptionDelete && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onCaptionDelete(activeItem.id);
+                          }}
+                          className="p-1 rounded text-[#888] hover:text-red-400 hover:bg-red-500/20 transition cursor-pointer"
+                          title="Delete media"
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               ) : (
                 <span
                   className="rounded-lg px-3 py-1.5 leading-tight"
@@ -1061,7 +1122,7 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
               {!isEditing && !lockedTracks?.includes(activeItem.track || 1) && (
                 <>
                   <span className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-full mt-1 flex items-center gap-2 whitespace-nowrap rounded-lg bg-black/80 border border-[#2C313C] px-2.5 py-1 text-[9.5px] font-bold text-white opacity-0 transition group-hover/caption:opacity-100 z-50 shadow-md">
-                    drag to reposition · double click to edit text
+                    {isMedia ? "drag to reposition · drag edges to resize" : "drag to reposition · double click to edit text"}
                   </span>
 
                   {/* Left Resize Handle */}

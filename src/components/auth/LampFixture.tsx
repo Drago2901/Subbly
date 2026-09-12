@@ -15,7 +15,8 @@ export function LampFixture({ lampOn, setLampOn, isDragging, setIsDragging, setI
 
   const playClick = () => {
     try {
-      const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const AudioCtx = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+      const ctx = new AudioCtx();
       const o = ctx.createOscillator();
       const g = ctx.createGain();
       o.type = 'square';
@@ -25,7 +26,9 @@ export function LampFixture({ lampOn, setLampOn, isDragging, setIsDragging, setI
       o.start();
       g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.08);
       o.stop(ctx.currentTime + 0.09);
-    } catch(e) {}
+    } catch {
+      // AudioContext may fail if not permitted by user gesture
+    }
   };
 
   const handleDragEnd = () => {

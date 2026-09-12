@@ -23,7 +23,7 @@ async function getFFmpeg(onLog?: (msg: string) => void): Promise<FFmpeg> {
     ].filter(Boolean);
 
     let loaded = false;
-    let lastError: any = null;
+    let lastError: unknown = null;
 
     for (const baseUrl of urls) {
       try {

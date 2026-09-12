@@ -587,7 +587,16 @@ export function Timeline({
                             />
                           </>
                         )}
-                        <span className="pointer-events-none truncate select-none">{c.text}</span>
+                        {c.mediaType ? (
+                          <span className="pointer-events-none flex items-center gap-1.5 truncate select-none">
+                            <span className="px-1 py-0.5 rounded text-[8.5px] font-extrabold uppercase bg-black/20 tracking-wider">
+                              {c.mediaType === "meme" ? "😂 Meme" : c.mediaType === "gif" ? "🎞️ GIF" : c.mediaType === "sticker" ? "🧷 Sticker" : c.mediaType === "video" ? "🎥 Video" : "🖼️ Image"}
+                            </span>
+                            <span className="truncate">{c.mediaTitle || c.text || "Media"}</span>
+                          </span>
+                        ) : (
+                          <span className="pointer-events-none truncate select-none">{c.text}</span>
+                        )}
                       </div>
                     );
                   })}

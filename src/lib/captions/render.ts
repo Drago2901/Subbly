@@ -183,6 +183,25 @@ export async function burnCaptions(opts: {
       };
     });
 
+    const mediaImageMap = new Map<string, HTMLImageElement>();
+    await Promise.all(
+      captions
+        .filter((c) => c.mediaUrl && c.mediaType !== "video")
+        .map(
+          (c) =>
+            new Promise<void>((resolve) => {
+              const img = new Image();
+              img.crossOrigin = "anonymous";
+              img.onload = () => {
+                mediaImageMap.set(c.id, img);
+                resolve();
+              };
+              img.onerror = () => resolve();
+              img.src = c.mediaUrl!;
+            })
+        )
+    );
+
     let lastProgressTime = performance.now();
     let lastReportedTime = -1;
 
@@ -190,7 +209,7 @@ export async function burnCaptions(opts: {
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, width, height);
       ctx.drawImage(video, drawRect.x, drawRect.y, drawRect.w, drawRect.h);
-      drawCaptionOverlay(ctx, captions, style, width, height, video.currentTime);
+      drawCaptionOverlay(ctx, captions, style, width, height, video.currentTime, mediaImageMap);
       if (video.currentTime !== lastReportedTime) {
         lastReportedTime = video.currentTime;
         lastProgressTime = performance.now();
@@ -362,6 +381,35 @@ function drawCinematicStacked(
   ctx.restore();
 }
 
+function drawMediaOverlay(
+  ctx: CanvasRenderingContext2D,
+  active: Caption,
+  img: HTMLImageElement,
+  width: number,
+  height: number,
+  time: number,
+) {
+  const posX = active.x ?? 0.5;
+  const posY = active.y ?? 0.5;
+  const boxWidthPct = active.width ?? (active.mediaType === "sticker" ? 22 : 36);
+  const boxHeightPct = active.height ?? (active.mediaType === "sticker" ? 22 : 36);
+  const drawW = width * (boxWidthPct / 100);
+  const drawH = height * (boxHeightPct / 100);
+  const centerX = width * posX;
+  const centerY = height * posY;
+
+  const enter = clamp((time - active.start) / 0.35, 0, 1);
+  const exit = clamp((active.end - time) / 0.25, 0, 1);
+  const anim = computeAnim(active.style?.animation || "pop", enter, exit);
+
+  ctx.save();
+  ctx.globalAlpha = anim.opacity;
+  ctx.translate(centerX, centerY);
+  if (anim.scale !== 1) ctx.scale(anim.scale, anim.scale);
+  ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
+  ctx.restore();
+}
+
 function drawCaptionOverlay(
   ctx: CanvasRenderingContext2D,
   captions: Caption[],
@@ -369,11 +417,20 @@ function drawCaptionOverlay(
   width: number,
   height: number,
   time: number,
+  mediaImageMap?: Map<string, HTMLImageElement>,
 ) {
   const activeCaptions = captions.filter((caption) => time >= caption.start && time <= caption.end);
   if (activeCaptions.length === 0) return;
 
   activeCaptions.forEach((active) => {
+    if (active.mediaUrl) {
+      const img = mediaImageMap?.get(active.id);
+      if (img) {
+        drawMediaOverlay(ctx, active, img, width, height, time);
+      }
+      return;
+    }
+
     const activeStyle = active.style ? { ...style, ...active.style } : style;
     const isCinematicStacked = activeStyle.fontFamily === "Playfair Display" && activeStyle.strokeWidth === 1 && activeStyle.strokeColor === "#fbbf24";
     if (isCinematicStacked) {

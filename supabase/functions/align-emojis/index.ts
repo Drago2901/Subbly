@@ -59,7 +59,7 @@ Example output: [{"id": "1", "text": "Hello world 👋"}, {"id": "2", "text": "T
   const parsed = JSON.parse(clean);
   if (Array.isArray(parsed)) {
     return captions.map((orig) => {
-      const updated = parsed.find((p: any) => String(p?.id) === String(orig.id));
+      const updated = parsed.find((p: { id?: string | number; text?: string }) => String(p?.id) === String(orig.id));
       return updated && typeof updated.text === "string" ? { ...orig, text: updated.text } : orig;
     });
   }

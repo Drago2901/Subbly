@@ -258,19 +258,39 @@ export function CaptionList({ captions, currentTime, onChange, onSeek, lockedTra
                 )}
               </div>
 
-              {/* Caption Textarea Preview */}
-              <textarea
-                autoFocus={c.text === ""}
-                value={c.text}
-                aria-label="Caption text content"
-                disabled={isLocked}
-                onClick={(e) => e.stopPropagation()}
-                onChange={(e) => update(c.id, { text: e.target.value, words: undefined })}
-                rows={2}
-                className={`w-full bg-transparent text-[13px] leading-relaxed resize-none border-b border-transparent hover:border-[#E8E4DE] dark:hover:border-[#2C313C] focus:border-[#FF6B2C] outline-none transition-colors py-1 ${
-                  active ? "text-[#1A1A1A] dark:text-white" : "text-[#666] dark:text-[#A1A8B5] hover:text-[#1A1A1A] dark:hover:text-white"
-                } ${isLocked ? "opacity-60 cursor-not-allowed" : ""}`}
-              />
+              {/* Caption or Media Preview */}
+              {c.mediaUrl ? (
+                <div className="flex items-center gap-2.5 py-1 select-none">
+                  <div className="h-10 w-10 flex-shrink-0 rounded-lg overflow-hidden border border-[#E8E4DE] dark:border-[#2C313C] bg-black/10 flex items-center justify-center">
+                    {c.mediaType === "video" ? (
+                      <video src={c.mediaUrl} className="h-full w-full object-cover" />
+                    ) : (
+                      <img src={c.mediaUrl} alt={c.mediaTitle || "Media"} className="h-full w-full object-contain" />
+                    )}
+                  </div>
+                  <div className="flex flex-col flex-1 min-w-0">
+                    <span className="text-[9.5px] font-extrabold text-[#FF6B2C] uppercase tracking-wider">
+                      {c.mediaType || "Media Overlay"}
+                    </span>
+                    <span className="text-[12px] font-bold text-[#1A1A1A] dark:text-white truncate">
+                      {c.mediaTitle || c.text || "Media Asset"}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <textarea
+                  autoFocus={c.text === ""}
+                  value={c.text}
+                  aria-label="Caption text content"
+                  disabled={isLocked}
+                  onClick={(e) => e.stopPropagation()}
+                  onChange={(e) => update(c.id, { text: e.target.value, words: undefined })}
+                  rows={2}
+                  className={`w-full bg-transparent text-[13px] leading-relaxed resize-none border-b border-transparent hover:border-[#E8E4DE] dark:hover:border-[#2C313C] focus:border-[#FF6B2C] outline-none transition-colors py-1 ${
+                    active ? "text-[#1A1A1A] dark:text-white" : "text-[#666] dark:text-[#A1A8B5] hover:text-[#1A1A1A] dark:hover:text-white"
+                  } ${isLocked ? "opacity-60 cursor-not-allowed" : ""}`}
+                />
+              )}
 
               {/* Micro-adjust Timestamps (visible/elevated inside card) */}
               <div className="flex gap-2 items-center mt-0.5">
