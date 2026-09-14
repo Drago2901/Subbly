@@ -40,7 +40,7 @@ import { useEditorHistory } from "@/components/captionly/Editor/useEditorHistory
 import { useEditorKeyboard } from "@/components/captionly/Editor/useEditorKeyboard";
 import type { MemeItem, MemeStudioTab, MemeType } from "@/lib/memeStudio/types";
 import { useTheme } from "@/hooks/useTheme";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY } from "@/integrations/supabase/client";
 import {
   Select,
   SelectContent,
@@ -895,12 +895,12 @@ const Editor = () => {
       // Use direct fetch so the browser sets the correct multipart Content-Type
       // boundary automatically (supabase.functions.invoke overrides it and breaks FormData)
       const { data: { session } } = await supabase.auth.getSession();
-      const fnUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/transcribe-video`;
+      const fnUrl = `${SUPABASE_URL}/functions/v1/transcribe-video`;
       const fnRes = await fetch(fnUrl, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${session?.access_token ?? ""}`,
-          apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          apikey: SUPABASE_PUBLISHABLE_KEY,
         },
         body: form,
       });

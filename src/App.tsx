@@ -23,9 +23,9 @@ import NotFound from "./pages/NotFound.tsx";
 import TypewriterDemo from "./pages/TypewriterDemo.tsx";
 import AICaptionGenerator from "./pages/landing/AICaptionGenerator.tsx";
 
-import { HelmetProvider } from 'react-helmet-async';
-import { RainBackground } from '@/components/ui/RainBackground';
-import { CookieConsent } from '@/components/ui/CookieConsent';
+import { ErrorBoundary } from "@/components/ErrorBoundary";
+import { RainBackground } from "@/components/ui/RainBackground";
+import { CookieConsent } from "@/components/ui/CookieConsent";
 
 const queryClient = new QueryClient();
 
@@ -36,12 +36,12 @@ const RainBackgroundWrapper = () => {
 };
 
 const App = () => (
-  <HelmetProvider>
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
+  <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
         <ThemeProvider>
           <RainBackgroundWrapper />
           <CookieConsent />
@@ -100,7 +100,7 @@ const App = () => (
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
-  </HelmetProvider>
+  </ErrorBoundary>
 );
 
 export default App;
