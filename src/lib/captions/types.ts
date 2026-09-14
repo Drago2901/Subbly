@@ -71,6 +71,7 @@ export type CaptionStyle = {
   emojiEnabled?: boolean;
   emojiDensity?: "light" | "medium" | "heavy";
   isCinematicStacked?: boolean;
+  activeWordScale?: number;
 };
 
 export const DEFAULT_STYLE: CaptionStyle = {

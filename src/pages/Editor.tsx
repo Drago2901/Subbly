@@ -303,7 +303,7 @@ const Editor = () => {
   const [selectedCaptionId, setSelectedCaptionId] = useState<string | null>(null);
   const [lockedTracks, setLockedTracks] = useState<number[]>([]);
 
-  const { canUndo, canRedo, handleUndo, handleRedo } = useEditorHistory(captions, setCaptions);
+  const { canUndo, canRedo, handleUndo, handleRedo, resetHistory } = useEditorHistory(captions, setCaptions);
 
   const frame = useMemo(() => {
     return framePreset.id !== "original"
@@ -849,8 +849,7 @@ const Editor = () => {
     setFile(mockDemoFile);
     setVideoUrl(DEMO_VIDEO_URL);
     setCaptions([]);
-    setHistory([[]]);
-    setHistoryIndex(0);
+    resetHistory([]);
     setTitle("Test Video Project");
     toast.success("Demo video loaded!");
 
@@ -1517,8 +1516,8 @@ const Editor = () => {
             }}
             onUndo={handleUndo}
             onRedo={handleRedo}
-            canUndo={historyIndex > 0}
-            canRedo={historyIndex < history.length - 1}
+            canUndo={canUndo}
+            canRedo={canRedo}
             selectedId={selectedCaptionId}
             onSelect={setSelectedCaptionId}
             lockedTracks={lockedTracks}

@@ -291,8 +291,8 @@ const Auth = () => {
     setSubmitting(true);
     try {
       const cleanEmail = email.trim().toLowerCase();
-      const { data: profile } = await supabase
-        .from("profiles")
+      const { data: profile } = await (supabase
+        .from("profiles") as any)
         .select("email")
         .eq("email", cleanEmail)
         .maybeSingle();

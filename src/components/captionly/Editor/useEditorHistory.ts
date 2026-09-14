@@ -57,6 +57,11 @@ export function useEditorHistory(
     }
   }, [historyIndex, history, setCaptions]);
 
+  const resetHistory = useCallback((initialCaptions: Caption[] = []) => {
+    setHistory([JSON.parse(JSON.stringify(initialCaptions))]);
+    setHistoryIndex(0);
+  }, []);
+
   return {
     historyIndex,
     historyLength: history.length,
@@ -64,5 +69,6 @@ export function useEditorHistory(
     canRedo: historyIndex < history.length - 1,
     handleUndo,
     handleRedo,
+    resetHistory,
   };
 }
