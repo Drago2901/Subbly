@@ -45,7 +45,10 @@ async function getFFmpeg(onLog?: (msg: string) => void): Promise<FFmpeg> {
 
     ffmpegInstance = ffmpeg;
     return ffmpeg;
-  })();
+  })().catch((err) => {
+    loadPromise = null;
+    throw err;
+  });
 
   return loadPromise;
 }

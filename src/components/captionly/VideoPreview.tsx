@@ -987,7 +987,7 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
                   }}
                 >
                   {(() => {
-                    const isCinematicStacked = itemStyle.fontFamily === "Playfair Display" && itemStyle.strokeWidth === 1 && itemStyle.strokeColor === "#fbbf24";
+                    const isCinematicStacked = Boolean(itemStyle.isCinematicStacked);
                     if (isCinematicStacked) {
                       let lines = activeItem.text.split("\n");
                       if (lines.length === 1) {

@@ -128,11 +128,27 @@ export default {
       const captions: CaptionInput[] = body?.captions ?? [];
       const density = body?.density ?? "medium";
 
-      if (!Array.isArray(captions) || captions.length === 0) {
-        return new Response(JSON.stringify({ error: "Invalid 'captions' array" }), {
+      const MAX_CAPTIONS = 2000;
+      const MAX_CAPTION_TEXT_LENGTH = 1000;
+
+      if (!Array.isArray(captions) || captions.length === 0 || captions.length > MAX_CAPTIONS) {
+        return new Response(JSON.stringify({ error: `Invalid 'captions' array (1–${MAX_CAPTIONS} items)` }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
+      }
+
+      const hasOversizedText = captions.some(
+        (c) => typeof c.text !== "string" || c.text.length > MAX_CAPTION_TEXT_LENGTH
+      );
+      if (hasOversizedText) {
+        return new Response(
+          JSON.stringify({ error: `Caption text exceeds maximum length of ${MAX_CAPTION_TEXT_LENGTH} characters.` }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, "Content-Type": "application/json" },
+          },
+        );
       }
 
       const openRouterKey = Deno.env.get("OPENROUTER_API_KEY");

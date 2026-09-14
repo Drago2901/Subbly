@@ -127,8 +127,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [userRole, setUserRole] = useState<string>("customer");
   const [permissions, setPermissions] = useState<string[]>([]);
 
-  // Seed default configuration once on mount
+  // Seed default configuration once on mount (DEV only)
   useEffect(() => {
+    if (!import.meta.env.DEV) return;
+
     if (!localStorage.getItem("rbac_roles")) {
       localStorage.setItem("rbac_roles", JSON.stringify(DEFAULT_ROLES));
     }
@@ -275,27 +277,44 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     // 2. Fall back to standard Supabase auth
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+    const { data: sub } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
       setSession(nextSession);
       setUser(nextSession?.user ?? null);
-      setLoading(false);
 
       if (nextSession?.user) {
-        setTimeout(() => {
-          void checkUserRole(nextSession.user);
-        }, 0);
+        try {
+          await checkUserRole(nextSession.user);
+        } catch (err) {
+          console.error("Failed to check user role:", err);
+          setUserRole("customer");
+          setIsAdmin(false);
+        } finally {
+          setLoading(false);
+        }
       } else {
         setUserRole("customer");
         setIsAdmin(false);
+        setLoading(false);
       }
     });
 
-    supabase.auth.getSession().then(({ data }) => {
+    supabase.auth.getSession().then(async ({ data }) => {
       setSession(data.session);
       setUser(data.session?.user ?? null);
-      setLoading(false);
       if (data.session?.user) {
-        void checkUserRole(data.session.user);
+        try {
+          await checkUserRole(data.session.user);
+        } catch (err) {
+          console.error("Failed to check user role:", err);
+          setUserRole("customer");
+          setIsAdmin(false);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        setUserRole("customer");
+        setIsAdmin(false);
+        setLoading(false);
       }
     });
 
@@ -305,31 +324,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   async function checkUserRole(currentUser: User) {
-    // Force superadmin email directly to super_admin
-    if (currentUser.email === "superadmin@gmail.com") {
-      setUserRole("super_admin");
-      setIsAdmin(true);
-      return;
-    }
-
-    // Check local storage overrides first (Super Admin reassignments)
-    try {
-      const overridesStr = import.meta.env.DEV ? localStorage.getItem("rbac_user_roles") : null;
-      if (overridesStr) {
-        const overrides = JSON.parse(overridesStr);
-        const customRole = overrides[currentUser.email || ""] || overrides[currentUser.id];
-        if (customRole) {
-          // Force override roles to default to customer except admin/superadmin
-          const isSuper = currentUser.email === "superadmin@gmail.com" || customRole === "super_admin";
-          const isAdminRole = customRole === "admin";
-          const activeRole: string = isSuper ? "super_admin" : (isAdminRole ? "admin" : "customer");
-          setUserRole(activeRole);
-          setIsAdmin(activeRole !== "customer" && activeRole !== "guest");
-          return;
+    // Check local storage overrides only in development
+    if (import.meta.env.DEV) {
+      try {
+        const overridesStr = localStorage.getItem("rbac_user_roles");
+        if (overridesStr) {
+          const overrides = JSON.parse(overridesStr);
+          const customRole = overrides[currentUser.email || ""] || overrides[currentUser.id];
+          if (customRole) {
+            const isSuper = customRole === "super_admin";
+            const isAdminRole = customRole === "admin";
+            const activeRole: string = isSuper ? "super_admin" : (isAdminRole ? "admin" : "customer");
+            setUserRole(activeRole);
+            setIsAdmin(activeRole !== "customer" && activeRole !== "guest");
+            return;
+          }
         }
+      } catch (e) {
+        console.error(e);
       }
-    } catch (e) {
-      console.error(e);
     }
 
     // Check DB roles table

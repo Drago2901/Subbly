@@ -432,7 +432,7 @@ function drawCaptionOverlay(
     }
 
     const activeStyle = active.style ? { ...style, ...active.style } : style;
-    const isCinematicStacked = activeStyle.fontFamily === "Playfair Display" && activeStyle.strokeWidth === 1 && activeStyle.strokeColor === "#fbbf24";
+    const isCinematicStacked = Boolean(activeStyle.isCinematicStacked);
     if (isCinematicStacked) {
       drawCinematicStacked(ctx, active, activeStyle, width, height, time);
       return;

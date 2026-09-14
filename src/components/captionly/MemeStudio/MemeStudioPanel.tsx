@@ -11,6 +11,7 @@ import {
 import { MemeUploadTab } from "./MemeUploadTab";
 import { MediaBrowseTab } from "./MediaBrowseTab";
 import type { MemeStudioTab, MemeType, MemeItem } from "@/lib/memeStudio/types";
+import { CURATED_MEMES } from "@/lib/memeStudio/data";
 
 interface MemeStudioPanelProps {
   isOpen: boolean;
@@ -29,14 +30,16 @@ export const MemeStudioPanel: React.FC<MemeStudioPanelProps> = ({
   initialFilter = "all",
   replaceTargetId,
 }) => {
-  const [activeTab, setActiveTab] = useState<MemeStudioTab>(initialTab);
+  const hasCuratedMemes = CURATED_MEMES.length > 0;
+  const resolvedInitialTab: MemeStudioTab = initialTab === "memes" && !hasCuratedMemes ? "gifs" : initialTab;
+  const [activeTab, setActiveTab] = useState<MemeStudioTab>(resolvedInitialTab);
   const panelRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isOpen) {
-      if (initialTab) setActiveTab(initialTab);
+      setActiveTab(resolvedInitialTab);
     }
-  }, [isOpen, initialTab]);
+  }, [isOpen, resolvedInitialTab]);
 
   // Handle ESC key to close panel
   useEffect(() => {
@@ -99,18 +102,20 @@ export const MemeStudioPanel: React.FC<MemeStudioPanelProps> = ({
 
           {/* 2. Navigation Tabs (Memes | GIFs | Stickers | Upload) */}
           <div className="flex items-center bg-[#F4F1EC] dark:bg-[#1A1D24] p-1 rounded-xl mt-3 border border-[#E8E4DE] dark:border-[#2C313C]">
-            <button
-              type="button"
-              onClick={() => setActiveTab("memes")}
-              className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition duration-150 cursor-pointer ${
-                activeTab === "memes"
-                  ? "bg-white dark:bg-[#252A34] text-[#1A1A1A] dark:text-white shadow-sm"
-                  : "text-[#666] dark:text-[#A1A8B5] hover:text-[#1A1A1A] dark:hover:text-white"
-              }`}
-            >
-              <Smile className="h-3.5 w-3.5 text-[#FF6B2C]" />
-              <span>Memes</span>
-            </button>
+            {hasCuratedMemes && (
+              <button
+                type="button"
+                onClick={() => setActiveTab("memes")}
+                className={`flex-1 flex items-center justify-center gap-1.5 py-1.5 rounded-lg text-xs font-bold transition duration-150 cursor-pointer ${
+                  activeTab === "memes"
+                    ? "bg-white dark:bg-[#252A34] text-[#1A1A1A] dark:text-white shadow-sm"
+                    : "text-[#666] dark:text-[#A1A8B5] hover:text-[#1A1A1A] dark:hover:text-white"
+                }`}
+              >
+                <Smile className="h-3.5 w-3.5 text-[#FF6B2C]" />
+                <span>Memes</span>
+              </button>
+            )}
 
             <button
               type="button"

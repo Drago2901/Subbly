@@ -593,6 +593,7 @@ const mapTemplateToStyle = (t: typeof TEMPLATES[number]): Partial<CaptionStyle> 
         fontWeight: 800,
         karaoke: false,
         animation: "fade" as const,
+        isCinematicStacked: true,
       };
 
     case "oneword":

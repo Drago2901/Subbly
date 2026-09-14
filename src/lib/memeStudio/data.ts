@@ -14,6 +14,7 @@ export const MEME_CATEGORIES: MemeCategory[] = [
   "Happy",
   "Confused",
   "Celebration",
+  "Emoji",
 ];
 
 export const CURATED_MEMES: MemeItem[] = [];

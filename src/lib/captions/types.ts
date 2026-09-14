@@ -70,6 +70,7 @@ export type CaptionStyle = {
   boxHeight?: number; // height in percent of preview container (5..100)
   emojiEnabled?: boolean;
   emojiDensity?: "light" | "medium" | "heavy";
+  isCinematicStacked?: boolean;
 };
 
 export const DEFAULT_STYLE: CaptionStyle = {

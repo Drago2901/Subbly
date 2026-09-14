@@ -9,6 +9,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { MemeType, MemeStudioTab } from "@/lib/memeStudio/types";
+import { CURATED_MEMES } from "@/lib/memeStudio/data";
 
 interface MediaAddDropdownProps {
   onOpenMemeStudio: (options?: { tab?: MemeStudioTab; filter?: MemeType | "all" }) => void;
@@ -66,20 +67,22 @@ export const MediaAddDropdown: React.FC<MediaAddDropdownProps> = ({
         </DropdownMenuItem>
 
         {/* Meme */}
-        <DropdownMenuItem
-          onClick={() => onOpenMemeStudio({ tab: "memes", filter: "meme" })}
-          className="flex items-center justify-between rounded-lg px-2.5 py-2 text-[12.5px] font-bold cursor-pointer bg-[#FF6B2C]/5 hover:bg-[#FF6B2C]/15 text-[#FF6B2C] transition group"
-        >
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-6 w-6 items-center justify-center rounded-md bg-[#FF6B2C]/20 text-[#FF6B2C]">
-              <Smile className="h-3.5 w-3.5" />
+        {CURATED_MEMES.length > 0 && (
+          <DropdownMenuItem
+            onClick={() => onOpenMemeStudio({ tab: "memes", filter: "meme" })}
+            className="flex items-center justify-between rounded-lg px-2.5 py-2 text-[12.5px] font-bold cursor-pointer bg-[#FF6B2C]/5 hover:bg-[#FF6B2C]/15 text-[#FF6B2C] transition group"
+          >
+            <div className="flex items-center gap-2.5">
+              <div className="flex h-6 w-6 items-center justify-center rounded-md bg-[#FF6B2C]/20 text-[#FF6B2C]">
+                <Smile className="h-3.5 w-3.5" />
+              </div>
+              <span>Meme</span>
             </div>
-            <span>Meme</span>
-          </div>
-          <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-[#FF6B2C] text-white tracking-wider">
-            Beta
-          </span>
-        </DropdownMenuItem>
+            <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-[#FF6B2C] text-white tracking-wider">
+              Beta
+            </span>
+          </DropdownMenuItem>
+        )}
 
         {/* Video */}
         <DropdownMenuItem

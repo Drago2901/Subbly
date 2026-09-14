@@ -29,13 +29,13 @@ export default {
     }
 
     if (!apiKey.startsWith("sk_")) {
-      const displayPrefix = apiKey.substring(0, 5);
+      console.error("ELEVENLABS_API_KEY has invalid format (does not start with sk_)");
       return new Response(
         JSON.stringify({
-          error: `The configured ELEVENLABS_API_KEY is invalid. It must start with 'sk_', but it starts with '${displayPrefix}' (length: ${apiKey.length}). Please set it to a valid ElevenLabs secret API key.`,
+          error: "The configured ELEVENLABS_API_KEY has an invalid format. Please configure a valid ElevenLabs API key.",
         }),
         {
-          status: 400,
+          status: 500,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         },
       );

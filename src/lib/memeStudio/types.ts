@@ -68,6 +68,8 @@ export function validateMediaFile(file: File): MediaValidationResult {
 
   if (mime === "image/gif" || ext === ".gif") {
     detectedType = "gif";
+  } else if (mime === "image/svg+xml" || ext === ".svg") {
+    detectedType = "sticker";
   } else if (mime.startsWith("video/") || SUPPORTED_EXTENSIONS.video.includes(ext)) {
     if (!["video/mp4", "video/webm"].includes(mime) && ![".mp4", ".webm"].includes(ext)) {
       return {

@@ -21,8 +21,12 @@ function secondsToAssTime(t: number): string {
     .padStart(2, "0")}`;
 }
 
-function escapeAss(s: string) {
-  return s.replace(/\n/g, "\\N").replace(/\{/g, "(").replace(/\}/g, ")");
+export function escapeAss(s: string): string {
+  return s
+    .replace(/\\/g, "\\\\")
+    .replace(/\n/g, "\\N")
+    .replace(/\{/g, "(")
+    .replace(/\}/g, ")");
 }
 
 /**

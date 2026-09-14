@@ -294,6 +294,8 @@ const Editor = () => {
   const srtInputRef = useRef<HTMLInputElement>(null);
 
   const lastSavedRef = useRef<string>("");
+  const isAutoSavingRef = useRef<boolean>(false);
+  const latestAlignRequestIdRef = useRef<number>(0);
   const prevEmojiEnabledRef = useRef<boolean | undefined>(undefined);
   const prevEmojiDensityRef = useRef<string | undefined>(undefined);
 
@@ -311,7 +313,7 @@ const Editor = () => {
   }, [framePreset]);
 
   const [isMemeStudioOpen, setIsMemeStudioOpen] = useState(false);
-  const [memeStudioTab, setMemeStudioTab] = useState<MemeStudioTab>("memes");
+  const [memeStudioTab, setMemeStudioTab] = useState<MemeStudioTab>("gifs");
   const [memeStudioFilter, setMemeStudioFilter] = useState<MemeType | "all">("all");
   const [replaceTargetId, setReplaceTargetId] = useState<string | null>(null);
 
@@ -604,12 +606,15 @@ const Editor = () => {
     const currentCaptions = captionsRef.current;
     if (currentCaptions.length === 0) return;
 
+    const reqId = ++latestAlignRequestIdRef.current;
+
     const runEmojiAlignment = async () => {
       const stageToast = toast.loading(
         style.emojiEnabled ? "Adding context emojis to speech segments…" : "Removing emojis from captions…",
       );
       try {
         if (!style.emojiEnabled) {
+          if (reqId !== latestAlignRequestIdRef.current) return;
           setCaptions((cur) =>
             cur.map((c) => ({
               ...c,
@@ -625,6 +630,7 @@ const Editor = () => {
               density: style.emojiDensity || "medium",
             },
           });
+          if (reqId !== latestAlignRequestIdRef.current) return;
           if (res && Array.isArray(res.captions)) {
             interface ResponseCaption {
               id: string;
@@ -644,6 +650,7 @@ const Editor = () => {
           }
         }
       } catch (e: unknown) {
+        if (reqId !== latestAlignRequestIdRef.current) return;
         console.error("AI emoji alignment failed:", e);
         toast.error(`Emoji integration error: ${(e as Error).message}`);
       } finally {
@@ -694,7 +701,6 @@ const Editor = () => {
             captions: data.captions,
             style: data.style,
             title: data.title,
-            language: "auto",
           });
         }
       } catch (err: unknown) {
@@ -742,7 +748,6 @@ const Editor = () => {
               captions: parsed.captions || [],
               style: parsed.style || DEFAULT_STYLE,
               title: parsed.title || "Untitled project",
-              language: parsed.language || "auto",
             });
             toast.success("Restored and saved your project!");
           }
@@ -762,15 +767,17 @@ const Editor = () => {
     if (!projectId || !file) return;
 
     const timer = setInterval(async () => {
+      if (isAutoSavingRef.current) return;
+
       const currentSnapshot = JSON.stringify({
         captions,
         style,
         title,
-        language,
       });
 
       if (currentSnapshot === lastSavedRef.current) return;
 
+      isAutoSavingRef.current = true;
       setAutoSaveState("saving");
       try {
         const { error } = await supabase
@@ -789,11 +796,13 @@ const Editor = () => {
       } catch (err) {
         console.error("Auto-save failed:", err);
         setAutoSaveState("idle");
+      } finally {
+        isAutoSavingRef.current = false;
       }
     }, 4500);
 
     return () => clearInterval(timer);
-  }, [projectId, file, captions, style, title, language]);
+  }, [projectId, file, captions, style, title]);
 
   // Toggle rain background based on editing state
   useEffect(() => {
@@ -839,7 +848,7 @@ const Editor = () => {
         if (dbError) throw dbError;
         if (projData) {
           setSearchParams({ project: projData.id });
-          lastSavedRef.current = JSON.stringify({ captions, style, title, language });
+          lastSavedRef.current = JSON.stringify({ captions, style, title });
           setAutoSaveState("saved");
           toast.success("Project saved successfully to your account!");
         }
@@ -856,7 +865,7 @@ const Editor = () => {
           .eq("id", projectId);
 
         if (error) throw error;
-        lastSavedRef.current = JSON.stringify({ captions, style, title, language });
+        lastSavedRef.current = JSON.stringify({ captions, style, title });
         setAutoSaveState("saved");
         toast.success("Project saved successfully");
       }
@@ -1007,6 +1016,7 @@ const Editor = () => {
   };
 
   const handleLanguageChange = async (nextLang: string) => {
+    const prevLang = language;
     setLanguage(nextLang);
     if (!captions.length || nextLang === "auto") return;
 
@@ -1033,6 +1043,7 @@ const Editor = () => {
       }
     } catch (e: unknown) {
       console.error("Translation issue:", e);
+      setLanguage(prevLang);
       const rawMsg = (e as Error).message || "";
       const errMsg = rawMsg.toLowerCase().includes("timed out")
         ? "Translation request timed out. Please try again."
@@ -1599,7 +1610,7 @@ const Editor = () => {
                       )}
                       <button
                         type="button"
-                        onClick={() => handleOpenMemeStudio({ tab: "memes" })}
+                        onClick={() => handleOpenMemeStudio({ tab: "gifs" })}
                         className={`flex h-11 w-11 items-center justify-center rounded-xl transition duration-300 hover:scale-[1.05] active:scale-95 cursor-pointer relative ${isMemeStudioOpen
                           ? "bg-[#FF6B2C] text-white shadow-[0_0_15px_rgba(255,107,44,0.4)]"
                           : "bg-transparent text-[#999] dark:text-[#A1A8B5] hover:text-[#1A1A1A] dark:hover:text-white hover:bg-[#F0EDE8] dark:hover:bg-[#1F232D]"
