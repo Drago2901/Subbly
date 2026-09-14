@@ -52,6 +52,122 @@ export function computeExportResolution(
   return { width, height };
 }
 
+export function computeTimelineFrames(
+  duration: number,
+  fps = 30
+): { timestamps: number[]; totalFrames: number } {
+  const safeDuration = Math.max(0.001, duration);
+  const totalFrames = Math.max(1, Math.ceil(safeDuration * fps));
+  const timestamps: number[] = [];
+
+  if (totalFrames === 1) {
+    timestamps.push(0);
+    return { timestamps, totalFrames: 1 };
+  }
+
+  for (let i = 0; i < totalFrames; i++) {
+    if (i === 0) {
+      timestamps.push(0);
+    } else if (i === totalFrames - 1) {
+      timestamps.push(safeDuration);
+    } else {
+      const t = Number((i / fps).toFixed(6));
+      timestamps.push(Math.min(t, safeDuration));
+    }
+  }
+
+  return { timestamps, totalFrames };
+}
+
+export function seekVideoToTime(
+  video: HTMLVideoElement,
+  targetTime: number,
+  timeoutMs = 4000
+): Promise<void> {
+  return new Promise<void>((resolve, reject) => {
+    if (typeof window === "undefined" || typeof video.addEventListener !== "function") {
+      resolve();
+      return;
+    }
+
+    // If targetTime is already matching current time and readyState is usable
+    if (Math.abs(video.currentTime - targetTime) < 0.0005 && video.readyState >= 2) {
+      if ("requestVideoFrameCallback" in video) {
+        const id = (video as unknown as { requestVideoFrameCallback: (cb: () => void) => number }).requestVideoFrameCallback(() => resolve());
+        setTimeout(() => resolve(), 30);
+        return;
+      }
+      resolve();
+      return;
+    }
+
+    let settled = false;
+    let rvfcId: number | null = null;
+    let timer: number | null = null;
+
+    const cleanup = () => {
+      if (timer !== null) window.clearTimeout(timer);
+      video.removeEventListener("seeked", onSeeked);
+      video.removeEventListener("error", onError);
+      if (rvfcId !== null && "cancelVideoFrameCallback" in video) {
+        try {
+          (video as unknown as { cancelVideoFrameCallback: (id: number) => void }).cancelVideoFrameCallback(rvfcId);
+        } catch {
+          // ignore
+        }
+      }
+    };
+
+    const done = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      resolve();
+    };
+
+    const onError = () => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(new Error("Video playback/seek error during export."));
+    };
+
+    const onSeeked = () => {
+      if ("requestVideoFrameCallback" in video) {
+        rvfcId = (video as unknown as { requestVideoFrameCallback: (cb: () => void) => number }).requestVideoFrameCallback(() => {
+          done();
+        });
+        setTimeout(done, 50);
+      } else {
+        done();
+      }
+    };
+
+    timer = window.setTimeout(() => {
+      if (video.readyState >= 2) {
+        done();
+      } else {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        reject(new Error(`Seeking video to ${targetTime.toFixed(3)}s timed out.`));
+      }
+    }, timeoutMs);
+
+    video.addEventListener("seeked", onSeeked, { once: true });
+    video.addEventListener("error", onError, { once: true });
+
+    try {
+      video.currentTime = targetTime;
+    } catch (err) {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      reject(err);
+    }
+  });
+}
+
 export async function burnCaptions(opts: {
   videoFile: File;
   captions: Caption[];
@@ -70,29 +186,87 @@ export async function burnCaptions(opts: {
     throw new Error("This browser does not support video export.");
   }
 
+  const FPS = 30;
+  const FRAME_STALL_TIMEOUT_MS = 25000;
+
   const videoUrl = URL.createObjectURL(videoFile);
   const video = document.createElement("video");
   const canvas = document.createElement("canvas");
 
   let recorder: MediaRecorder | null = null;
-  let animationFrame = 0;
   let audioContext: AudioContext | null = null;
   let audioSource: MediaElementAudioSourceNode | null = null;
   let audioDestination: MediaStreamAudioDestinationNode | null = null;
   let outputStream: MediaStream | null = null;
+  let canvasStream: MediaStream | null = null;
+  let watchdogId: number | null = null;
+  let isCleanedUp = false;
+
+  const cleanup = async () => {
+    if (isCleanedUp) return;
+    isCleanedUp = true;
+
+    if (watchdogId !== null) {
+      window.clearInterval(watchdogId);
+      watchdogId = null;
+    }
+
+    if (recorder && recorder.state !== "inactive") {
+      try {
+        recorder.stop();
+      } catch {
+        // ignore
+      }
+    }
+
+    try {
+      outputStream?.getTracks().forEach((track) => {
+        try { track.stop(); } catch { /* ignore */ }
+      });
+      canvasStream?.getTracks().forEach((track) => {
+        try { track.stop(); } catch { /* ignore */ }
+      });
+    } catch {
+      // ignore
+    }
+
+    try {
+      audioSource?.disconnect();
+      audioDestination?.disconnect();
+      if (audioContext && audioContext.state !== "closed") {
+        await audioContext.close().catch(() => undefined);
+      }
+    } catch {
+      // ignore
+    }
+
+    try {
+      video.pause();
+      video.removeAttribute("src");
+      video.load();
+      if (video.parentNode) {
+        video.parentNode.removeChild(video);
+      }
+    } catch {
+      // ignore
+    }
+
+    try {
+      URL.revokeObjectURL(videoUrl);
+    } catch {
+      // ignore
+    }
+  };
 
   try {
     video.src = videoUrl;
     video.preload = "auto";
     video.playsInline = true;
-    // Do NOT set muted = true: muting an HTMLMediaElement causes
-    // MediaElementAudioSourceNode to output silence in most browsers,
-    // which would strip audio from the exported file.
     video.muted = false;
     video.volume = 1;
     video.crossOrigin = "anonymous";
 
-    // Hide video offscreen but keep it active so the browser doesn't throttle decoding/playback
+    // Keep active offscreen to prevent browser playback throttling
     video.style.position = "absolute";
     video.style.width = "1px";
     video.style.height = "1px";
@@ -107,11 +281,26 @@ export async function burnCaptions(opts: {
     await waitForVideoReady(video, 1, "loadedmetadata");
     await waitForVideoReady(video, 3, "canplay");
 
-    if ("fonts" in document) {
+    if (signal?.aborted) throw new ExportCancelledError();
+
+    // Ensure custom caption fonts are fully loaded before capturing any frames
+    if (typeof document !== "undefined" && "fonts" in document) {
       try {
         await (document as Document & { fonts: FontFaceSet }).fonts.ready;
+        const fontFamilies = new Set<string>();
+        if (style.fontFamily) fontFamilies.add(style.fontFamily);
+        captions.forEach((c) => {
+          if (c.style?.fontFamily) fontFamilies.add(c.style.fontFamily);
+        });
+        for (const font of fontFamilies) {
+          try {
+            await (document as Document & { fonts: FontFaceSet }).fonts.load(`16px "${font}"`);
+          } catch {
+            // ignore individual font load error
+          }
+        }
       } catch (fontErr) {
-        onLog?.(`Font loading issue ignored during export: ${fontErr instanceof Error ? fontErr.message : String(fontErr)}`);
+        onLog?.(`[Export] Font loading issue ignored: ${fontErr instanceof Error ? fontErr.message : String(fontErr)}`);
       }
     }
 
@@ -122,8 +311,6 @@ export async function burnCaptions(opts: {
     const { width, height } = computeExportResolution(srcW, srcH, quality, output);
     const fit = output?.fit ?? "cover";
     const bg = output?.background ?? "#000000";
-
-    // Pre-compute draw rect (cover/contain math).
     const drawRect = computeDrawRect(srcW, srcH, width, height, fit);
 
     canvas.width = width;
@@ -134,6 +321,7 @@ export async function burnCaptions(opts: {
       throw new Error("Could not prepare export canvas.");
     }
 
+    // Audio capture setup
     const AudioContextClass = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
     if (AudioContextClass) {
       try {
@@ -141,9 +329,11 @@ export async function burnCaptions(opts: {
         audioSource = audioContext.createMediaElementSource(video);
         audioDestination = audioContext.createMediaStreamDestination();
         audioSource.connect(audioDestination);
-        await audioContext.resume();
+        if (audioContext.state === "suspended") {
+          await audioContext.resume();
+        }
       } catch (error) {
-        onLog?.(`Audio capture unavailable: ${error instanceof Error ? error.message : String(error)}`);
+        onLog?.(`[Export] Audio capture unavailable: ${error instanceof Error ? error.message : String(error)}`);
         audioSource?.disconnect();
         audioDestination?.disconnect();
         audioSource = null;
@@ -155,34 +345,59 @@ export async function burnCaptions(opts: {
       }
     }
 
-    const canvasStream = canvas.captureStream(30);
+    // Feature detection: verify if deterministic CanvasCaptureMediaStreamTrack.requestFrame is supported
+    const supportsDeterministicTrack =
+      typeof (canvas as unknown as { captureStream?: (fps?: number) => MediaStream }).captureStream === "function" &&
+      (() => {
+        try {
+          const testStream = canvas.captureStream(0);
+          const track = testStream.getVideoTracks()[0];
+          const hasReq = track && typeof (track as unknown as { requestFrame?: () => void }).requestFrame === "function";
+          testStream.getTracks().forEach((t) => t.stop());
+          return Boolean(hasReq);
+        } catch {
+          return false;
+        }
+      })();
+
+    canvasStream = supportsDeterministicTrack
+      ? canvas.captureStream(0)
+      : (canvas.captureStream ? canvas.captureStream(FPS) : (canvas as unknown as { mozCaptureStream: (fps: number) => MediaStream }).mozCaptureStream(FPS));
+
+    const videoTrack = canvasStream.getVideoTracks()[0] as unknown as { requestFrame?: () => void } | undefined;
     const audioTracks = audioDestination?.stream.getAudioTracks() ?? [];
+    const hasAudio = audioTracks.length > 0;
     outputStream = new MediaStream([...canvasStream.getVideoTracks(), ...audioTracks]);
 
     const renderQuality = quality ?? "standard";
     const videoBitsPerSecond = renderQuality === "high" ? 8_000_000 : 4_000_000;
-    const mimeType = getSupportedMimeType();
+    const mimeType = getExportMimeType();
+
     recorder = mimeType
       ? new MediaRecorder(outputStream, { mimeType, videoBitsPerSecond, audioBitsPerSecond: 128_000 })
       : new MediaRecorder(outputStream, { videoBitsPerSecond, audioBitsPerSecond: 128_000 });
 
     const chunks: BlobPart[] = [];
+    let lastRecorderActivity = performance.now();
+
     const result = new Promise<Blob>((resolve, reject) => {
       recorder!.ondataavailable = (event) => {
+        lastRecorderActivity = performance.now();
         if (event.data.size > 0) chunks.push(event.data);
       };
-      recorder!.onerror = () => reject(new Error("Recording failed during export."));
+      recorder!.onerror = () => reject(new Error("Video recorder encountered an error during export."));
       recorder!.onstop = () => {
         const finalType = recorder?.mimeType || mimeType || "video/webm";
         const blob = new Blob(chunks, { type: finalType });
         if (!blob.size) {
-          reject(new Error("Export failed to produce a video file."));
+          reject(new Error("Export failed to produce valid video data."));
           return;
         }
         resolve(blob);
       };
     });
 
+    // Preload media overlays
     const mediaImageMap = new Map<string, HTMLImageElement>();
     await Promise.all(
       captions
@@ -202,104 +417,95 @@ export async function burnCaptions(opts: {
         )
     );
 
-    let lastProgressTime = performance.now();
-    let lastReportedTime = -1;
+    const { timestamps, totalFrames } = computeTimelineFrames(duration, FPS);
 
-    const renderFrame = () => {
+    // Diagnostics
+    onLog?.(`[Export] source: ${srcW}x${srcH}`);
+    onLog?.(`[Export] duration: ${duration.toFixed(2)}s`);
+    onLog?.(`[Export] fps: ${FPS}`);
+    onLog?.(`[Export] frames: ${totalFrames}`);
+    onLog?.(`[Export] codec: ${mimeType || "default"}`);
+    onLog?.(`[Export] audio: ${hasAudio ? "enabled" : "none"}`);
+    onLog?.(`[Export] rendering started`);
+
+    recorder.start(250);
+
+    let lastProgressTime = performance.now();
+    let lastRenderedFrame = -1;
+    let lastRenderedTimestamp = 0;
+
+    // Progress-based watchdog detecting genuine deadlocks rather than slow frames
+    watchdogId = window.setInterval(() => {
+      if (signal?.aborted) {
+        cleanup();
+        return;
+      }
+      const now = performance.now();
+      if (now - lastProgressTime > FRAME_STALL_TIMEOUT_MS && now - lastRecorderActivity > FRAME_STALL_TIMEOUT_MS) {
+        cleanup();
+        throw new Error(
+          `Export stalled at frame ${lastRenderedFrame + 1}/${totalFrames} (${lastRenderedTimestamp.toFixed(2)}s). ` +
+          "Video decoding took too long or the browser stalled."
+        );
+      }
+    }, 1000);
+
+    const renderCanvasAtTime = (currentTime: number) => {
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, width, height);
       ctx.drawImage(video, drawRect.x, drawRect.y, drawRect.w, drawRect.h);
-      drawCaptionOverlay(ctx, captions, style, width, height, video.currentTime, mediaImageMap);
-      if (video.currentTime !== lastReportedTime) {
-        lastReportedTime = video.currentTime;
-        lastProgressTime = performance.now();
-      }
-      onProgress?.({
-        progress: clamp(video.currentTime / duration, 0, 1),
-        message: "Rendering video",
-      });
-      if (!video.ended) {
-        animationFrame = requestAnimationFrame(renderFrame);
-      }
+      drawCaptionOverlay(ctx, captions, style, width, height, currentTime, mediaImageMap);
     };
 
-    // Make sure we start from the very beginning.
-    try { video.currentTime = 0; } catch { /* ignore */ }
+    // Deterministic frame capture loop
+    for (let frameIndex = 0; frameIndex < totalFrames; frameIndex++) {
+      if (signal?.aborted) throw new ExportCancelledError();
 
-    recorder.start(250);
-    try {
-      await video.play();
-    } catch (err) {
-      throw new Error(
-        `Could not start playback for export: ${err instanceof Error ? err.message : String(err)}. ` +
-        `Try clicking inside the page once before exporting.`
-      );
+      const targetTime = timestamps[frameIndex];
+      await seekVideoToTime(video, targetTime, 5000);
+
+      renderCanvasAtTime(targetTime);
+
+      if (supportsDeterministicTrack && videoTrack && typeof videoTrack.requestFrame === "function") {
+        videoTrack.requestFrame();
+      }
+
+      lastRenderedFrame = frameIndex;
+      lastRenderedTimestamp = targetTime;
+      lastProgressTime = performance.now();
+
+      const progress = clamp((frameIndex + 1) / totalFrames, 0, 1);
+      onProgress?.({
+        progress,
+        message: `Rendering frame ${frameIndex + 1}/${totalFrames}`,
+      });
+
+      if (frameIndex === 0 || frameIndex === totalFrames - 1 || frameIndex % Math.max(1, Math.floor(totalFrames / 10)) === 0) {
+        onLog?.(`[Export] progress: ${Math.round(progress * 100)}% (frame ${frameIndex + 1}/${totalFrames})`);
+      }
+
+      if (!supportsDeterministicTrack) {
+        await new Promise((r) => setTimeout(r, Math.max(16, 1000 / FPS)));
+      } else {
+        await new Promise((r) => setTimeout(r, 2));
+      }
     }
-    animationFrame = requestAnimationFrame(renderFrame);
 
-    // Wait for "ended" but with a stall watchdog so we never hang forever
-    // (e.g. if the tab is backgrounded and rAF/playback is throttled, or
-    // if the source video never fires "ended" reliably).
-    await new Promise<void>((resolve, reject) => {
-      const STALL_MS = 8000;
-      const onEnded = () => { cleanup(); resolve(); };
-      const onError = () => { cleanup(); reject(new Error("Video playback errored during export.")); };
-      const onAbort = () => { cleanup(); reject(new ExportCancelledError()); };
-      const watchdog = window.setInterval(() => {
-        if (signal?.aborted) {
-          cleanup();
-          reject(new ExportCancelledError());
-          return;
-        }
-        if (duration && video.currentTime >= duration - 0.05) {
-          cleanup();
-          resolve();
-          return;
-        }
-        if (performance.now() - lastProgressTime > STALL_MS) {
-          cleanup();
-          reject(new Error(
-            "Export stalled — playback didn't progress. " +
-            "Keep this tab focused while exporting and try again."
-          ));
-        }
-      }, 500);
-      const cleanup = () => {
-        window.clearInterval(watchdog);
-        video.removeEventListener("ended", onEnded);
-        video.removeEventListener("error", onError);
-        signal?.removeEventListener("abort", onAbort);
-      };
-      video.addEventListener("ended", onEnded, { once: true });
-      video.addEventListener("error", onError, { once: true });
-      signal?.addEventListener("abort", onAbort, { once: true });
-    });
-
-    cancelAnimationFrame(animationFrame);
-    renderFrame();
+    onLog?.(`[Export] rendering completed`);
     onProgress?.({ progress: 1, message: "Finalizing export" });
+
+    // Allow MediaRecorder to capture and commit the final frame chunk
+    await new Promise((r) => setTimeout(r, 100));
 
     if (recorder.state !== "inactive") {
       recorder.stop();
+      onLog?.(`[Export] recorder stopped`);
     }
 
-    return await result;
+    const finalBlob = await result;
+    return finalBlob;
   } finally {
-    cancelAnimationFrame(animationFrame);
-    if (video.parentNode) {
-      video.parentNode.removeChild(video);
-    }
-    recorder?.stream.getTracks().forEach((track) => track.stop());
-    outputStream?.getTracks().forEach((track) => track.stop());
-    audioSource?.disconnect();
-    audioDestination?.disconnect();
-    if (audioContext) {
-      await audioContext.close().catch(() => undefined);
-    }
-    video.pause();
-    video.removeAttribute("src");
-    video.load();
-    URL.revokeObjectURL(videoUrl);
+    await cleanup();
   }
 }
 
@@ -810,20 +1016,38 @@ function waitForVideoEvent(video: HTMLVideoElement, event: string) {
   });
 }
 
-export function getSupportedMimeType() {
-  const candidates = [
-    "video/mp4;codecs=h264,aac",
-    "video/mp4;codecs=h264",
-    "video/mp4",
+export function getExportMimeType(): string {
+  if (typeof MediaRecorder === "undefined") return "";
+
+  const priorityList = [
     "video/webm;codecs=vp9,opus",
     "video/webm;codecs=vp8,opus",
+    "video/webm;codecs=vp9",
+    "video/webm;codecs=vp8",
     "video/webm",
+    "video/mp4;codecs=avc1,mp4a.40.2",
+    "video/mp4;codecs=h264,aac",
+    "video/mp4",
   ];
 
-  return candidates.find((candidate) => MediaRecorder.isTypeSupported(candidate)) || "";
+  for (const mime of priorityList) {
+    try {
+      if (MediaRecorder.isTypeSupported(mime)) {
+        return mime;
+      }
+    } catch {
+      // Continue to next codec
+    }
+  }
+
+  return "";
 }
 
-function computeDrawRect(
+export function getSupportedMimeType(): string {
+  return getExportMimeType();
+}
+
+export function computeDrawRect(
   srcW: number,
   srcH: number,
   dstW: number,

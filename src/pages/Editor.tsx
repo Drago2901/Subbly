@@ -68,7 +68,7 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/componen
 import { AvatarDropdown } from "@/components/AvatarDropdown";
 import { wordsToCaptions } from "@/lib/captions/segment";
 import { burnCaptions, ExportCancelledError } from "@/lib/captions/render";
-import { transcodeWebmToMp4 } from "@/lib/captions/transcode";
+import { transcodeWebmToMp4, validateExportDuration } from "@/lib/captions/transcode";
 import { extractAudioNative } from "@/lib/captions/audio";
 import { alignEmojisWithWords, stripEmojis } from "@/lib/captions/emoji";
 import {
@@ -1071,6 +1071,7 @@ const Editor = () => {
         onProgress: (info) => {
           setExportProgress(info.progress);
         },
+        onLog: (msg) => console.log(msg),
         signal: exportAbortRef.current.signal,
         output: frame || undefined,
         quality: outputQuality,
@@ -1081,9 +1082,20 @@ const Editor = () => {
 
       const mp4Blob = await transcodeWebmToMp4({
         webmBlob: new File([webmBlob], "rendered.webm", { type: "video/webm" }),
+        originalFile: file,
+        quality: outputQuality,
         onProgress: (progress) => setExportProgress(progress),
+        onLog: (msg) => console.log(msg),
         signal: exportAbortRef.current.signal,
       });
+
+      const expectedDuration = videoRef.current?.duration || 0;
+      if (expectedDuration > 0) {
+        const durationCheck = await validateExportDuration(mp4Blob, expectedDuration);
+        if (!durationCheck.valid && durationCheck.error) {
+          console.warn("[Export] Duration check warning:", durationCheck.error);
+        }
+      }
 
       const blobUrl = URL.createObjectURL(mp4Blob);
       const link = document.createElement("a");

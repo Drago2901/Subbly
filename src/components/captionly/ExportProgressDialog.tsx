@@ -45,12 +45,12 @@ export function ExportProgressDialog({ open, stage, progress, format, onCancel }
     return () => window.clearInterval(id);
   }, [open]);
 
-  const willTranscode = format === "mp4" && !getSupportedMimeType().includes("video/mp4");
-  // Overall progress weighting: render = 60%, transcode = 40% when both run
+  const willTranscode = format === "mp4";
+  // Overall progress weighting: render = 65%, transcode = 35% when both run
   const overall = willTranscode
     ? stage === "render"
-      ? progress * 0.6
-      : 0.6 + progress * 0.4
+      ? progress * 0.65
+      : 0.65 + progress * 0.35
     : progress;
 
   const elapsedSec = (now - startRef.current) / 1000;
@@ -58,6 +58,11 @@ export function ExportProgressDialog({ open, stage, progress, format, onCancel }
     overall > 0.02 && overall < 0.99
       ? Math.max(0, (elapsedSec / overall) * (1 - overall))
       : null;
+
+  const stageLabel =
+    stage === "render"
+      ? "Rendering frames & captions..."
+      : "Transcoding HD MP4 & normalizing audio...";
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onCancel()}>
@@ -77,7 +82,7 @@ export function ExportProgressDialog({ open, stage, progress, format, onCancel }
           {/* Overall */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between text-xs">
-              <span className="font-medium">Overall Progress</span>
+              <span className="font-medium">{stageLabel}</span>
               <span className="font-mono text-muted-foreground">
                 {Math.round(overall * 100)}%
               </span>
