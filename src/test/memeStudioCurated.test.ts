@@ -9,8 +9,8 @@ describe("Meme Studio Curated Content & Search Service (NO AI)", () => {
     const stickers = memeStudioService.getStickers();
 
     expect(memes.length).toBe(0);
-    expect(gifs.length).toBeGreaterThan(5);
-    expect(stickers.length).toBeGreaterThan(5);
+    expect(gifs.length).toBeGreaterThanOrEqual(100);
+    expect(stickers.length).toBeGreaterThanOrEqual(100);
 
     // Verify all GIFs have valid properties
     for (const g of gifs) {
