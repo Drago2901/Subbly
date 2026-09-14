@@ -790,7 +790,7 @@ const Auth = () => {
                       setTab("signin");
                       setForgotStep("email");
                     }}
-                    className="mt-4 text-center text-xs text-[#FF8A3D] hover:underline block w-full bg-transparent border-none cursor-pointer"
+                    className="mt-4 text-center text-xs text-primary hover:underline block w-full bg-transparent border-none cursor-pointer"
                   >
                     ← Back to sign in
                   </button>
@@ -935,15 +935,15 @@ const Auth = () => {
                   {/* Trust Badges matching Panel 4 & 5 */}
                   <div className="auth-trust-badges">
                     <div className="auth-trust-badge">
-                      <Zap className="h-3.5 w-3.5 text-[#FF8A3D]" />
+                      <Zap className="h-3.5 w-3.5 text-primary" />
                       <span>AI Powered</span>
                     </div>
                     <div className="auth-trust-badge">
-                      <ShieldCheck className="h-3.5 w-3.5 text-[#FF8A3D]" />
+                      <ShieldCheck className="h-3.5 w-3.5 text-primary" />
                       <span>Secure</span>
                     </div>
                     <div className="auth-trust-badge">
-                      <Users className="h-3.5 w-3.5 text-[#FF8A3D]" />
+                      <Users className="h-3.5 w-3.5 text-primary" />
                       <span>Fast & Reliable</span>
                     </div>
                   </div>
@@ -972,7 +972,7 @@ const Auth = () => {
           <div className="auth-success-ambient" />
           <div className="auth-success-content">
             <div className="auth-success-icon-wrap">
-              <Sparkles className="h-7 w-7 text-[#FF8A3D] animate-bounce" />
+              <Sparkles className="h-7 w-7 text-primary animate-bounce" />
             </div>
             <h2 className="auth-success-title">Welcome to Subbly!</h2>
             <p className="auth-success-sub">Bringing your ideas to life...</p>

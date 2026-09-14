@@ -70,6 +70,20 @@ export default {
         md: "calc(var(--radius) - 2px)",
         sm: "calc(var(--radius) - 4px)",
       },
+      fontFamily: {
+        sans: ["Outfit", "Inter", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
+        outfit: ["Outfit", "sans-serif"],
+        inter: ["Inter", "sans-serif"],
+        montserrat: ["Montserrat", "sans-serif"],
+        playfair: ["'Playfair Display'", "serif"],
+        poppins: ["Poppins", "sans-serif"],
+        "serif-display": ["'Instrument Serif'", "serif"],
+        mono: ["'JetBrains Mono'", "monospace"],
+      },
+      boxShadow: {
+        glow: "var(--shadow-glow)",
+        elegant: "var(--shadow-elegant)",
+      },
       keyframes: {
         "accordion-down": { from: { height: "0" }, to: { height: "var(--radix-accordion-content-height)" } },
         "accordion-up": { from: { height: "var(--radix-accordion-content-height)" }, to: { height: "0" } },

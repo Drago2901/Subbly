@@ -6,56 +6,107 @@
 
 @layer base {
   :root {
-    /* Charcoal canvas + pure black panels variables */
-    --background: 240 5% 5%;           /* #09090b */
-    --foreground: 0 0% 100%;           /* #FFFFFF */
+    /* Subbly Light Theme — Warm Stone & Ink */
+    --background: 40 20% 98%;          /* #FAF9F6 */
+    --foreground: 240 10% 10%;         /* #18181B */
 
-    --surface: 0 0% 0%;                /* #000000 */
-    --surface-2: 240 5% 7%;            /* #121215 */
-    --surface-3: 240 5% 10%;           /* #18181c */
+    --surface: 0 0% 100%;              /* #FFFFFF */
+    --surface-2: 40 15% 94%;           /* #F2EFE9 */
+    --surface-3: 40 15% 88%;           /* #E8E4DE */
 
-    --card: 0 0% 0%;                   /* #000000 */
-    --card-foreground: 0 0% 100%;      /* #FFFFFF */
+    --card: 0 0% 100%;                 /* #FFFFFF */
+    --card-foreground: 240 10% 10%;    /* #18181B */
 
-    --popover: 0 0% 0%;                /* #000000 */
-    --popover-foreground: 0 0% 100%;   /* #FFFFFF */
+    --popover: 0 0% 100%;              /* #FFFFFF */
+    --popover-foreground: 240 10% 10%; /* #18181B */
 
-    --primary: 25 100% 50%;            /* #FF6B00 */
+    --primary: 18 100% 55%;            /* Subbly Brand Orange #FF5C3A */
     --primary-foreground: 0 0% 100%;   /* #FFFFFF */
     --primary-glow: 25 100% 60%;       /* #FF8A33 */
 
-    --secondary: 240 5% 7%;            /* #121215 */
+    --secondary: 40 15% 94%;           /* #F2EFE9 */
+    --secondary-foreground: 240 10% 10%; /* #18181B */
+
+    --muted: 40 15% 94%;               /* #F2EFE9 */
+    --muted-foreground: 240 5% 45%;    /* #6B7280 */
+
+    --accent: 18 100% 96%;             /* #FFF5F3 */
+    --accent-foreground: 18 100% 55%;  /* #FF5C3A */
+
+    --destructive: 0 84% 60%;          /* #EF4444 */
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 40 15% 88%;              /* #E8E4DE */
+    --input: 40 15% 92%;               /* #EDE9E3 */
+    --ring: 18 100% 55%;               /* #FF5C3A */
+
+    --radius: 0.75rem;
+
+    --gradient-primary: linear-gradient(135deg, hsl(18 100% 55%), hsl(28 100% 55%));
+    --gradient-accent: linear-gradient(135deg, hsl(18 100% 55%), hsl(10 100% 50%));
+    --gradient-surface: linear-gradient(180deg, hsl(0 0% 100%), hsl(40 20% 98%));
+    --shadow-glow: 0 0 35px -6px hsl(18 100% 55% / 0.4);
+    --shadow-elegant: 0 20px 40px -15px rgba(0, 0, 0, 0.08);
+
+    --sidebar-background: 0 0% 100%;
+    --sidebar-foreground: 240 5% 45%;
+    --sidebar-primary: 18 100% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 40 15% 94%;
+    --sidebar-accent-foreground: 240 10% 10%;
+    --sidebar-border: 40 15% 88%;
+    --sidebar-ring: 18 100% 55%;
+  }
+
+  .dark {
+    /* Subbly Dark Theme — Charcoal Canvas & OLED Pure Black */
+    --background: 240 5% 5%;           /* #09090B */
+    --foreground: 0 0% 100%;           /* #FFFFFF */
+
+    --surface: 0 0% 0%;                /* #000000 */
+    --surface-2: 240 5% 8%;            /* #131316 */
+    --surface-3: 240 5% 12%;           /* #1C1C21 */
+
+    --card: 240 5% 7%;                 /* #121215 */
+    --card-foreground: 0 0% 100%;      /* #FFFFFF */
+
+    --popover: 240 5% 7%;              /* #121215 */
+    --popover-foreground: 0 0% 100%;   /* #FFFFFF */
+
+    --primary: 18 100% 55%;            /* Subbly Brand Orange #FF5C3A */
+    --primary-foreground: 0 0% 100%;   /* #FFFFFF */
+    --primary-glow: 25 100% 60%;       /* #FF8A33 */
+
+    --secondary: 240 5% 10%;           /* #18181C */
     --secondary-foreground: 0 0% 100%; /* #FFFFFF */
 
-    --muted: 240 5% 7%;                /* #121215 */
+    --muted: 240 5% 10%;               /* #18181C */
     --muted-foreground: 240 5% 65%;    /* #A1A1AA */
 
-    --accent: 25 100% 50%;             /* #FF6B00 */
+    --accent: 18 100% 55%;             /* #FF5C3A */
     --accent-foreground: 0 0% 100%;    /* #FFFFFF */
 
     --destructive: 0 84% 60%;          /* #EF4444 */
     --destructive-foreground: 0 0% 100%;
 
-    --border: 240 5% 10%;              /* #18181c */
-    --input: 240 5% 7%;                /* #121215 */
-    --ring: 25 100% 50%;               /* #FF6B00 */
+    --border: 240 5% 12%;              /* #1C1C21 */
+    --input: 240 5% 10%;               /* #18181C */
+    --ring: 18 100% 55%;               /* #FF5C3A */
 
-    --radius: 0.75rem;
-
-    --gradient-primary: linear-gradient(135deg, hsl(25 100% 50%), hsl(35 100% 60%));
-    --gradient-accent: linear-gradient(135deg, hsl(25 100% 50%), hsl(15 100% 45%));
+    --gradient-primary: linear-gradient(135deg, hsl(18 100% 55%), hsl(28 100% 55%));
+    --gradient-accent: linear-gradient(135deg, hsl(18 100% 55%), hsl(10 100% 50%));
     --gradient-surface: linear-gradient(180deg, hsl(0 0% 0%), hsl(240 5% 5%));
-    --shadow-glow: 0 0 40px -8px hsl(25 100% 50% / 0.35);
+    --shadow-glow: 0 0 40px -8px hsl(18 100% 55% / 0.45);
     --shadow-elegant: 0 20px 60px -20px hsl(0 0% 0% / 0.8);
 
-    --sidebar-background: 240 5% 5%;   /* #09090b */
-    --sidebar-foreground: 240 5% 65%;  /* #A1A1AA */
-    --sidebar-primary: 25 100% 50%;    /* #FF6B00 */
+    --sidebar-background: 240 5% 5%;
+    --sidebar-foreground: 240 5% 65%;
+    --sidebar-primary: 18 100% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 0 0% 0%;         /* #000000 */
+    --sidebar-accent: 0 0% 0%;
     --sidebar-accent-foreground: 0 0% 100%;
-    --sidebar-border: 240 5% 10%;      /* #18181c */
-    --sidebar-ring: 25 100% 50%;       /* #FF6B00 */
+    --sidebar-border: 240 5% 12%;
+    --sidebar-ring: 18 100% 55%;
   }
 }
 
@@ -69,9 +120,6 @@
   body {
     @apply bg-background text-foreground antialiased;
     font-feature-settings: "ss01", "cv11";
-  }
-  html.dark, html.dark body {
-    background-color: #000000 !important;
   }
 }
 
@@ -161,30 +209,7 @@
 
 /* Gradient backgrounds */
 .dark .from-\[\#ff5c3a\].to-\[\#ffd5cc\] { --tw-gradient-to: #121212 !important; }
-/* OLED Overrides for Tailwind classes */
-.dark .bg-\[\#0F1117\] { background-color: #08090b !important; }
-.dark .bg-\[\#181B22\] { background-color: #000000 !important; }
-.dark .bg-\[\#181B22\]\/80 { background-color: rgba(8, 9, 11, 0.8) !important; }
-.dark .bg-\[\#181B22\]\/90 { background-color: rgba(8, 9, 11, 0.9) !important; }
-.dark .bg-\[\#1F232D\] { background-color: #08090b !important; }
-.dark .bg-\[\#1F232D\]\/90 { background-color: rgba(8, 9, 11, 0.9) !important; }
-.dark .bg-\[\#1F232D\]\/5 { background-color: rgba(255, 107, 0, 0.05) !important; }
-.dark .bg-\[\#FF6B2C\]\/5 { background-color: rgba(255, 107, 0, 0.05) !important; }
-.dark .bg-\[\#FF6B2C\]\/10 { background-color: rgba(255, 107, 0, 0.1) !important; }
-.dark .bg-\[\#FF6B2C\]\/15 { background-color: rgba(255, 107, 0, 0.15) !important; }
-.dark .bg-\[\#FF6B2C\] { background-color: #ff6b00 !important; }
-.dark .hover\:bg-\[\#FF874D\]:hover { background-color: #ff8a33 !important; }
 
-/* Borders mapping to thin slate/gray borders */
-.dark .border-\[\#2C313C\] { border-color: #1a1b20 !important; }
-.dark .border-\[\#2C313C\]\/60 { border-color: rgba(26, 27, 32, 0.6) !important; }
-.dark .border-\[\#E8E4DE\]\/60 { border-color: rgba(26, 27, 32, 0.6) !important; }
-.dark .border-\[\#FF6B2C\] { border-color: #ff6b00 !important; }
-.dark .border-\[\#FF6B2C\]\/40 { border-color: rgba(255, 107, 0, 0.4) !important; }
-
-.dark .text-\[\#A1A8B5\] { color: #a1a1aa !important; }
-.dark .text-\[\#FF6B2C\] { color: #ff6b00 !important; }
-.dark .hover\:text-\[\#FF6B2C\]:hover { color: #ff6b00 !important; }
 /* ===== Blinking Cursor Animation for Typewriter ===== */
 .animate-cursor-blink {
   animation: cursorBlinkSmooth 1s ease-in-out infinite;

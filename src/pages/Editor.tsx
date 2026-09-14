@@ -220,7 +220,7 @@ const CondensedTimeline = ({
   return (
     <div
       onPointerDown={handlePointerDown}
-      className="relative flex-1 h-8 bg-[#E8E4DE] dark:bg-[#181B22] rounded-lg flex items-center gap-0.5 px-2 cursor-pointer overflow-hidden border border-[#D4CFC8] dark:border-[#2C313C]"
+      className="relative flex-1 h-8 bg-secondary rounded-lg flex items-center gap-0.5 px-2 cursor-pointer overflow-hidden border border-border"
     >
       {bars.map((h, i) => {
         const barProgress = (i / bars.length) * 100;
@@ -228,18 +228,17 @@ const CondensedTimeline = ({
         return (
           <div
             key={i}
-            className="flex-grow rounded-[1px]"
+            className={`flex-grow rounded-[1px] ${active ? "bg-primary" : "bg-muted-foreground/30"}`}
             style={{
               height: `${h * 70}%`,
               minHeight: "4px",
-              backgroundColor: active ? "#FF6B2C" : (theme === "dark" ? "#2C313C" : "#C8C2BB"),
             }}
           />
         );
       })}
       {/* Playhead */}
       <div
-        className="absolute top-0 bottom-0 w-[2px] bg-[#FF6B2C] z-10"
+        className="absolute top-0 bottom-0 w-[2px] bg-primary z-10 shadow-glow"
         style={{ left: `${progressPct}%` }}
       />
     </div>
@@ -1183,8 +1182,8 @@ const Editor = () => {
 
 
         {file && (
-          <div className="flex items-center gap-2 border border-[#E8E4DE] dark:border-[#2C313C] bg-[#F9F8F5] dark:bg-[#1F232D] p-1.5 rounded-lg">
-            <span className="px-2 py-0.5 text-[10px] font-extrabold tracking-wider text-[#666] dark:text-[#A1A8B5] bg-[#EAE7E2] dark:bg-[#181B22] rounded shadow-inner uppercase select-none border border-[#E8E4DE] dark:border-[#2C313C]">
+          <div className="flex items-center gap-2 border border-border bg-secondary/80 p-1.5 rounded-lg">
+            <span className="px-2 py-0.5 text-[10px] font-extrabold tracking-wider text-muted-foreground bg-muted rounded shadow-inner uppercase select-none border border-border">
               MP4
             </span>
 
@@ -1193,10 +1192,10 @@ const Editor = () => {
               onValueChange={(q) => setQuality(q as "standard" | "high")}
               disabled={exporting}
             >
-              <SelectTrigger className="h-7 w-[85px] border-none bg-transparent shadow-none px-1 text-[11.5px] text-[#1A1A1A] dark:text-white font-bold focus:ring-0 focus:ring-offset-0 hover:bg-[#E8E4DE]/50 dark:hover:bg-[#2C313C]/40 rounded">
+              <SelectTrigger className="h-7 w-[85px] border-none bg-transparent shadow-none px-1 text-[11.5px] text-foreground font-bold focus:ring-0 focus:ring-offset-0 hover:bg-muted/60 rounded">
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="min-w-[100px] bg-[#F9F8F5] dark:bg-[#1F232D] border border-[#E8E4DE] dark:border-[#2C313C] text-[#1A1A1A] dark:text-white">
+              <SelectContent className="min-w-[100px] bg-popover border border-border text-popover-foreground">
                 <SelectItem value="standard" className="text-[12px] font-semibold cursor-pointer">720p SD</SelectItem>
                 <SelectItem value="high" className="text-[12px] font-semibold cursor-pointer">1080p HD</SelectItem>
               </SelectContent>
@@ -1206,16 +1205,16 @@ const Editor = () => {
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  className="p-1 rounded hover:bg-[#E8E4DE]/60 dark:hover:bg-[#2C313C]/40 text-[#666] dark:text-[#A1A8B5] hover:text-[#1A1A1A] dark:hover:text-white transition cursor-pointer flex-shrink-0"
+                  className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition cursor-pointer flex-shrink-0"
                   aria-label="Quality settings information"
                 >
                   <Info className="h-3.5 w-3.5" />
                 </button>
               </TooltipTrigger>
-              <TooltipContent className="max-w-[260px] text-xs leading-normal bg-[#F9F8F5] dark:bg-[#1F232D] text-[#1A1A1A] dark:text-white border border-[#E8E4DE] dark:border-[#2C313C] p-3 shadow-2xl rounded-lg">
+              <TooltipContent className="max-w-[260px] text-xs leading-normal bg-popover text-popover-foreground border border-border p-3 shadow-2xl rounded-lg">
                 <div className="space-y-1">
-                  <p><span className="font-bold text-[#FF6B2C]">Standard:</span> 720p HD (Faster Export)</p>
-                  <p><span className="font-bold text-[#FF6B2C]">High:</span> 1080p Full HD (Best Quality)</p>
+                  <p><span className="font-bold text-primary">Standard:</span> 720p HD (Faster Export)</p>
+                  <p><span className="font-bold text-primary">High:</span> 1080p Full HD (Best Quality)</p>
                 </div>
               </TooltipContent>
             </Tooltip>
@@ -1223,7 +1222,7 @@ const Editor = () => {
             <button
               onClick={exportVideo}
               disabled={exporting}
-              className="inline-flex h-7 items-center gap-1.5 rounded-md bg-[#FF6B2C] px-3 py-1.5 text-[12px] font-bold text-white transition hover:bg-[#FF874D] disabled:opacity-70 shadow-sm hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+              className="inline-flex h-7 items-center gap-1.5 rounded-md bg-gradient-primary px-3 py-1.5 text-[12px] font-bold text-primary-foreground transition hover:opacity-95 disabled:opacity-70 shadow-glow hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
             >
               {exporting ? (
                 <>
@@ -1249,17 +1248,14 @@ const Editor = () => {
 
   if (loadingProject) {
     return (
-      <div className="flex h-screen items-center justify-center bg-[#F9F8F6] dark:bg-[#0F1117]">
-        <Loader2 className="h-6 w-6 animate-spin text-[#FF6B2C]" />
+      <div className="flex h-screen items-center justify-center bg-background">
+        <Loader2 className="h-6 w-6 animate-spin text-primary" />
       </div>
     );
   }
 
   return (
-    <div
-      className="flex h-screen flex-col overflow-hidden bg-[#F9F8F6] dark:bg-[#0F1117] text-[#1A1A1A] dark:text-white select-none"
-      style={{ fontFamily: "'Outfit', sans-serif" }}
-    >
+    <div className="flex h-screen flex-col overflow-hidden bg-background text-foreground select-none font-outfit">
       <Seo
         title="Editor — Subbly"
         description="Subbly's caption editor — auto-transcribe your video, edit captions, style subtitles, and export a captioned video."
@@ -1269,7 +1265,7 @@ const Editor = () => {
 
       {/* 1. FLOATING NAVIGATION BAR */}
       {!isMobile && (
-        <header className="flex flex-shrink-0 items-center justify-between gap-3 border border-[#E8E4DE]/60 dark:border-[#2C313C]/60 bg-white/80 dark:bg-[#181B22]/80 backdrop-blur-md px-4 py-2 mx-4 mt-3 rounded-xl shadow-[0_8px_32px_rgba(0,0,0,0.06)] dark:shadow-[0_8px_32px_rgba(0,0,0,0.3)] select-none h-14 z-50">
+        <header className="flex flex-shrink-0 items-center justify-between gap-3 border border-border/70 bg-card/80 backdrop-blur-md px-4 py-2 mx-4 mt-3 rounded-xl shadow-elegant select-none h-14 z-50">
           <div className="flex min-w-0 flex-1 items-center gap-3">
             <button
               onClick={() => {
@@ -1279,30 +1275,30 @@ const Editor = () => {
                   navigate(user ? "/projects" : "/");
                 }
               }}
-              className="flex h-8.5 w-8.5 flex-shrink-0 items-center justify-center rounded-lg border border-[#E8E4DE] dark:border-[#2C313C] bg-[#F9F8F5] dark:bg-[#1F232D] text-[#666] dark:text-[#A1A8B5] hover:text-[#1A1A1A] dark:hover:text-white transition hover:bg-neutral-50 dark:hover:bg-[#2C313C] hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+              className="flex h-8.5 w-8.5 flex-shrink-0 items-center justify-center rounded-lg border border-border bg-secondary text-muted-foreground hover:text-foreground transition hover:bg-muted hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
             >
               <ArrowLeft className="h-4.5 w-4.5" strokeWidth={2.4} />
             </button>
             <BrandLogo size="sm" />
-            <div className="hidden h-5 w-px bg-[#E8E4DE] dark:bg-[#2C313C] sm:block" />
+            <div className="hidden h-5 w-px bg-border sm:block" />
             <Input
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="Project title"
-              className="h-8.5 min-w-0 flex-1 border-transparent bg-transparent px-2 text-[13px] font-bold text-[#1A1A1A] dark:text-white hover:border-[#E8E4DE] dark:hover:border-[#2C313C] focus-visible:border-[#E8E4DE] dark:focus-visible:border-[#2C313C] focus-visible:ring-0 md:w-60 md:flex-none placeholder-[#666] dark:placeholder-[#A1A8B5]"
+              className="h-8.5 min-w-0 flex-1 border-transparent bg-transparent px-2 text-[13px] font-bold text-foreground hover:border-border focus-visible:border-border focus-visible:ring-0 md:w-60 md:flex-none placeholder:text-muted-foreground"
             />
 
             {/* Auto Save Status Indicator */}
             {projectId && autoSaveState !== "idle" && (
               <span className="hidden flex-shrink-0 items-center gap-1 text-[11px] sm:inline-flex select-none">
                 {autoSaveState === "saving" ? (
-                  <span className="text-[#666] dark:text-[#A1A8B5] flex items-center gap-1.5">
-                    <Loader2 className="h-3 w-3 animate-spin text-[#FF6B2C]" />
+                  <span className="text-muted-foreground flex items-center gap-1.5">
+                    <Loader2 className="h-3 w-3 animate-spin text-primary" />
                     Saving…
                   </span>
                 ) : (
-                  <span className="text-[#22C55E] flex items-center gap-1 font-bold animate-pulse">
-                    <Check className="h-3.5 w-3.5 text-[#22C55E]" strokeWidth={3.5} />
+                  <span className="text-emerald-500 flex items-center gap-1 font-bold animate-pulse">
+                    <Check className="h-3.5 w-3.5 text-emerald-500" strokeWidth={3.5} />
                     Saved just now
                   </span>
                 )}
@@ -1311,12 +1307,12 @@ const Editor = () => {
           </div>
           <div className="flex flex-shrink-0 items-center gap-3">
             {/* Header Undo / Redo */}
-            <div className="flex items-center gap-1 border-r border-[#E8E4DE] dark:border-[#2C313C] pr-2.5">
+            <div className="flex items-center gap-1 border-r border-border pr-2.5">
               <button
                 title="Undo edit"
                 onClick={handleUndo}
                 disabled={historyIndex === 0}
-                className="flex h-8.5 w-8.5 items-center justify-center rounded-lg border border-[#E8E4DE] dark:border-[#2C313C] bg-[#F9F8F5] dark:bg-[#1F232D] text-[#666] dark:text-[#A1A8B5] hover:text-[#1A1A1A] dark:hover:text-white disabled:opacity-30 disabled:scale-100 disabled:cursor-not-allowed hover:bg-neutral-50 dark:hover:bg-[#2C313C] hover:scale-105 active:scale-95 transition cursor-pointer"
+                className="flex h-8.5 w-8.5 items-center justify-center rounded-lg border border-border bg-secondary text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:scale-100 disabled:cursor-not-allowed hover:bg-muted hover:scale-105 active:scale-95 transition cursor-pointer"
               >
                 <Undo2 className="h-4 w-4" />
               </button>
@@ -1324,7 +1320,7 @@ const Editor = () => {
                 title="Redo edit"
                 onClick={handleRedo}
                 disabled={historyIndex >= history.length - 1}
-                className="flex h-8.5 w-8.5 items-center justify-center rounded-lg border border-[#E8E4DE] dark:border-[#2C313C] bg-[#F9F8F5] dark:bg-[#1F232D] text-[#666] dark:text-[#A1A8B5] hover:text-[#1A1A1A] dark:hover:text-white disabled:opacity-30 disabled:scale-100 disabled:cursor-not-allowed hover:bg-neutral-50 dark:hover:bg-[#2C313C] hover:scale-105 active:scale-95 transition cursor-pointer"
+                className="flex h-8.5 w-8.5 items-center justify-center rounded-lg border border-border bg-secondary text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:scale-100 disabled:cursor-not-allowed hover:bg-muted hover:scale-105 active:scale-95 transition cursor-pointer"
               >
                 <Redo2 className="h-4 w-4" />
               </button>
@@ -1337,7 +1333,7 @@ const Editor = () => {
             ) : (
               <Link
                 to="/auth"
-                className="inline-flex items-center rounded-lg bg-[#FF6B2C] px-[16px] py-1.5 text-[12px] font-bold text-white shadow-md shadow-orange-500/10 transition hover:bg-[#FF874D] hover:scale-[1.02] active:scale-[0.98]"
+                className="inline-flex items-center rounded-lg bg-gradient-primary px-[16px] py-1.5 text-[12px] font-bold text-primary-foreground shadow-glow transition hover:opacity-95 hover:scale-[1.02] active:scale-[0.98]"
               >
                 Sign In
               </Link>
@@ -1358,10 +1354,10 @@ const Editor = () => {
       {!file && (
         <main className="mx-auto flex w-full max-w-[640px] flex-1 flex-col items-center justify-center gap-8 overflow-y-auto px-6 py-10">
           <div className="text-center">
-            <h1 className="mb-2.5 text-[32px] font-extrabold leading-[1.1] tracking-tight md:text-[36px] text-[#1A1A1A] dark:text-white">
-              Caption your videos in <span className="bg-gradient-to-r from-[#FF6B2C] to-[#FF874D] bg-clip-text text-transparent">seconds</span>
+            <h1 className="mb-2.5 text-[32px] font-extrabold leading-[1.1] tracking-tight md:text-[36px] text-foreground">
+              Caption your videos in <span className="bg-gradient-primary bg-clip-text text-transparent">seconds</span>
             </h1>
-            <p className="mx-auto max-w-[360px] text-[14px] leading-relaxed text-[#666666] dark:text-[#A1A8B5]">
+            <p className="mx-auto max-w-[360px] text-[14px] leading-relaxed text-muted-foreground">
               Upload a video to start. We'll save your captions and styling so you can come back anytime.
             </p>
           </div>
@@ -1392,7 +1388,7 @@ const Editor = () => {
             <div className="flex flex-1 flex-col items-center justify-center overflow-hidden p-4">
               {/* Aspect Ratio Preset Selector */}
               <div className="mb-4.5 flex items-center justify-center flex-shrink-0">
-                <div className="inline-flex items-center gap-1.5 bg-[#EAE7E2] dark:bg-[#181B22] p-1 rounded-full border border-[#D4CFC8] dark:border-[#2C313C] shadow-md select-none">
+                <div className="inline-flex items-center gap-1.5 bg-secondary p-1 rounded-full border border-border shadow-md select-none">
                   {FRAME_PRESETS.map((p) => {
                     const active = framePreset.id === p.id;
                     return (
@@ -1400,8 +1396,8 @@ const Editor = () => {
                         key={p.id}
                         onClick={() => setFramePreset(p)}
                         className={`rounded-full px-3.5 py-1 text-[11.5px] font-bold transition cursor-pointer select-none ${active
-                          ? "bg-[#FF6B2C] text-white shadow-sm"
-                          : "text-[#666] dark:text-[#A1A8B5] hover:text-[#1A1A1A] dark:hover:text-white"
+                          ? "bg-gradient-primary text-primary-foreground shadow-glow"
+                          : "text-muted-foreground hover:text-foreground"
                           }`}
                       >
                         {p.label}
@@ -1475,28 +1471,28 @@ const Editor = () => {
         );
 
         const combinedToolbar = (
-          <div className="flex flex-shrink-0 flex-wrap items-center justify-between gap-3 border-b border-[#E8E4DE] dark:border-[#2C313C] bg-white dark:bg-[#181B22] px-4 py-2.5">
+          <div className="flex flex-shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-4 py-2.5">
             {/* Left: Language selector */}
             <div className="flex items-center gap-3">
               {meta && (
                 <div className="flex items-center gap-2.5">
-                  <Globe className="h-4 w-4 text-[#666] dark:text-[#A1A8B5]" strokeWidth={2} />
-                  <span className="text-[11.5px] font-bold text-[#666] dark:text-[#A1A8B5]">Caption Language</span>
+                  <Globe className="h-4 w-4 text-muted-foreground" strokeWidth={2} />
+                  <span className="text-[11.5px] font-bold text-muted-foreground">Caption Language</span>
                   <Select value={language} onValueChange={handleLanguageChange}>
-                    <SelectTrigger className="h-7.5 w-[130px] rounded-lg border border-[#E8E4DE] dark:border-[#2C313C] bg-[#F9F8F5] dark:bg-[#1F232D] px-2.5 text-[11.5px] font-bold text-[#1A1A1A] dark:text-white focus:ring-0 focus:ring-offset-0 transition hover:bg-neutral-50 dark:hover:bg-[#2C313C] cursor-pointer">
+                    <SelectTrigger className="h-7.5 w-[130px] rounded-lg border border-border bg-secondary px-2.5 text-[11.5px] font-bold text-foreground focus:ring-0 focus:ring-offset-0 transition hover:bg-muted cursor-pointer">
                       <SelectValue />
                     </SelectTrigger>
-                    <SelectContent className="max-h-[280px] overflow-y-auto bg-[#F9F8F5] border border-[#E8E4DE] text-[#1A1A1A] dark:bg-[#1F232D] dark:border-[#2C313C] dark:text-white shadow-xl">
+                    <SelectContent className="max-h-[280px] overflow-y-auto bg-popover border border-border text-popover-foreground shadow-xl">
                       {LANGUAGES.map((l) => (
-                        <SelectItem key={l.code} value={l.code} className="text-[12px] font-semibold cursor-pointer hover:bg-[#2C313C] focus:bg-[#2C313C] transition-colors">
+                        <SelectItem key={l.code} value={l.code} className="text-[12px] font-semibold cursor-pointer hover:bg-accent focus:bg-accent transition-colors">
                           {l.label}
                         </SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
                   {translating && (
-                    <span className="inline-flex items-center gap-1 text-[11px] text-[#666] dark:text-[#A1A8B5]">
-                      <Loader2 className="h-3 w-3 animate-spin text-[#FF6B2C]" />
+                    <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin text-primary" />
                       Translating…
                     </span>
                   )}
@@ -1507,7 +1503,7 @@ const Editor = () => {
             {/* Right: Metadata + Auto-Transcribe Button */}
             <div className="flex items-center gap-4">
               {meta && (
-                <div className="text-[11px] font-bold text-[#666] dark:text-[#A1A8B5] font-mono">
+                <div className="text-[11px] font-bold text-muted-foreground font-mono">
                   {(() => {
                     if (framePreset.id === "original") {
                       return `${meta.width}×${meta.height}`;
@@ -1533,7 +1529,7 @@ const Editor = () => {
               <button
                 onClick={transcribe}
                 disabled={transcribing}
-                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[#FF6B2C] bg-[#FF6B2C]/10 px-3.5 text-[11.5px] font-bold text-[#FF6B2C] hover:bg-[#FF6B2C] hover:text-white transition disabled:opacity-60 cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98]"
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3.5 text-[11.5px] font-bold text-primary hover:bg-gradient-primary hover:text-primary-foreground transition disabled:opacity-60 cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98]"
               >
                 {transcribing ? (
                   <>
@@ -1592,7 +1588,7 @@ const Editor = () => {
             {!isMobile && (
               <div className="flex flex-1 overflow-hidden">
                 {/* 2.1 SLIM NAVIGATION SIDEBAR */}
-                <aside className="w-16 flex-shrink-0 bg-white dark:bg-[#0A0A0A] border-r border-[#E8E4DE] dark:border-[#222] flex flex-col items-center justify-between py-4 select-none">
+                <aside className="w-16 flex-shrink-0 bg-card border-r border-border flex flex-col items-center justify-between py-4 select-none">
                   <div className="flex flex-col gap-4.5 w-full items-center">
                     {/* Captions */}
                     <SidebarIcon title="Captions" icon={Type} active={activeTab === "style"} onClick={() => setActiveTab("style")} />
@@ -1606,29 +1602,29 @@ const Editor = () => {
                     {/* Meme Studio (Beta) */}
                     <div className="relative group flex items-center justify-center w-full select-none px-1">
                       {isMemeStudioOpen && (
-                        <div className="absolute left-0 top-1 bottom-1 w-[3px] bg-[#FF6B2C] rounded-r-md" />
+                        <div className="absolute left-0 top-1 bottom-1 w-[3px] bg-primary rounded-r-md" />
                       )}
                       <button
                         type="button"
                         onClick={() => handleOpenMemeStudio({ tab: "gifs" })}
                         className={`flex h-11 w-11 items-center justify-center rounded-xl transition duration-300 hover:scale-[1.05] active:scale-95 cursor-pointer relative ${isMemeStudioOpen
-                          ? "bg-[#FF6B2C] text-white shadow-[0_0_15px_rgba(255,107,44,0.4)]"
-                          : "bg-transparent text-[#999] dark:text-[#A1A8B5] hover:text-[#1A1A1A] dark:hover:text-white hover:bg-[#F0EDE8] dark:hover:bg-[#1F232D]"
+                          ? "bg-gradient-primary text-primary-foreground shadow-glow"
+                          : "bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted"
                           }`}
                         title="Meme Studio (Beta)"
                       >
                         <Smile className="h-[21px] w-[21px]" />
-                        <span className="absolute -top-1 -right-1 bg-[#FF6B2C] text-white text-[8px] font-bold px-1 rounded-full uppercase tracking-wider scale-90">
+                        <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[8px] font-bold px-1 rounded-full uppercase tracking-wider scale-90">
                           Beta
                         </span>
                       </button>
-                      <span className="absolute left-16 rounded bg-[#1A1A1A] dark:bg-black border border-[#333] dark:border-[#2C313C] px-2 py-1 text-[10px] font-bold text-white opacity-0 transition-opacity pointer-events-none group-hover:opacity-100 z-50 whitespace-nowrap shadow-md">
+                      <span className="absolute left-16 rounded bg-popover border border-border px-2 py-1 text-[10px] font-bold text-popover-foreground opacity-0 transition-opacity pointer-events-none group-hover:opacity-100 z-50 whitespace-nowrap shadow-md">
                         Meme Studio (Beta)
                       </span>
                     </div>
 
                     {/* Divider */}
-                    <div className="w-8 h-px bg-[#E8E4DE] dark:bg-[#2C313C] rounded-full" />
+                    <div className="w-8 h-px bg-border rounded-full" />
 
                     {/* Import SRT */}
                     <SidebarIcon title="Import SRT" icon={Upload} onClick={handleImportSrtClick} />
@@ -1647,7 +1643,7 @@ const Editor = () => {
                           type="button"
                           onClick={exportVideo}
                           disabled={exporting}
-                          className="flex h-11 w-11 items-center justify-center rounded-xl transition duration-300 hover:scale-[1.05] active:scale-95 cursor-pointer bg-[#FF6B2C] text-white shadow-[0_0_15px_rgba(255,107,44,0.35)] hover:bg-[#FF874D] disabled:opacity-70"
+                          className="flex h-11 w-11 items-center justify-center rounded-xl transition duration-300 hover:scale-[1.05] active:scale-95 cursor-pointer bg-gradient-primary text-primary-foreground shadow-glow hover:opacity-95 disabled:opacity-70"
                           title="Export Video"
                         >
                           {exporting ? (
@@ -1656,7 +1652,7 @@ const Editor = () => {
                             <Download className="h-[19px] w-[19px]" />
                           )}
                         </button>
-                        <span className="absolute left-16 rounded bg-[#1A1A1A] dark:bg-black border border-[#333] dark:border-[#2C313C] px-2 py-1 text-[10px] font-bold text-white opacity-0 transition-opacity pointer-events-none group-hover:opacity-100 z-50 whitespace-nowrap shadow-md">
+                        <span className="absolute left-16 rounded bg-popover border border-border px-2 py-1 text-[10px] font-bold text-popover-foreground opacity-0 transition-opacity pointer-events-none group-hover:opacity-100 z-50 whitespace-nowrap shadow-md">
                           {exporting ? `Exporting ${Math.round(exportProgress * 100)}%` : "Export Video"}
                         </span>
                       </div>
@@ -1671,36 +1667,36 @@ const Editor = () => {
 
 
                 {/* 2.2 HORIZONTAL WORKSPACE ROW */}
-                <div className="flex-1 flex flex-col overflow-hidden bg-[#F9F8F6] dark:bg-black bg-grid-dark-pattern dark:bg-grid-white-pattern relative">
+                <div className="flex-1 flex flex-col overflow-hidden bg-background bg-grid-dark-pattern dark:bg-grid-white-pattern relative">
                   {/* Soft ambient background glows */}
-                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-[#FF6B2C]/5 via-transparent to-transparent dark:from-[#FF6B2C]/5 dark:to-transparent opacity-40" />
+                  <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-primary/5 via-transparent to-transparent opacity-40" />
 
                   {/* Top Workspace Panels */}
                   <div className="flex-1 min-h-0 overflow-hidden px-4 py-3 z-10">
                     <ResizablePanelGroup direction="horizontal" className="h-full w-full gap-3">
                       {/* Left: captionsPanel */}
-                      <ResizablePanel defaultSize={26} minSize={15} maxSize={40} className="rounded-2xl border border-[#E8E4DE] dark:border-[#222] bg-white dark:bg-[#0F0F0F] overflow-hidden shadow-2xl">
+                      <ResizablePanel defaultSize={26} minSize={15} maxSize={40} className="rounded-2xl border border-border bg-card overflow-hidden shadow-2xl">
                         {captionsPanel}
                       </ResizablePanel>
 
-                      <ResizableHandle className="bg-transparent hover:bg-[#FF6B2C]/20 transition w-1 cursor-col-resize" />
+                      <ResizableHandle className="bg-transparent hover:bg-primary/20 transition w-1 cursor-col-resize" />
 
                       {/* Middle: previewPanel */}
                       <ResizablePanel defaultSize={48} minSize={35} className="bg-transparent overflow-hidden">
                         {previewPanel}
                       </ResizablePanel>
 
-                      <ResizableHandle className="bg-transparent hover:bg-[#FF6B2C]/20 transition w-1 cursor-col-resize" />
+                      <ResizableHandle className="bg-transparent hover:bg-primary/20 transition w-1 cursor-col-resize" />
 
                       {/* Right: stylePanel */}
-                      <ResizablePanel defaultSize={26} minSize={15} maxSize={40} className="rounded-2xl border border-[#E8E4DE] dark:border-[#222] bg-white dark:bg-[#0F0F0F] overflow-hidden shadow-2xl">
+                      <ResizablePanel defaultSize={26} minSize={15} maxSize={40} className="rounded-2xl border border-border bg-card overflow-hidden shadow-2xl">
                         {stylePanel}
                       </ResizablePanel>
                     </ResizablePanelGroup>
                   </div>
 
                   {/* Bottom Timeline Panel Container */}
-                  <div className="flex-shrink-0 h-[260px] flex flex-col overflow-hidden bg-white dark:bg-[#0F0F0F] border border-[#E8E4DE] dark:border-[#222] mx-4 mb-3 rounded-2xl shadow-2xl select-none">
+                  <div className="flex-shrink-0 h-[260px] flex flex-col overflow-hidden bg-card border border-border mx-4 mb-3 rounded-2xl shadow-2xl select-none">
                     {combinedToolbar}
                     <div className="flex-1 overflow-hidden">
                       {timelinePanel}
@@ -1712,9 +1708,9 @@ const Editor = () => {
 
             {/* Mobile Layout */}
             {isMobile && (
-              <div className="flex flex-1 flex-col overflow-hidden bg-[#181B22] h-full relative">
+              <div className="flex flex-1 flex-col overflow-hidden bg-background h-full relative">
                 {/* 1. Top Nav Bar */}
-                <div className="h-11 flex-shrink-0 flex items-center justify-between px-3 border-b border-[#2C313C] bg-[#181B22]">
+                <div className="h-11 flex-shrink-0 flex items-center justify-between px-3 border-b border-border bg-card">
                   <button
                     onClick={() => {
                       if (window.history.length > 1) {
@@ -1723,7 +1719,7 @@ const Editor = () => {
                         navigate(user ? "/projects" : "/");
                       }
                     }}
-                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#2C313C] bg-[#1F232D] text-[#A1A8B5] hover:text-white min-h-[44px] min-w-[44px] cursor-pointer"
+                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-secondary text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] cursor-pointer"
                     aria-label="Back"
                   >
                     <ArrowLeft className="h-4 w-4" strokeWidth={2.2} />
@@ -1733,7 +1729,7 @@ const Editor = () => {
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
                     placeholder="Project title"
-                    className="h-8 flex-1 border-transparent bg-transparent px-1 text-center text-xs font-bold text-white hover:border-[#2C313C] focus-visible:border-[#2C313C] focus-visible:ring-0 placeholder-[#A1A8B5] max-w-[150px] mx-1"
+                    className="h-8 flex-1 border-transparent bg-transparent px-1 text-center text-xs font-bold text-foreground hover:border-border focus-visible:border-border focus-visible:ring-0 placeholder:text-muted-foreground max-w-[150px] mx-1"
                   />
 
                   <div className="flex items-center gap-1">
@@ -1742,36 +1738,36 @@ const Editor = () => {
                       <DropdownMenuTrigger asChild>
                         <button
                           type="button"
-                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-[#2C313C] bg-[#1F232D] text-[#A1A8B5] hover:text-white min-h-[44px] min-w-[44px] cursor-pointer"
+                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-secondary text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] cursor-pointer"
                           aria-label="Project actions menu"
                         >
                           <MoreVertical className="h-4 w-4" />
                         </button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-52 bg-[#1F232D] border border-[#2C313C] text-white shadow-xl rounded-xl">
-                        <DropdownMenuLabel className="text-[10px] font-bold text-[#A1A8B5] uppercase tracking-wider px-2 py-1">Actions</DropdownMenuLabel>
-                        <DropdownMenuItem onClick={handleImportSrtClick} className="text-xs cursor-pointer py-2 hover:bg-[#2C313C] rounded-lg">Import SRT</DropdownMenuItem>
+                      <DropdownMenuContent align="end" className="w-52 bg-popover border border-border text-popover-foreground shadow-xl rounded-xl">
+                        <DropdownMenuLabel className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2 py-1">Actions</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={handleImportSrtClick} className="text-xs cursor-pointer py-2 hover:bg-accent rounded-lg">Import SRT</DropdownMenuItem>
                         {captions.length > 0 && (
-                          <DropdownMenuItem onClick={handleExportSrt} className="text-xs cursor-pointer py-2 hover:bg-[#2C313C] rounded-lg">Export SRT</DropdownMenuItem>
+                          <DropdownMenuItem onClick={handleExportSrt} className="text-xs cursor-pointer py-2 hover:bg-accent rounded-lg">Export SRT</DropdownMenuItem>
                         )}
                         {file && (
-                          <DropdownMenuItem onClick={handleManualSave} className="text-xs cursor-pointer py-2 hover:bg-[#2C313C] rounded-lg">Save Project</DropdownMenuItem>
+                          <DropdownMenuItem onClick={handleManualSave} className="text-xs cursor-pointer py-2 hover:bg-accent rounded-lg">Save Project</DropdownMenuItem>
                         )}
-                        <DropdownMenuSeparator className="bg-[#2C313C]" />
-                        <DropdownMenuLabel className="text-[10px] font-bold text-[#A1A8B5] uppercase tracking-wider px-2 py-1">Export Quality</DropdownMenuLabel>
+                        <DropdownMenuSeparator className="bg-border" />
+                        <DropdownMenuLabel className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2 py-1">Export Quality</DropdownMenuLabel>
                         <DropdownMenuItem
                           onClick={() => setQuality("standard")}
-                          className="text-xs cursor-pointer py-2 hover:bg-[#2C313C] rounded-lg flex items-center justify-between"
+                          className="text-xs cursor-pointer py-2 hover:bg-accent rounded-lg flex items-center justify-between"
                         >
                           <span>Standard (720p)</span>
-                          {quality === "standard" && <Check className="h-3.5 w-3.5 text-[#FF6B2C]" />}
+                          {quality === "standard" && <Check className="h-3.5 w-3.5 text-primary" />}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           onClick={() => setQuality("high")}
-                          className="text-xs cursor-pointer py-2 hover:bg-[#2C313C] rounded-lg flex items-center justify-between"
+                          className="text-xs cursor-pointer py-2 hover:bg-accent rounded-lg flex items-center justify-between"
                         >
                           <span>High (1080p)</span>
-                          {quality === "high" && <Check className="h-3.5 w-3.5 text-[#FF6B2C]" />}
+                          {quality === "high" && <Check className="h-3.5 w-3.5 text-primary" />}
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -1780,7 +1776,7 @@ const Editor = () => {
                       <button
                         onClick={exportVideo}
                         disabled={exporting}
-                        className="flex h-9 px-3 items-center justify-center gap-1.5 rounded-lg bg-[#FF6B2C] text-xs font-bold text-white transition hover:bg-[#FF874D] disabled:opacity-75 min-h-[44px] cursor-pointer"
+                        className="flex h-9 px-3 items-center justify-center gap-1.5 rounded-lg bg-gradient-primary text-xs font-bold text-primary-foreground shadow-glow transition hover:opacity-95 disabled:opacity-75 min-h-[44px] cursor-pointer"
                       >
                         {exporting ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1796,7 +1792,7 @@ const Editor = () => {
                 {/* Main Scroll Container (Contains Video Preview, Timeline, Aspect Ratio, and Active tab panels) */}
                 <div className="flex-1 overflow-y-auto flex flex-col pb-24 scrollbar-thin">
                   {/* 2. Video Preview (Sticky width & aspect-ratio centering) */}
-                  <div className="flex-shrink-0 bg-[#0F1117] flex items-center justify-center p-3.5 relative border-b border-[#2C313C] w-full">
+                  <div className="flex-shrink-0 bg-muted/30 flex items-center justify-center p-3.5 relative border-b border-border w-full">
                     <div
                       className="flex items-center justify-center overflow-hidden"
                       style={{
@@ -1834,23 +1830,23 @@ const Editor = () => {
 
                   {/* 3. Playback and Timeline Toolbar */}
                   {timelineExpanded ? (
-                    <div className="flex-shrink-0 bg-[#181B22] p-2 border-b border-[#2C313C] select-none flex flex-col">
+                    <div className="flex-shrink-0 bg-card p-2 border-b border-border select-none flex flex-col">
                       <div className="flex justify-between items-center px-2 pb-1.5">
-                        <span className="text-[10px] font-bold text-[#A1A8B5] uppercase tracking-wider">Multi-track Editor</span>
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Multi-track Editor</span>
                         <button
                           onClick={() => setTimelineExpanded(false)}
-                          className="text-[10px] font-bold text-[#FF6B2C] hover:underline cursor-pointer"
+                          className="text-[10px] font-bold text-primary hover:underline cursor-pointer"
                         >
                           Collapse
                         </button>
                       </div>
-                      <div className="overflow-hidden rounded-lg border border-[#2C313C]">
+                      <div className="overflow-hidden rounded-lg border border-border">
                         {timelinePanel}
                       </div>
                     </div>
                   ) : (
-                    <div className="flex-shrink-0 flex items-center justify-between gap-3 px-4 py-2 bg-[#181B22] border-b border-[#2C313C] w-full select-none">
-                      <span className="text-[10px] font-mono text-[#A1A8B5] font-semibold select-none flex-shrink-0">
+                    <div className="flex-shrink-0 flex items-center justify-between gap-3 px-4 py-2 bg-card border-b border-border w-full select-none">
+                      <span className="text-[10px] font-mono text-muted-foreground font-semibold select-none flex-shrink-0">
                         {formatTime(currentTime)}
                       </span>
                       <button
@@ -1860,13 +1856,13 @@ const Editor = () => {
                           if (v.paused) v.play().catch(() => { });
                           else v.pause();
                         }}
-                        className="flex h-8 w-8 items-center justify-center rounded-full bg-[#FF6B2C] text-white hover:bg-[#FF874D] transition cursor-pointer flex-shrink-0"
+                        className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-primary text-primary-foreground shadow-glow hover:opacity-95 transition cursor-pointer flex-shrink-0"
                         aria-label={isPlaying ? "Pause" : "Play"}
                       >
                         {isPlaying ? (
-                          <Pause className="h-3.5 w-3.5 fill-white" />
+                          <Pause className="h-3.5 w-3.5 fill-current" />
                         ) : (
-                          <Play className="h-3.5 w-3.5 fill-white translate-x-[0.5px]" />
+                          <Play className="h-3.5 w-3.5 fill-current translate-x-[0.5px]" />
                         )}
                       </button>
                       <div className="flex-1 min-w-0">
@@ -1876,12 +1872,12 @@ const Editor = () => {
                           onSeek={seek}
                         />
                       </div>
-                      <span className="text-[10px] font-mono text-[#A1A8B5] font-semibold select-none flex-shrink-0">
+                      <span className="text-[10px] font-mono text-muted-foreground font-semibold select-none flex-shrink-0">
                         {formatTime(meta?.duration ?? 0)}
                       </span>
                       <button
                         onClick={() => setTimelineExpanded(true)}
-                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-[#2C313C] bg-[#1F232D] text-[#A1A8B5] hover:text-white cursor-pointer flex-shrink-0"
+                        className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-secondary text-muted-foreground hover:text-foreground cursor-pointer flex-shrink-0"
                         title="Expand Timeline"
                         aria-label="Expand Timeline"
                       >
@@ -1891,8 +1887,8 @@ const Editor = () => {
                   )}
 
                   {/* 4. Aspect Ratio Selector Buttons */}
-                  <div className="flex-shrink-0 bg-[#181B22] border-b border-[#2C313C]">
-                    <div className="flex overflow-x-auto scrollbar-none gap-2.5 px-4 py-3 bg-[#1F232D]/40">
+                  <div className="flex-shrink-0 bg-card border-b border-border">
+                    <div className="flex overflow-x-auto scrollbar-none gap-2.5 px-4 py-3 bg-secondary/40">
                       {FRAME_PRESETS.map((p) => {
                         const active = framePreset.id === p.id;
                         return (
@@ -1900,8 +1896,8 @@ const Editor = () => {
                             key={p.id}
                             onClick={() => setFramePreset(p)}
                             className={`flex flex-col items-center justify-center whitespace-nowrap px-4 py-2.5 rounded-xl text-center select-none transition cursor-pointer flex-shrink-0 min-w-[90px] ${active
-                              ? "bg-[#FF6B2C] text-white shadow-sm"
-                              : "bg-[#1F232D] text-[#A1A8B5] border border-[#2C313C] hover:text-white"
+                              ? "bg-gradient-primary text-primary-foreground shadow-glow"
+                              : "bg-secondary text-muted-foreground border border-border hover:text-foreground"
                               }`}
                           >
                             <span className="text-[11px] font-bold">{p.label}</span>
@@ -1917,30 +1913,30 @@ const Editor = () => {
                   </div>
 
                   {/* 5. Active Editing Controls Tab Panel */}
-                  <div className="flex-shrink-0 bg-[#181B22] flex flex-col">
+                  <div className="flex-shrink-0 bg-card flex flex-col">
                     {activeMobileTab === "captions" ? (
                       <div className="flex flex-col overflow-hidden">
                         {/* Mobile Caption Language Bar */}
-                        <div className="flex items-center justify-between px-3 py-2 bg-[#1F232D] border-b border-[#2C313C] select-none flex-shrink-0">
+                        <div className="flex items-center justify-between px-3 py-2 bg-secondary border-b border-border select-none flex-shrink-0">
                           <div className="flex items-center gap-1.5">
-                            <Globe className="h-3.5 w-3.5 text-[#FF6B2C]" strokeWidth={2} />
-                            <span className="text-[11px] font-bold text-white">Caption Language</span>
+                            <Globe className="h-3.5 w-3.5 text-primary" strokeWidth={2} />
+                            <span className="text-[11px] font-bold text-foreground">Caption Language</span>
                           </div>
                           <div className="flex items-center gap-2">
                             <Select value={language} onValueChange={handleLanguageChange}>
-                              <SelectTrigger className="h-7.5 w-[120px] rounded-lg border border-[#2C313C] bg-[#181B22] px-2 text-[10.5px] font-bold text-white focus:ring-0 cursor-pointer">
+                              <SelectTrigger className="h-7.5 w-[120px] rounded-lg border border-border bg-card px-2 text-[10.5px] font-bold text-foreground focus:ring-0 cursor-pointer">
                                 <SelectValue />
                               </SelectTrigger>
-                              <SelectContent className="max-h-[200px] overflow-y-auto bg-[#1F232D] border border-[#2C313C] text-white z-50 shadow-xl">
+                              <SelectContent className="max-h-[200px] overflow-y-auto bg-popover border border-border text-popover-foreground z-50 shadow-xl">
                                 {LANGUAGES.map((l) => (
-                                  <SelectItem key={l.code} value={l.code} className="text-xs font-semibold cursor-pointer hover:bg-[#2C313C] focus:bg-[#2C313C]">
+                                  <SelectItem key={l.code} value={l.code} className="text-xs font-semibold cursor-pointer hover:bg-accent focus:bg-accent">
                                     {l.label}
                                   </SelectItem>
                                 ))}
                               </SelectContent>
                             </Select>
                             {translating && (
-                              <Loader2 className="h-3 w-3 animate-spin text-[#FF6B2C]" />
+                              <Loader2 className="h-3 w-3 animate-spin text-primary" />
                             )}
                           </div>
                         </div>
@@ -1948,19 +1944,19 @@ const Editor = () => {
                         {/* Captions List Content Area */}
                         <div>
                           {captions.length === 0 ? (
-                            <div className="flex flex-col items-center justify-center text-center py-8 px-6 bg-[#1F232D] border border-[#2C313C] rounded-xl my-4 mx-4 shadow-md">
-                              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#FF6B2C]/10 text-[#FF6B2C] mb-3.5">
+                            <div className="flex flex-col items-center justify-center text-center py-8 px-6 bg-secondary border border-border rounded-xl my-4 mx-4 shadow-md">
+                              <div className="flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary mb-3.5">
                                 <FileText className="h-5.5 w-5.5" strokeWidth={2} />
                               </div>
-                              <h3 className="text-[13px] font-bold text-white mb-0.5">No captions yet</h3>
-                              <p className="text-[11.5px] text-[#A1A8B5] mb-4.5 max-w-[260px] leading-relaxed">
+                              <h3 className="text-[13px] font-bold text-foreground mb-0.5">No captions yet</h3>
+                              <p className="text-[11.5px] text-muted-foreground mb-4.5 max-w-[260px] leading-relaxed">
                                 Auto-transcribe your speech or manually add captions to this video.
                               </p>
                               <div className="flex flex-col w-full gap-2">
                                 <button
                                   onClick={transcribe}
                                   disabled={transcribing}
-                                  className="w-full flex h-10 items-center justify-center gap-1.5 rounded-lg bg-[#FF6B2C] text-[11px] font-bold text-white shadow-md hover:bg-[#FF874D] transition disabled:opacity-50 cursor-pointer"
+                                  className="w-full flex h-10 items-center justify-center gap-1.5 rounded-lg bg-gradient-primary text-[11px] font-bold text-primary-foreground shadow-glow hover:opacity-95 transition disabled:opacity-50 cursor-pointer"
                                 >
                                   {transcribing ? (
                                     <>
@@ -1976,7 +1972,7 @@ const Editor = () => {
                                 </button>
                                 <button
                                   onClick={handleAddCaptionMobile}
-                                  className="w-full flex h-10 items-center justify-center gap-1.5 rounded-lg border border-[#2C313C] bg-[#1F232D] text-[11px] font-bold text-[#A1A8B5] hover:text-white hover:bg-[#2C313C] transition cursor-pointer"
+                                  className="w-full flex h-10 items-center justify-center gap-1.5 rounded-lg border border-border bg-secondary text-[11px] font-bold text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
                                 >
                                   <Plus className="h-3 w-3" />
                                   <span>Add caption</span>
@@ -2022,7 +2018,7 @@ const Editor = () => {
                 </div>
 
                 {/* 6. Fixed Bottom Navigation Tab Bar (Mobile) */}
-                <div className="absolute bottom-0 left-0 right-0 z-50 h-16 bg-[#1F232D] border-t border-[#2C313C] flex items-center justify-around px-2 pb-safe shadow-[0_-2px_10px_rgba(0,0,0,0.15)] select-none">
+                <div className="absolute bottom-0 left-0 right-0 z-50 h-16 bg-card border-t border-border flex items-center justify-around px-2 pb-safe shadow-lg select-none">
                   {([
                     { id: "captions", label: "Captions", icon: FileText },
                     { id: "style", label: "Style", icon: Type },
@@ -2036,7 +2032,7 @@ const Editor = () => {
                       <button
                         key={tabItem.id}
                         onClick={() => setActiveMobileTab(tabItem.id)}
-                        className={`flex flex-col items-center justify-center flex-1 h-full min-h-[44px] min-w-[44px] gap-1 transition cursor-pointer ${active ? "text-[#FF6B2C]" : "text-[#A1A8B5] hover:text-white"
+                        className={`flex flex-col items-center justify-center flex-1 h-full min-h-[44px] min-w-[44px] gap-1 transition cursor-pointer ${active ? "text-primary" : "text-muted-foreground hover:text-foreground"
                           }`}
                       >
                         <Icon className="h-5 w-5" strokeWidth={2} />
@@ -2083,14 +2079,14 @@ function SidebarIcon({
   return (
     <div className="relative group flex items-center justify-center w-full select-none px-1">
       {active && (
-        <div className="absolute left-0 top-1 bottom-1 w-[3px] bg-[#FF6B2C] rounded-r-md" />
+        <div className="absolute left-0 top-1 bottom-1 w-[3px] bg-primary rounded-r-md" />
       )}
       <button
         type="button"
         onClick={onClick}
         className={`flex h-11 w-11 items-center justify-center rounded-xl transition duration-300 hover:scale-[1.05] active:scale-95 cursor-pointer relative ${active
-          ? "bg-[#FF6B2C] text-white shadow-[0_0_15px_rgba(255,107,44,0.4)]"
-          : "bg-transparent text-[#999] dark:text-[#A1A8B5] hover:text-[#1A1A1A] dark:hover:text-white hover:bg-[#F0EDE8] dark:hover:bg-[#1F232D]"
+          ? "bg-gradient-primary text-primary-foreground shadow-glow"
+          : "bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted"
           }`}
         title={title}
       >
@@ -2098,7 +2094,7 @@ function SidebarIcon({
       </button>
 
       {/* Floating tooltip on hover */}
-      <span className="absolute left-16 rounded bg-[#1A1A1A] dark:bg-black border border-[#333] dark:border-[#2C313C] px-2 py-1 text-[10px] font-bold text-white opacity-0 transition-opacity pointer-events-none group-hover:opacity-100 z-50 whitespace-nowrap shadow-md">
+      <span className="absolute left-16 rounded bg-popover border border-border px-2 py-1 text-[10px] font-bold text-popover-foreground opacity-0 transition-opacity pointer-events-none group-hover:opacity-100 z-50 whitespace-nowrap shadow-md">
         {title}
       </span>
     </div>

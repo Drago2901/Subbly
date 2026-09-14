@@ -19,8 +19,8 @@ export function SubblyLogoIcon({ className = "h-full w-full" }: { className?: st
       <circle cx="28" cy="64" r="3.5" fill="white" />
       <defs>
         <linearGradient id="subbly-logo-gradient" x1="0" y1="0" x2="100" y2="100" gradientUnits="userSpaceOnUse">
-          <stop offset="0%" stopColor="#FF5C3A" />
-          <stop offset="100%" stopColor="#FF8A00" />
+          <stop offset="0%" stopColor="hsl(var(--primary))" />
+          <stop offset="100%" stopColor="hsl(var(--primary-glow))" />
         </linearGradient>
       </defs>
     </svg>
@@ -61,7 +61,7 @@ export function BrandLogo({ size = "md", hideText = false }: BrandLogoProps) {
     <Link to="/" className={`flex items-center ${preset.gap} group select-none`}>
       {/* App Icon Rounded Squircle Vector */}
       <div
-        className={`relative flex flex-shrink-0 items-center justify-center ${preset.box} shadow-[0_3px_10px_rgba(255,107,44,0.25)] transition-transform duration-300 group-hover:scale-105`}
+        className={`relative flex flex-shrink-0 items-center justify-center ${preset.box} shadow-glow transition-transform duration-300 group-hover:scale-105`}
       >
         <SubblyLogoIcon />
       </div>
@@ -69,12 +69,12 @@ export function BrandLogo({ size = "md", hideText = false }: BrandLogoProps) {
       {/* SUBB▶LY Logo Text */}
       {!hideText && (
         <span
-          className={`font-sans font-extrabold flex items-center ${preset.text} text-zinc-900 dark:text-white transition-colors duration-200`}
+          className={`font-outfit font-extrabold flex items-center ${preset.text} text-foreground transition-colors duration-200`}
         >
           <span>SUBB</span>
           <svg
             viewBox="0 0 24 24"
-            className={`${preset.play} mx-0.5 fill-[#FF6B2C] drop-shadow-[0_0_8px_rgba(255,107,44,0.3)]`}
+            className={`${preset.play} mx-0.5 fill-primary drop-shadow-[0_0_8px_hsl(var(--primary)/0.35)]`}
             style={{ display: "inline-block", verticalAlign: "middle" }}
             xmlns="http://www.w3.org/2000/svg"
           >

@@ -50,12 +50,11 @@ export function NavBar({ activeView, isPublic = false }: NavBarProps) {
   return (
     <>
       <nav 
-        className={`sticky top-0 z-[100] flex items-center justify-between px-6 md:px-12 transition-all duration-300 ${
+        className={`sticky top-0 z-[100] flex items-center justify-between px-6 md:px-12 font-outfit transition-all duration-300 ${
           scrolled 
-            ? "h-[56px] border-b border-[#e8e4de]/60 dark:border-zinc-800/80 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-md shadow-sm" 
-            : "h-[68px] border-b border-transparent bg-white/95 dark:bg-zinc-950/95"
+            ? "h-[56px] border-b border-border/70 bg-background/80 backdrop-blur-md shadow-sm" 
+            : "h-[68px] border-b border-transparent bg-background/90"
         }`}
-        style={{ fontFamily: "'Outfit', sans-serif" }}
       >
         <BrandLogo size="md" />
 
@@ -69,12 +68,12 @@ export function NavBar({ activeView, isPublic = false }: NavBarProps) {
                 href={link.path}
                 className={`relative text-[13.5px] font-medium transition-colors duration-200 py-1.5 ${
                   link.active
-                    ? "text-[#ff5c3a] dark:text-[#ff7558]"
-                    : "text-zinc-500 dark:text-zinc-400 hover:text-zinc-900 dark:hover:text-white"
+                    ? "text-primary"
+                    : "text-muted-foreground hover:text-foreground"
                 } group`}
               >
                 {link.label}
-                <span className={`absolute bottom-0 left-0 h-[2px] w-full scale-x-0 bg-[#ff5c3a] transition-transform duration-300 group-hover:scale-x-100 ${
+                <span className={`absolute bottom-0 left-0 h-[2px] w-full scale-x-0 bg-primary transition-transform duration-300 group-hover:scale-x-100 ${
                   link.active ? "scale-x-100" : ""
                 }`} />
               </a>
@@ -91,11 +90,11 @@ export function NavBar({ activeView, isPublic = false }: NavBarProps) {
                   to={link.path}
                   className={`flex items-center gap-1.5 rounded-lg px-4 py-2 text-[13.5px] font-medium transition-all duration-200 ${
                     link.active
-                      ? "bg-[#fff5f3] dark:bg-zinc-800/80 text-[#ff5c3a] dark:text-[#ff7558]"
-                      : "text-zinc-500 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900 hover:text-zinc-900 dark:hover:text-white"
+                      ? "bg-primary/10 text-primary"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
                   }`}
                 >
-                  {Icon && <Icon className={`h-4 w-4 ${link.active ? "text-[#ff5c3a] dark:text-[#ff7558]" : "text-zinc-400 dark:text-zinc-500"}`} />}
+                  {Icon && <Icon className={`h-4 w-4 ${link.active ? "text-primary" : "text-muted-foreground"}`} />}
                   {link.label}
                 </Link>
               );
@@ -109,10 +108,10 @@ export function NavBar({ activeView, isPublic = false }: NavBarProps) {
           <a
             href="/subbly-ae-extension.zip"
             download="subbly-ae-extension.zip"
-            className="hidden items-center gap-1.5 rounded-lg border border-[#e8e4de] dark:border-zinc-800 bg-white dark:bg-zinc-900 px-3 py-1.5 text-[12.5px] font-semibold text-zinc-700 dark:text-zinc-300 transition-all duration-200 hover:text-[#ff5c3a] dark:hover:text-[#ff7558] hover:border-[#ff5c3a]/50 md:inline-flex cursor-pointer shadow-sm"
+            className="hidden items-center gap-1.5 rounded-lg border border-border bg-card px-3 py-1.5 text-[12.5px] font-semibold text-foreground/80 transition-all duration-200 hover:text-primary hover:border-primary/50 md:inline-flex cursor-pointer shadow-sm"
             title="Download After Effects Extension"
           >
-            <Film className="h-4 w-4 text-[#ff5c3a]" />
+            <Film className="h-4 w-4 text-primary" />
             <span>AE Extension</span>
           </a>
 
@@ -120,7 +119,7 @@ export function NavBar({ activeView, isPublic = false }: NavBarProps) {
           <button
             onClick={toggle}
             aria-label="Toggle theme"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#e8e4de] dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 transition-all duration-200 hover:text-zinc-900 dark:hover:text-white hover:border-[#b0aba4] dark:hover:border-zinc-700 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-all duration-200 hover:text-foreground hover:border-border/80 hover:bg-muted cursor-pointer"
           >
             {theme === "dark" ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4" />}
           </button>
@@ -131,7 +130,7 @@ export function NavBar({ activeView, isPublic = false }: NavBarProps) {
           ) : (
             <Link
               to="/auth"
-              className="inline-flex items-center rounded-lg border border-[#e8e4de] dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-1.5 text-[13px] font-medium text-zinc-600 dark:text-zinc-300 transition-all duration-200 hover:text-zinc-900 dark:hover:text-white hover:border-[#b0aba4] dark:hover:border-zinc-700"
+              className="inline-flex items-center rounded-lg border border-border bg-card px-4 py-1.5 text-[13px] font-medium text-foreground/80 transition-all duration-200 hover:text-foreground hover:border-foreground/30"
             >
               Sign In
             </Link>
@@ -141,7 +140,7 @@ export function NavBar({ activeView, isPublic = false }: NavBarProps) {
           {isPublic && (
             <Link
               to="/editor"
-              className="hidden items-center gap-1.5 rounded-lg bg-[#ff5c3a] px-4 py-1.5 text-[13px] font-semibold text-white shadow-[0_2px_8px_rgba(255,92,58,0.2)] transition-all duration-200 hover:-translate-y-px hover:bg-[#ff7558] hover:shadow-[0_4px_16px_rgba(255,92,58,0.3)] md:inline-flex"
+              className="hidden items-center gap-1.5 rounded-lg bg-gradient-primary px-4 py-1.5 text-[13px] font-semibold text-primary-foreground shadow-glow transition-all duration-200 hover:-translate-y-px hover:opacity-95 md:inline-flex"
             >
               Open Editor <ArrowRight className="h-3 w-3" strokeWidth={2.2} />
             </Link>
@@ -151,7 +150,7 @@ export function NavBar({ activeView, isPublic = false }: NavBarProps) {
           <button
             onClick={() => setMobileOpen((open) => !open)}
             aria-label="Toggle menu"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-[#e8e4de] dark:border-zinc-800 bg-white dark:bg-zinc-900 text-zinc-500 dark:text-zinc-400 transition-all duration-200 md:hidden"
+            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground transition-all duration-200 md:hidden"
           >
             {mobileOpen ? <X className="h-4 w-4" /> : <MenuIcon className="h-4 w-4" />}
           </button>
@@ -160,7 +159,7 @@ export function NavBar({ activeView, isPublic = false }: NavBarProps) {
 
       {/* Collapsible Mobile Drawer */}
       {mobileOpen && (
-        <div className="sticky top-[56px] z-[99] border-b border-[#e8e4de] dark:border-zinc-800 bg-white dark:bg-zinc-950 px-6 py-4 md:hidden flex flex-col gap-2.5 transition-all duration-300 shadow-lg">
+        <div className="sticky top-[56px] z-[99] border-b border-border bg-background/95 backdrop-blur-md px-6 py-4 md:hidden flex flex-col gap-2.5 transition-all duration-300 shadow-lg font-outfit">
           {links.map((link) => {
             const Icon = link.icon;
             return (
@@ -170,8 +169,8 @@ export function NavBar({ activeView, isPublic = false }: NavBarProps) {
                 onClick={() => setMobileOpen(false)}
                 className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-[14px] font-semibold transition-colors ${
                   link.active
-                    ? "bg-[#fff5f3] dark:bg-zinc-900 text-[#ff5c3a] dark:text-[#ff7558]"
-                    : "text-zinc-600 dark:text-zinc-400 hover:bg-zinc-50 dark:hover:bg-zinc-900 hover:text-zinc-900 dark:hover:text-white"
+                    ? "bg-primary/10 text-primary"
+                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
                 }`}
               >
                 {Icon && <Icon className="h-4 w-4" />}
@@ -181,11 +180,11 @@ export function NavBar({ activeView, isPublic = false }: NavBarProps) {
           })}
           {isPublic && (
             <>
-              <div className="my-1.5 h-px bg-[#e8e4de] dark:bg-zinc-800" />
+              <div className="my-1.5 h-px bg-border" />
               <Link
                 to="/editor"
                 onClick={() => setMobileOpen(false)}
-                className="rounded-lg bg-[#ff5c3a] px-3 py-3 text-center text-[14px] font-semibold text-white shadow-[0_2px_8px_rgba(255,92,58,0.2)] hover:bg-[#ff7558]"
+                className="rounded-lg bg-gradient-primary px-3 py-3 text-center text-[14px] font-semibold text-primary-foreground shadow-glow"
               >
                 Open Editor
               </Link>
