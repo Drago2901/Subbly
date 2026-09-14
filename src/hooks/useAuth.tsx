@@ -127,156 +127,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [userRole, setUserRole] = useState<string>("customer");
   const [permissions, setPermissions] = useState<string[]>([]);
 
-  // Seed default configuration once on mount (DEV only)
-  useEffect(() => {
-    if (!import.meta.env.DEV) return;
-
-    if (!localStorage.getItem("rbac_roles")) {
-      localStorage.setItem("rbac_roles", JSON.stringify(DEFAULT_ROLES));
-    }
-    const existingUsers = localStorage.getItem("rbac_users");
-    let needsSeed = false;
-    if (!existingUsers) {
-      needsSeed = true;
-    } else {
-      try {
-        const parsed = JSON.parse(existingUsers);
-        if (!Array.isArray(parsed) || parsed.length === 0) {
-          needsSeed = true;
-        }
-      } catch (e) {
-        needsSeed = true;
-      }
-    }
-
-    if (needsSeed) {
-      const defaultUsers = [
-        {
-          name: "Super Admin",
-          email: "superadmin@gmail.com",
-          role: "super_admin",
-          password: "SuperAdm@123",
-          created_at: new Date().toLocaleDateString(),
-        },
-        {
-          name: "Admin Operator",
-          email: "admin@gmail.com",
-          role: "admin",
-          password: "password123",
-          created_at: new Date().toLocaleDateString(),
-        },
-        {
-          name: "Manager User",
-          email: "manager@gmail.com",
-          role: "manager",
-          password: "password123",
-          created_at: new Date().toLocaleDateString(),
-        },
-        {
-          name: "Content Editor",
-          email: "editor@gmail.com",
-          role: "editor",
-          password: "password123",
-          created_at: new Date().toLocaleDateString(),
-        },
-        {
-          name: "Moderator User",
-          email: "moderator@gmail.com",
-          role: "moderator",
-          password: "password123",
-          created_at: new Date().toLocaleDateString(),
-        },
-        {
-          name: "Support Executive",
-          email: "support@gmail.com",
-          role: "support_agent",
-          password: "password123",
-          created_at: new Date().toLocaleDateString(),
-        },
-        {
-          name: "Content Creator",
-          email: "creator@gmail.com",
-          role: "content_creator",
-          password: "password123",
-          created_at: new Date().toLocaleDateString(),
-        },
-        {
-          name: "Viewer User",
-          email: "viewer@gmail.com",
-          role: "viewer",
-          password: "password123",
-          created_at: new Date().toLocaleDateString(),
-        },
-        {
-          name: "Accountant User",
-          email: "accountant@gmail.com",
-          role: "accountant",
-          password: "password123",
-          created_at: new Date().toLocaleDateString(),
-        },
-        {
-          name: "Marketing Manager",
-          email: "marketing@gmail.com",
-          role: "marketing_manager",
-          password: "password123",
-          created_at: new Date().toLocaleDateString(),
-        },
-        {
-          name: "HR Manager",
-          email: "hr@gmail.com",
-          role: "hr_manager",
-          password: "password123",
-          created_at: new Date().toLocaleDateString(),
-        },
-        {
-          name: "Regular Customer",
-          email: "customer@gmail.com",
-          role: "customer",
-          password: "password123",
-          created_at: new Date().toLocaleDateString(),
-        },
-      ];
-      localStorage.setItem("rbac_users", JSON.stringify(defaultUsers));
-    }
-  }, []);
-
   // Compute permissions whenever role changes
   useEffect(() => {
-    const rolesStr = localStorage.getItem("rbac_roles");
-    const rolesList = rolesStr ? JSON.parse(rolesStr) as RoleDefinition[] : DEFAULT_ROLES;
-    const roleDef = rolesList.find((r: RoleDefinition) => r.id === userRole) || DEFAULT_ROLES.find((r) => r.id === "customer");
-    setPermissions(roleDef?.permissions || []);
+    if (userRole === "admin" || userRole === "super_admin") {
+      setPermissions(DEFAULT_PERMISSIONS);
+    } else {
+      setPermissions(["manage_videos"]);
+    }
   }, [userRole]);
 
   useEffect(() => {
-    // 1. Check for mock session first
-    const mockSessionStr = import.meta.env.DEV ? localStorage.getItem("mock_session") : null;
-    if (mockSessionStr) {
-      try {
-        const mock = JSON.parse(mockSessionStr);
-        const mockUser = {
-          id: mock.email,
-          email: mock.email,
-          user_metadata: { full_name: mock.name },
-        } as unknown as User;
-        setSession({ access_token: "mock-token", user: mockUser } as unknown as Session);
-        setUser(mockUser);
-        
-        // Force mock roles to default to customer except superadmin and admin
-        const isSuper = mock.email === "superadmin@gmail.com" || mock.role === "super_admin";
-        const isAdminRole = mock.role === "admin";
-        const activeRole: string = isSuper ? "super_admin" : (isAdminRole ? "admin" : "customer");
-
-        setUserRole(activeRole);
-        setIsAdmin(activeRole !== "customer" && activeRole !== "guest");
-        setLoading(false);
-        return;
-      } catch (err) {
-        console.error("Failed to parse mock session:", err);
-      }
-    }
-
-    // 2. Fall back to standard Supabase auth
     const { data: sub } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
       setSession(nextSession);
       setUser(nextSession?.user ?? null);
@@ -324,28 +184,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   async function checkUserRole(currentUser: User) {
-    // Check local storage overrides only in development
-    if (import.meta.env.DEV) {
-      try {
-        const overridesStr = localStorage.getItem("rbac_user_roles");
-        if (overridesStr) {
-          const overrides = JSON.parse(overridesStr);
-          const customRole = overrides[currentUser.email || ""] || overrides[currentUser.id];
-          if (customRole) {
-            const isSuper = customRole === "super_admin";
-            const isAdminRole = customRole === "admin";
-            const activeRole: string = isSuper ? "super_admin" : (isAdminRole ? "admin" : "customer");
-            setUserRole(activeRole);
-            setIsAdmin(activeRole !== "customer" && activeRole !== "guest");
-            return;
-          }
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
-    // Check DB roles table
+    // Check authoritative Supabase user_roles table
     const { data, error } = await supabase
       .from("user_roles")
       .select("role")
@@ -376,7 +215,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     permissions,
     hasPermission,
     signOut: async () => {
-      localStorage.removeItem("mock_session");
       await supabase.auth.signOut();
       setUser(null);
       setSession(null);

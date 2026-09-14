@@ -50,6 +50,28 @@ export default {
       });
     }
 
+    const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+    if (file.size > MAX_FILE_SIZE) {
+      return new Response(
+        JSON.stringify({ error: "File exceeds 50MB size limit. Please upload a smaller video or extract audio first." }),
+        {
+          status: 413,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
+    const isValidMime = file.type.startsWith("audio/") || file.type.startsWith("video/") || /\.(mp4|mov|webm|mkv|wav|mp3|m4a|ogg|aac|flac)$/i.test(file.name);
+    if (!isValidMime) {
+      return new Response(
+        JSON.stringify({ error: "Invalid file type. Please provide an audio or video file." }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
+
     const rawLanguage = (incoming.get("language") as string) || "";
     // Map UI language codes to ElevenLabs ISO 639-3 codes. "hinglish" is not a
     // transcription language, so transcribe it as Hindi (translation happens later).

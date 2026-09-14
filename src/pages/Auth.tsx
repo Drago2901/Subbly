@@ -188,62 +188,6 @@ const Auth = () => {
 
     try {
       if (tab === "signin") {
-        // Mock / Local Demo Sign-in (DEV ONLY)
-        if (import.meta.env.DEV) {
-          // 1. Superadmin Mock Bypass
-          if (cleanEmail === "superadmin@gmail.com" && cleanPassword === "SuperAdm@123") {
-            localStorage.setItem(
-              "mock_session",
-              JSON.stringify({
-                email: "superadmin@gmail.com",
-                role: "super_admin",
-                name: "Super Admin",
-              })
-            );
-
-            toast.success("Welcome back, Super Admin!");
-            triggerSuccessRedirect("/admin");
-            return;
-          }
-
-          // 2. Custom Local RBAC Users Check
-          try {
-            const localUsersStr = localStorage.getItem("rbac_users");
-            if (localUsersStr) {
-              const localUsers = JSON.parse(localUsersStr);
-              if (Array.isArray(localUsers)) {
-                const matched = localUsers.find(
-                  (u) =>
-                    u.email?.trim().toLowerCase() === cleanEmail &&
-                    u.password?.trim() === cleanPassword
-                );
-                if (matched) {
-                  const isSuper =
-                    matched.email?.trim().toLowerCase() === "superadmin@gmail.com" ||
-                    matched.role === "super_admin";
-                  const isAdminRole = matched.role === "admin";
-                  const role = isSuper ? "super_admin" : isAdminRole ? "admin" : "customer";
-
-                  localStorage.setItem(
-                    "mock_session",
-                    JSON.stringify({
-                      email: matched.email.trim().toLowerCase(),
-                      role,
-                      name: matched.name,
-                    })
-                  );
-                  toast.success(`Welcome back, ${matched.name}!`);
-                  triggerSuccessRedirect(role === "super_admin" || role === "admin" ? "/admin" : "/");
-                  return;
-                }
-              }
-            }
-          } catch (err) {
-            console.error("Local RBAC check error:", err);
-          }
-        }
-
-        // 3. Supabase Real Auth
         const { error } = await supabase.auth.signInWithPassword({
           email: cleanEmail,
           password: cleanPassword,
@@ -296,25 +240,6 @@ const Auth = () => {
             }
           }
           if (signUpError) throw signUpError;
-        }
-
-        // Add to local demo users (DEV only)
-        if (import.meta.env.DEV) {
-          try {
-            const existing = JSON.parse(localStorage.getItem("rbac_users") || "[]");
-            if (!existing.some((u: { email: string }) => u.email === cleanEmail)) {
-              existing.push({
-                name: name || cleanEmail.split("@")[0],
-                email: cleanEmail,
-                role: "customer",
-                password: cleanPassword,
-                created_at: new Date().toLocaleDateString(),
-              });
-              localStorage.setItem("rbac_users", JSON.stringify(existing));
-            }
-          } catch (e) {
-            console.error("Failed to sync user locally:", e);
-          }
         }
 
         toast.success("Account created! Check your inbox to confirm your email.");

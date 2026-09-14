@@ -2,21 +2,12 @@ import { useState, useEffect } from "react";
 import { 
   Shield, 
   Users, 
-  Plus, 
-  Trash2, 
-  Check, 
-  Edit3, 
-  Save, 
-  UserPlus, 
-  Key, 
   Lock,
   ChevronRight,
-  Info,
   Search
 } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -28,14 +19,6 @@ import {
   SelectValue 
 } from "@/components/ui/select";
 import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger,
-  DialogFooter
-} from "@/components/ui/dialog";
-import { 
   Table, 
   TableBody, 
   TableCell, 
@@ -44,12 +27,7 @@ import {
   TableRow 
 } from "@/components/ui/table";
 import { DEFAULT_ROLES, DEFAULT_PERMISSIONS, type RoleDefinition, useAuth } from "@/hooks/useAuth";
-
-interface CustomUser {
-  email: string;
-  name: string;
-  role: string;
-}
+import { supabase } from "@/integrations/supabase/client";
 
 interface RbacSectionProps {
   profiles: {
@@ -59,82 +37,36 @@ interface RbacSectionProps {
     avatar_url: string | null;
     created_at: string;
   }[];
+  admins?: Set<string>;
   currentUserEmail?: string;
   onRefresh: () => void;
 }
 
-export default function RbacSection({ profiles, currentUserEmail, onRefresh }: RbacSectionProps) {
+export default function RbacSection({ profiles, admins, currentUserEmail, onRefresh }: RbacSectionProps) {
   const { userRole } = useAuth();
   const [activeTab, setActiveTab] = useState<"roles" | "users">("roles");
-  const [roles, setRoles] = useState<RoleDefinition[]>([]);
+  const [roles, setRoles] = useState<RoleDefinition[]>(DEFAULT_ROLES);
   const [selectedRoleId, setSelectedRoleId] = useState<string>("super_admin");
-  const [isCreateUserOpen, setIsCreateUserOpen] = useState(false);
   const [userSearch, setUserSearch] = useState("");
-
-  // New mock user fields
-  const [newUserName, setNewUserName] = useState("");
-  const [newUserEmail, setNewUserEmail] = useState("");
-  const [newUserRole, setNewUserRole] = useState("customer");
+  const [isUpdating, setIsUpdating] = useState<string | null>(null);
 
   // Load roles configuration
   useEffect(() => {
-    const rolesStr = localStorage.getItem("rbac_roles");
-    if (rolesStr) {
-      setRoles(JSON.parse(rolesStr));
-    } else {
-      setRoles(DEFAULT_ROLES);
-    }
+    setRoles(DEFAULT_ROLES);
   }, []);
-
-  const saveRoles = (updatedRoles: RoleDefinition[]) => {
-    localStorage.setItem("rbac_roles", JSON.stringify(updatedRoles));
-    setRoles(updatedRoles);
-    toast.success("Role permissions saved successfully!");
-    onRefresh();
-  };
-
-  const handleTogglePermission = (roleId: string, permission: string) => {
-    const updated = roles.map((r) => {
-      if (r.id === roleId) {
-        const hasPerm = r.permissions.includes(permission);
-        const newPerms = hasPerm
-          ? r.permissions.filter((p) => p !== permission)
-          : [...r.permissions, permission];
-        return { ...r, permissions: newPerms };
-      }
-      return r;
-    });
-    saveRoles(updated);
-  };
 
   // Get active role definition
   const selectedRole = roles.find((r) => r.id === selectedRoleId) || roles[0];
 
-  // User list generation (mirroring Admin.tsx user rows calculation)
-  const overrides = JSON.parse(localStorage.getItem("rbac_user_roles") || "{}");
-  const customUsers = JSON.parse(localStorage.getItem("rbac_users") || "[]") as CustomUser[];
-
-  const systemUsers = profiles.map((pr) => {
-    const roleId = overrides[pr.user_id] || "customer";
+  // User list generated directly from Supabase profiles and authoritative admins set
+  const allUsers = profiles.map((pr) => {
+    const isUserAdmin = admins?.has(pr.user_id) ?? false;
     return {
       id: pr.user_id,
       name: pr.display_name || "Database User",
-      email: pr.user_id, // stored as user_id or email
-      role: roleId,
-      isCustom: false,
+      email: pr.user_id,
+      role: isUserAdmin ? "admin" : "customer",
     };
-  });
-
-  const allUsers = [...systemUsers];
-  customUsers.forEach((cu) => {
-    const roleId = overrides[cu.email] || cu.role;
-    allUsers.push({
-      id: cu.email,
-      name: cu.name,
-      email: cu.email,
-      role: roleId,
-      isCustom: true,
-    });
   });
 
   const filteredUsers = allUsers.filter((u) => {
@@ -143,68 +75,31 @@ export default function RbacSection({ profiles, currentUserEmail, onRefresh }: R
     return u.name.toLowerCase().includes(q) || u.email.toLowerCase().includes(q);
   });
 
-  const handleUpdateUserRole = (userIdOrEmail: string, roleId: string) => {
-    const targetUser = allUsers.find((u) => u.id === userIdOrEmail);
-    if (targetUser?.role === "super_admin" && userRole !== "super_admin") {
-      toast.error("Access Denied: Only a Super Admin can change a Super Admin's role.");
-      return;
+  const handleUpdateUserRole = async (userId: string, newRole: string) => {
+    setIsUpdating(userId);
+    try {
+      if (newRole === "admin" || newRole === "super_admin") {
+        const { error } = await supabase
+          .from("user_roles")
+          .upsert({ user_id: userId, role: "admin" }, { onConflict: "user_id,role" });
+        if (error) throw error;
+        toast.success(`Promoted user to Admin in database`);
+      } else {
+        const { error } = await supabase
+          .from("user_roles")
+          .delete()
+          .eq("user_id", userId)
+          .eq("role", "admin");
+        if (error) throw error;
+        toast.success(`Revoked Admin role in database`);
+      }
+      onRefresh();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to update role in database";
+      toast.error(msg);
+    } finally {
+      setIsUpdating(null);
     }
-    if (roleId === "super_admin" && userRole !== "super_admin") {
-      toast.error("Access Denied: Only a Super Admin can promote a user to Super Admin.");
-      return;
-    }
-    const updatedOverrides = { ...overrides, [userIdOrEmail]: roleId };
-    localStorage.setItem("rbac_user_roles", JSON.stringify(updatedOverrides));
-    toast.success(`Role updated for ${userIdOrEmail}`);
-    onRefresh();
-  };
-
-  const handleCreateMockUser = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newUserName.trim() || !newUserEmail.trim()) {
-      toast.error("Please fill in all fields.");
-      return;
-    }
-
-    const newUser = {
-      name: newUserName,
-      email: newUserEmail,
-      role: newUserRole,
-      created_at: new Date().toLocaleDateString(),
-    };
-
-    const existingUsers = JSON.parse(localStorage.getItem("rbac_users") || "[]");
-    localStorage.setItem("rbac_users", JSON.stringify([...existingUsers, newUser]));
-
-    // Save initial override role
-    const updatedOverrides = { ...overrides, [newUserEmail]: newUserRole };
-    localStorage.setItem("rbac_user_roles", JSON.stringify(updatedOverrides));
-
-    toast.success(`Created mock user ${newUserName}`);
-    setNewUserName("");
-    setNewUserEmail("");
-    setNewUserRole("customer");
-    setIsCreateUserOpen(false);
-    onRefresh();
-  };
-
-  const handleDeleteMockUser = (email: string) => {
-    const existingUsers = JSON.parse(localStorage.getItem("rbac_users") || "[]") as CustomUser[];
-    const targetUser = existingUsers.find((u) => u.email === email);
-    if (targetUser?.role === "super_admin" && userRole !== "super_admin") {
-      toast.error("Access Denied: Only a Super Admin can delete a Super Admin account.");
-      return;
-    }
-    const updated = existingUsers.filter((u) => u.email !== email);
-    localStorage.setItem("rbac_users", JSON.stringify(updated));
-
-    // Cleanup overrides
-    const updatedOverrides = { ...overrides };
-    delete updatedOverrides[email];
-    localStorage.setItem("rbac_user_roles", JSON.stringify(updatedOverrides));
-
-    toast.success(`Deleted mock user ${email}`);
-    onRefresh();
   };
 
   return (
@@ -213,7 +108,7 @@ export default function RbacSection({ profiles, currentUserEmail, onRefresh }: R
       <div className="flex flex-col justify-between gap-4 border-b border-[#e8e4de] pb-5 dark:border-zinc-800 sm:flex-row sm:items-center">
         <div>
           <h2 className="text-xl font-bold text-zinc-900 dark:text-white">Role-Based Access Control (RBAC)</h2>
-          <p className="text-sm text-zinc-500 dark:text-zinc-400">Configure global permissions and assign roles to users.</p>
+          <p className="text-sm text-zinc-500 dark:text-zinc-400">Authoritative server-enforced roles and permissions.</p>
         </div>
         
         {/* Navigation Tabs */}
@@ -303,13 +198,13 @@ export default function RbacSection({ profiles, currentUserEmail, onRefresh }: R
                       <Checkbox
                         id={`perm-${perm}`}
                         checked={hasPerm}
-                        onCheckedChange={() => handleTogglePermission(selectedRole.id, perm)}
+                        disabled
                         className="mt-0.5 border-zinc-300 data-[state=checked]:bg-[#ff5c3a] data-[state=checked]:border-[#ff5c3a]"
                       />
                       <div className="grid gap-1.5 leading-none">
                         <label
                           htmlFor={`perm-${perm}`}
-                          className="text-[13.5px] font-semibold text-zinc-800 dark:text-zinc-200 cursor-pointer"
+                          className="text-[13.5px] font-semibold text-zinc-800 dark:text-zinc-200"
                         >
                           {readableName}
                         </label>
@@ -332,82 +227,19 @@ export default function RbacSection({ profiles, currentUserEmail, onRefresh }: R
           <CardHeader className="border-b border-[#e8e4de] dark:border-zinc-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <CardTitle className="text-lg font-bold text-zinc-900 dark:text-white">User Role Management</CardTitle>
-              <CardDescription className="text-xs text-zinc-400 mt-1">Assign custom access levels to platform operators.</CardDescription>
+              <CardDescription className="text-xs text-zinc-400 mt-1">Assign database-enforced roles to platform users.</CardDescription>
             </div>
             
             <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
               <div className="relative w-full sm:w-64">
                 <Search className="absolute left-3 top-2.5 h-4 w-4 text-zinc-400 dark:text-zinc-500" />
                 <Input
-                  placeholder="Search operator name or email..."
+                  placeholder="Search user name or ID..."
                   value={userSearch}
                   onChange={(e) => setUserSearch(e.target.value)}
                   className="h-9.5 pl-9 text-xs dark:bg-zinc-900 dark:border-zinc-800 bg-[#f9f8f5] dark:bg-zinc-950"
                 />
               </div>
-
-              {/* Create Mock User Dialog */}
-              <Dialog open={isCreateUserOpen} onOpenChange={setIsCreateUserOpen}>
-                <DialogTrigger asChild>
-                  <Button className="bg-[#ff5c3a] hover:bg-[#ff7558] text-white flex items-center gap-1.5 text-xs font-semibold px-4 py-2">
-                    <UserPlus className="h-4 w-4" />
-                    Add Mock User
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[425px] border-[#e8e4de] bg-white dark:bg-zinc-950 dark:border-zinc-800">
-                  <form onSubmit={handleCreateMockUser}>
-                    <DialogHeader>
-                      <DialogTitle className="text-lg font-bold text-zinc-900 dark:text-white">Add Mock Operator</DialogTitle>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-6">
-                      <div className="grid gap-2">
-                        <label className="text-xs font-semibold text-zinc-500">Name</label>
-                        <Input
-                          value={newUserName}
-                          onChange={(e) => setNewUserName(e.target.value)}
-                          placeholder="John Doe"
-                          className="h-10 dark:bg-zinc-900 dark:border-zinc-800"
-                          required
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <label className="text-xs font-semibold text-zinc-500">Email (Unique ID)</label>
-                        <Input
-                          type="email"
-                          value={newUserEmail}
-                          onChange={(e) => setNewUserEmail(e.target.value)}
-                          placeholder="john@example.com"
-                          className="h-10 dark:bg-zinc-900 dark:border-zinc-800"
-                          required
-                        />
-                      </div>
-                      <div className="grid gap-2">
-                        <label className="text-xs font-semibold text-zinc-500">Assign Role</label>
-                        <Select value={newUserRole} onValueChange={setNewUserRole}>
-                          <SelectTrigger className="h-10 dark:bg-zinc-900 dark:border-zinc-800">
-                            <SelectValue placeholder="Select a role" />
-                          </SelectTrigger>
-                          <SelectContent className="dark:bg-zinc-950 dark:border-zinc-800">
-                            {roles.map((r) => (
-                              <SelectItem key={r.id} value={r.id}>
-                                {r.name}
-                              </SelectItem>
-                            ))}
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-                    <DialogFooter>
-                      <Button type="button" variant="outline" onClick={() => setIsCreateUserOpen(false)} className="dark:border-zinc-800">
-                        Cancel
-                      </Button>
-                      <Button type="submit" className="bg-[#ff5c3a] hover:bg-[#ff7558] text-white">
-                        Create Operator
-                      </Button>
-                    </DialogFooter>
-                  </form>
-                </DialogContent>
-              </Dialog>
             </div>
           </CardHeader>
           <CardContent className="p-0">
@@ -416,61 +248,45 @@ export default function RbacSection({ profiles, currentUserEmail, onRefresh }: R
                 <TableHeader>
                   <TableRow className="border-b border-[#e8e4de] dark:border-zinc-800 bg-zinc-50/50 dark:bg-zinc-900/20">
                     <TableHead className="w-[200px] text-zinc-500 font-bold text-xs py-4 px-6">Name</TableHead>
-                    <TableHead className="text-zinc-500 font-bold text-xs py-4 px-6">Identifier / Email</TableHead>
+                    <TableHead className="text-zinc-500 font-bold text-xs py-4 px-6">Identifier / User ID</TableHead>
                     <TableHead className="w-[120px] text-zinc-500 font-bold text-xs py-4 px-6">Source</TableHead>
                     <TableHead className="w-[220px] text-zinc-500 font-bold text-xs py-4 px-6 text-right">Role Access</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredUsers.length > 0 ? (
-                    filteredUsers.map((user) => (
-                      <TableRow key={user.id} className="border-b border-[#e8e4de] dark:border-zinc-800 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/10">
+                    filteredUsers.map((item) => (
+                      <TableRow key={item.id} className="border-b border-[#e8e4de] dark:border-zinc-800 hover:bg-zinc-50/50 dark:hover:bg-zinc-900/10">
                         <TableCell className="font-semibold text-[13.5px] py-4 px-6 text-zinc-800 dark:text-zinc-200">
-                          {user.name}
+                          {item.name}
                         </TableCell>
                         <TableCell className="text-xs text-zinc-400 font-mono py-4 px-6">
-                          {user.email}
+                          {item.email}
                         </TableCell>
                         <TableCell className="py-4 px-6">
-                          {user.isCustom ? (
-                            <Badge variant="secondary" className="bg-amber-100 text-amber-800 hover:bg-amber-100 border-none text-[10.5px]">
-                              Mock User
-                            </Badge>
-                          ) : (
-                            <Badge variant="outline" className="border-emerald-200 text-emerald-700 bg-emerald-50 dark:bg-zinc-900 dark:border-emerald-800 text-[10.5px]">
-                              Real Database
-                            </Badge>
-                          )}
+                          <Badge variant="outline" className="border-emerald-200 text-emerald-700 bg-emerald-50 dark:bg-zinc-900 dark:border-emerald-800 text-[10.5px]">
+                            Supabase Database
+                          </Badge>
                         </TableCell>
                         <TableCell className="py-4 px-6 text-right">
                           <div className="flex items-center justify-end gap-2.5">
                             <Select 
-                              value={user.role} 
-                              onValueChange={(val) => handleUpdateUserRole(user.id, val)}
-                              disabled={user.role === "super_admin" && userRole !== "super_admin"}
+                              value={item.role} 
+                              onValueChange={(val) => handleUpdateUserRole(item.id, val)}
+                              disabled={isUpdating === item.id}
                             >
-                              <SelectTrigger className="w-[160px] h-8.5 text-xs font-semibold dark:bg-zinc-900 dark:border-zinc-800">
+                              <SelectTrigger className="w-[140px] h-8.5 text-xs font-semibold dark:bg-zinc-900 dark:border-zinc-800">
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent className="dark:bg-zinc-950 dark:border-zinc-800">
-                                {roles.map((r) => (
-                                  <SelectItem key={r.id} value={r.id} className="text-xs">
-                                    {r.name}
-                                  </SelectItem>
-                                ))}
+                                <SelectItem value="admin" className="text-xs">
+                                  Admin
+                                </SelectItem>
+                                <SelectItem value="customer" className="text-xs">
+                                  Customer (User)
+                                </SelectItem>
                               </SelectContent>
                             </Select>
-                            
-                            {user.isCustom && !(user.role === "super_admin" && userRole !== "super_admin") && (
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleDeleteMockUser(user.email)}
-                                className="h-8.5 w-8.5 text-zinc-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20"
-                              >
-                                <Trash2 className="h-4 w-4" />
-                              </Button>
-                            )}
                           </div>
                         </TableCell>
                       </TableRow>

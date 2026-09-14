@@ -43,20 +43,15 @@ export function useProfile() {
       setLoading(true);
       setError(null);
       try {
-        const isMockUser = !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(user.id);
-        let profileRow = null;
+        // 1. Load from Supabase profiles table
+        const { data, error: dbErr } = await supabase
+          .from("profiles")
+          .select("display_name, avatar_url")
+          .eq("user_id", user.id)
+          .maybeSingle();
 
-        if (!isMockUser) {
-          // 1. Load from Supabase profiles table
-          const { data, error: dbErr } = await supabase
-            .from("profiles")
-            .select("display_name, avatar_url")
-            .eq("user_id", user.id)
-            .maybeSingle();
-
-          if (dbErr) console.warn("Profile load error:", dbErr.message);
-          profileRow = data;
-        }
+        if (dbErr) console.warn("Profile load error:", dbErr.message);
+        const profileRow = data;
 
         // 2. Parse display name into first / last
         const displayName =
@@ -101,52 +96,34 @@ export function useProfile() {
       setError(null);
       try {
         let avatarUrl = payload.avatarUrl;
-        const isMockUser = !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(user.id);
 
         // Upload avatar file if provided
         if (payload.avatarFile) {
-          if (isMockUser) {
-            // Store as data URL in localStorage directly for mock user
-            avatarUrl = await new Promise<string>((resolve) => {
-              const reader = new FileReader();
-              reader.onload = (e) => resolve(e.target?.result as string);
-              reader.readAsDataURL(payload.avatarFile!);
-            });
-          } else {
-            const ext = payload.avatarFile.name.split(".").pop() ?? "jpg";
-            const path = `${user.id}/avatar.${ext}`;
-            const { error: upErr } = await supabase.storage
-              .from("avatars")
-              .upload(path, payload.avatarFile, { upsert: true });
+          const ext = payload.avatarFile.name.split(".").pop() ?? "jpg";
+          const path = `${user.id}/avatar.${ext}`;
+          const { error: upErr } = await supabase.storage
+            .from("avatars")
+            .upload(path, payload.avatarFile, { upsert: true });
 
-            if (upErr) {
-              // Fallback: store as data URL in localStorage
-              console.warn("Avatar upload failed, using dataURL fallback:", upErr.message);
-              avatarUrl = await new Promise<string>((resolve) => {
-                const reader = new FileReader();
-                reader.onload = (e) => resolve(e.target?.result as string);
-                reader.readAsDataURL(payload.avatarFile!);
-              });
-            } else {
-              const { data: urlData } = supabase.storage
-                .from("avatars")
-                .getPublicUrl(path);
-              avatarUrl = urlData.publicUrl;
-            }
+          if (upErr) {
+            console.warn("Avatar upload failed:", upErr.message);
+          } else {
+            const { data: urlData } = supabase.storage
+              .from("avatars")
+              .getPublicUrl(path);
+            avatarUrl = urlData.publicUrl;
           }
         }
 
-        // Save display_name + avatar_url to profiles table if not a mock user
+        // Save display_name + avatar_url to profiles table
         const displayName =
           `${payload.firstName} ${payload.lastName}`.trim();
         
-        if (!isMockUser) {
-          const { error: upsertErr } = await supabase.from("profiles").upsert(
-            { user_id: user.id, display_name: displayName, avatar_url: avatarUrl },
-            { onConflict: "user_id" },
-          );
-          if (upsertErr) throw upsertErr;
-        }
+        const { error: upsertErr } = await supabase.from("profiles").upsert(
+          { user_id: user.id, display_name: displayName, avatar_url: avatarUrl },
+          { onConflict: "user_id" },
+        );
+        if (upsertErr) throw upsertErr;
 
         // Persist extra fields to localStorage
         const extra = {
@@ -156,33 +133,6 @@ export function useProfile() {
           avatarUrl,
         };
         localStorage.setItem(PROFILE_KEY(user.id), JSON.stringify(extra));
-
-        // Update name in local rbac_users and session if they are a mock user
-        if (isMockUser) {
-          try {
-            const mockSessionStr = localStorage.getItem("mock_session");
-            if (mockSessionStr) {
-              const mock = JSON.parse(mockSessionStr);
-              if (mock.email === user.email) {
-                mock.name = displayName;
-                localStorage.setItem("mock_session", JSON.stringify(mock));
-              }
-            }
-
-            const localUsersStr = localStorage.getItem("rbac_users");
-            if (localUsersStr) {
-              const localUsers = JSON.parse(localUsersStr);
-              if (Array.isArray(localUsers)) {
-                const updated = (localUsers as { email: string; [key: string]: unknown }[]).map((u) =>
-                  u.email === user.email ? { ...u, name: displayName } : u
-                );
-                localStorage.setItem("rbac_users", JSON.stringify(updated));
-              }
-            }
-          } catch (e) {
-            console.error("Failed to update local user info:", e);
-          }
-        }
 
         setData({ ...payload, avatarUrl });
         return { ok: true };

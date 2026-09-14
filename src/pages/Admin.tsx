@@ -232,14 +232,11 @@ const Admin = () => {
     });
   }, [projects, profiles]);
 
-  // User API-style rows from real users + their project counts + custom RBAC users
+  // User API-style rows from real users + their project counts
   const userRows = useMemo(() => {
-    const overrides = JSON.parse(localStorage.getItem("rbac_user_roles") || "{}");
-    const customUsers = JSON.parse(localStorage.getItem("rbac_users") || "[]");
-
     const rows = profiles.map((pr) => {
       const count = projectCountByUser.get(pr.user_id) ?? 0;
-      const roleId = overrides[pr.user_id] || (admins.has(pr.user_id) ? "admin" : "customer");
+      const roleId = admins.has(pr.user_id) ? "admin" : "customer";
       return {
         name: pr.display_name || pr.user_id.slice(0, 8),
         email: pr.user_id,
@@ -251,19 +248,6 @@ const Admin = () => {
       };
     });
 
-    customUsers.forEach((cu: CustomUser) => {
-      const roleId = overrides[cu.email] || cu.role;
-      rows.push({
-        name: cu.name,
-        email: cu.email,
-        role: roleId,
-        videos: 0,
-        calls: 0,
-        cost: 0,
-        last: cu.created_at,
-      });
-    });
-
     rows.sort((a, b) => b.calls - a.calls);
     const q = search.trim().toLowerCase();
     return q
@@ -271,14 +255,7 @@ const Admin = () => {
           (r) => r.name.toLowerCase().includes(q) || r.email.toLowerCase().includes(q),
         )
       : rows;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [profiles, projectCountByUser, admins, search, triggerRefresh]);
-
-  const customUsersCount = useMemo(() => {
-    const customUsers = JSON.parse(localStorage.getItem("rbac_users") || "[]") as CustomUser[];
-    return customUsers.length;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [triggerRefresh]);
+  }, [profiles, projectCountByUser, admins, search]);
 
   const exportCSV = () => {
     if (!hasPermission("export_reports")) {
@@ -450,7 +427,7 @@ const Admin = () => {
             range={range}
             series={series}
             userRows={userRows}
-            totalUsers={profiles.length + customUsersCount}
+            totalUsers={profiles.length}
             search={search}
             setSearch={setSearch}
             exportCSV={exportCSV}
@@ -459,6 +436,7 @@ const Admin = () => {
         ) : tab === "rbac" && (userRole === "super_admin" || userRole === "admin") ? (
           <RbacSection
             profiles={profiles}
+            admins={admins}
             currentUserEmail={user?.email}
             onRefresh={() => {
               setTriggerRefresh((prev) => prev + 1);
