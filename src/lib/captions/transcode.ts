@@ -54,11 +54,7 @@ export async function transcodeWebmToMp4(opts: {
   signal?: AbortSignal;
 }): Promise<Blob> {
   const { webmBlob, quality, onProgress, onLog, signal } = opts;
-  if (signal?.aborted) {
-    const err = new Error("Export cancelled");
-    err.name = "ExportCancelledError";
-    throw err;
-  }
+  if (signal?.aborted) throw cancelled();
 
   const ffmpeg = await getFFmpeg(onLog);
   const progressHandler = ({ progress }: { progress: number }) => {
@@ -77,34 +73,36 @@ export async function transcodeWebmToMp4(opts: {
   const outputName = "rendered-output.mp4";
 
   try {
-    // Always give FFmpeg a WebM extension because burnCaptions now guarantees
-    // that MediaRecorder uses a WebM container. This avoids ambiguous probing.
     await ffmpeg.writeFile(inputName, await fetchFile(webmBlob));
+    if (signal?.aborted) throw cancelled();
 
     const crf = quality === "high" ? "18" : "23";
+    // Keep the encode strictly CFR and explicitly generate timestamps. The
+    // browser recorder can emit slightly irregular timestamps when the main
+    // thread is busy; normalising them here prevents freezes/green/glitchy
+    // tails in the final MP4.
     const exitCode = await ffmpeg.exec([
       "-fflags", "+genpts",
       "-i", inputName,
       "-map", "0:v:0",
       "-map", "0:a:0?",
+      "-vf", "fps=30",
       "-c:v", "libx264",
       "-preset", "ultrafast",
       "-crf", crf,
       "-pix_fmt", "yuv420p",
+      "-fps_mode", "cfr",
       "-c:a", "aac",
       "-b:a", "128k",
       "-ar", "48000",
       "-ac", "2",
-      "-vsync", "cfr",
+      "-af", "aresample=async=1:first_pts=0",
+      "-avoid_negative_ts", "make_zero",
       "-movflags", "+faststart",
       outputName,
     ]);
 
-    if (signal?.aborted) {
-      const err = new Error("Export cancelled");
-      err.name = "ExportCancelledError";
-      throw err;
-    }
+    if (signal?.aborted) throw cancelled();
     if (exitCode !== 0) throw new Error("ffmpeg failed to transcode the video to MP4.");
 
     const data = await ffmpeg.readFile(outputName);
@@ -112,12 +110,8 @@ export async function transcodeWebmToMp4(opts: {
     const arrayBuffer = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
     const mp4Blob = new Blob([arrayBuffer], { type: "video/mp4" });
     if (!mp4Blob.size) throw new Error("FFmpeg produced an empty MP4 file.");
-
     return mp4Blob;
   } finally {
-    // Delete temporary files even when FFmpeg throws, otherwise repeated exports
-    // gradually consume the WASM virtual filesystem and can cause later exports
-    // to freeze or fail.
     await ffmpeg.deleteFile(inputName).catch(() => undefined);
     await ffmpeg.deleteFile(outputName).catch(() => undefined);
     try { ffmpeg.off("progress", progressHandler); } catch { /* instance may be terminated */ }
@@ -132,11 +126,7 @@ export async function extractAudio(opts: {
   signal?: AbortSignal;
 }): Promise<Blob> {
   const { videoFile, onProgress, onLog, signal } = opts;
-  if (signal?.aborted) {
-    const err = new Error("Audio extraction cancelled");
-    err.name = "ExportCancelledError";
-    throw err;
-  }
+  if (signal?.aborted) throw cancelled("Audio extraction cancelled");
 
   const ffmpeg = await getFFmpeg(onLog);
   const progressHandler = ({ progress }: { progress: number }) => {
@@ -156,11 +146,7 @@ export async function extractAudio(opts: {
 
   try {
     await ffmpeg.writeFile(inputName, await fetchFile(videoFile));
-    if (signal?.aborted) {
-      const err = new Error("Audio extraction cancelled");
-      err.name = "ExportCancelledError";
-      throw err;
-    }
+    if (signal?.aborted) throw cancelled("Audio extraction cancelled");
 
     const exitCode = await ffmpeg.exec([
       "-i", inputName,
@@ -170,11 +156,7 @@ export async function extractAudio(opts: {
       "-ac", "1",
       outputName,
     ]);
-    if (signal?.aborted) {
-      const err = new Error("Audio extraction cancelled");
-      err.name = "ExportCancelledError";
-      throw err;
-    }
+    if (signal?.aborted) throw cancelled("Audio extraction cancelled");
     if (exitCode !== 0) throw new Error("ffmpeg failed to extract audio from the video.");
 
     const data = await ffmpeg.readFile(outputName);
@@ -187,4 +169,10 @@ export async function extractAudio(opts: {
     try { ffmpeg.off("progress", progressHandler); } catch { /* instance may be terminated */ }
     signal?.removeEventListener("abort", onAbort);
   }
+}
+
+function cancelled(message = "Export cancelled") {
+  const err = new Error(message);
+  err.name = "ExportCancelledError";
+  return err;
 }
