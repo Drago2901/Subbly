@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="subbly-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FF5C3A" />
+      <stop offset="100%" stop-color="#FF8A00" />
+    </linearGradient>
+  </defs>
+  <!-- Rounded Squircle Base -->
+  <rect width="512" height="512" rx="144" fill="url(#subbly-grad)" />
+  <!-- Main 4-pointed sparkle in center -->
+  <path d="M256 102 C256 186 205 240 112 240 C205 240 256 294 256 378 C256 294 307 240 400 240 C307 240 256 186 256 102 Z" fill="#FFFFFF" />
+  <!-- Small 4-pointed sparkle at top right -->
+  <path d="M380 92 C380 114 367 124 345 124 C367 124 380 134 380 156 C380 134 393 124 415 124 C393 124 380 114 380 92 Z" fill="#FFFFFF" />
+  <!-- Small accent dot at bottom left -->
+  <circle cx="144" cy="328" r="18" fill="#FFFFFF" />
+</svg>

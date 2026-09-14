@@ -23,6 +23,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Seo } from "@/components/Seo";
 import { HangingPendantLamp } from "@/components/auth/HangingPendantLamp";
 import { CozyWorkspaceEnvironment } from "@/components/auth/CozyWorkspaceEnvironment";
+import { SubblyLogoIcon } from "@/components/BrandLogo";
 import "./Auth.css";
 
 // Synthesize pleasant analog click audio when turning on the lamp
@@ -503,7 +504,7 @@ const Auth = () => {
       <nav className="auth-top-nav">
         <Link to="/" className="auth-brand-logo-wrap" aria-label="Subbly home">
           <div className="auth-logo-badge">
-            <div className="auth-logo-inner-sq" />
+            <SubblyLogoIcon />
           </div>
           <span className="auth-logo-text">Subbly</span>
         </Link>

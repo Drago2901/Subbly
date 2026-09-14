@@ -79,19 +79,11 @@
 .auth-logo-badge {
   width: 32px;
   height: 32px;
-  border-radius: 9px;
-  background: linear-gradient(135deg, #FF5C3A 0%, #FF8A00 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 14px rgba(255, 107, 44, 0.4);
-}
-
-.auth-logo-inner-sq {
-  width: 15px;
-  height: 15px;
-  border-radius: 4px;
-  border: 2px solid #FFFFFF;
+  filter: drop-shadow(0 4px 14px rgba(255, 107, 44, 0.4));
+  flex-shrink: 0;
 }
 
 .auth-logo-text {

@@ -12,6 +12,7 @@ import {
   Mail,
   ArrowRight
 } from "lucide-react";
+import { SubblyLogoIcon } from "@/components/BrandLogo";
 
 const NotFound = () => {
   const location = useLocation();
@@ -39,10 +40,10 @@ const NotFound = () => {
       {/* Top Navbar */}
       <nav className="sticky top-0 z-[200] flex h-[72px] items-center justify-between border-b border-orange-100/40 dark:border-zinc-800/80 bg-white/80 dark:bg-zinc-950/80 px-6 backdrop-blur-xl md:px-12">
         <Link to="/" className="flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-[9px] bg-[#ff5c3a]">
-            <span className="font-serif-display text-[22px] font-bold text-white leading-none select-none">S</span>
+          <div className="flex h-8 w-8 items-center justify-center">
+            <SubblyLogoIcon className="h-8 w-8" />
           </div>
-          <span className="font-serif-display text-[18px] tracking-[-0.2px] font-bold text-zinc-900 dark:text-white">Subbly</span>
+          <span className="font-sans text-[18px] tracking-[-0.2px] font-extrabold text-zinc-900 dark:text-white">Subbly</span>
         </Link>
         
         {/* Navigation Links (Desktop) */}
@@ -205,8 +206,8 @@ const NotFound = () => {
         {/* Footer Row */}
         <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-orange-100/30 dark:border-zinc-900/60 pt-8 w-full">
           <div className="flex items-center gap-2 text-xs text-zinc-400 dark:text-zinc-500 font-medium">
-            <div className="flex h-5 w-5 items-center justify-center rounded-[5px] bg-[#ff5c3a]">
-              <span className="font-serif-display text-[13px] font-bold text-white leading-none select-none">S</span>
+            <div className="flex h-5 w-5 items-center justify-center">
+              <SubblyLogoIcon className="h-5 w-5" />
             </div>
             <span className="font-bold text-zinc-700 dark:text-zinc-300">Subbly</span>
             <span>© 2026 Subbly. All rights reserved.</span>

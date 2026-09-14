@@ -46,6 +46,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/useAuth";
 import { Input } from "@/components/ui/input";
 import RbacSection from "@/components/admin/RbacSection";
+import { SubblyLogoIcon } from "@/components/BrandLogo";
 
 type ProfileRow = {
   id: string;
@@ -348,8 +349,8 @@ const Admin = () => {
             <ArrowLeft className="h-4 w-4" />
           </button>
           <Link to="/admin" className="flex items-center gap-2.5">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#E8502A]">
-              <span className="font-serif-display text-[22px] font-bold text-white leading-none select-none">S</span>
+            <div className="flex h-8 w-8 items-center justify-center">
+              <SubblyLogoIcon className="h-8 w-8" />
             </div>
             <div>
               <h1 className="flex items-center gap-1.5 text-[15px] font-medium leading-none text-zinc-900 dark:text-zinc-100">
