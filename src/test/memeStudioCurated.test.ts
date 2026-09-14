@@ -3,21 +3,14 @@ import { memeStudioService } from "@/lib/memeStudio/service";
 import { CURATED_MEMES, CURATED_GIFS, CURATED_STICKERS, MEME_CATEGORIES } from "@/lib/memeStudio/data";
 
 describe("Meme Studio Curated Content & Search Service (NO AI)", () => {
-  it("should provide curated memes, GIFs, and stickers", () => {
+  it("should provide curated GIFs and stickers, with empty memes catalog", () => {
     const memes = memeStudioService.getMemes();
     const gifs = memeStudioService.getGifs();
     const stickers = memeStudioService.getStickers();
 
-    expect(memes.length).toBeGreaterThan(5);
+    expect(memes.length).toBe(0);
     expect(gifs.length).toBeGreaterThan(5);
     expect(stickers.length).toBeGreaterThan(5);
-
-    // Verify all memes have valid properties
-    for (const m of memes) {
-      expect(m.type).toBe("meme");
-      expect(m.url).toMatch(/^https?:\/\//);
-      expect(m.title).toBeTruthy();
-    }
 
     // Verify all GIFs have valid properties
     for (const g of gifs) {
@@ -34,14 +27,12 @@ describe("Meme Studio Curated Content & Search Service (NO AI)", () => {
     }
   });
 
-  it("should filter memes accurately by keyword query", () => {
+  it("should handle empty memes catalog queries gracefully", () => {
     const drakeResults = memeStudioService.getMemes("drake");
-    expect(drakeResults.length).toBeGreaterThan(0);
-    expect(drakeResults.some((item) => item.id === "meme-drake")).toBe(true);
+    expect(drakeResults.length).toBe(0);
 
     const dogeResults = memeStudioService.getMemes("doge");
-    expect(dogeResults.length).toBeGreaterThan(0);
-    expect(dogeResults.some((item) => item.id === "meme-buff-doge")).toBe(true);
+    expect(dogeResults.length).toBe(0);
   });
 
   it("should filter GIFs accurately by keyword query", () => {
@@ -62,10 +53,7 @@ describe("Meme Studio Curated Content & Search Service (NO AI)", () => {
     }
 
     const successMemes = memeStudioService.getMemes("", "Success");
-    expect(successMemes.length).toBeGreaterThan(0);
-    for (const item of successMemes) {
-      expect(item.category).toBe("Success");
-    }
+    expect(successMemes.length).toBe(0);
   });
 
   it("should support category listings", () => {

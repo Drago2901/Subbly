@@ -10,14 +10,21 @@ const CANDIDATE_MODELS = [
   "google/gemini-2.0-flash-001",
   "openai/gpt-4o-mini",
   "meta-llama/llama-3.3-70b-instruct",
+  "qwen/qwen-2.5-72b-instruct",
 ];
 
-async function alignEmojisWithModel(
-  captions: Array<{ id: string; text: string }>,
+interface CaptionInput {
+  id: string | number;
+  text: string;
+  [key: string]: unknown;
+}
+
+async function alignEmojisBatch(
+  captions: CaptionInput[],
   density: string,
   openRouterKey: string,
   model: string,
-): Promise<Array<{ id: string; text: string }>> {
+): Promise<CaptionInput[]> {
   const systemPrompt = `You are a subtitle emoji aligner. You will receive a JSON array of caption objects.
 Each object has an 'id' and 'text'. You need to add relevant emojis to the 'text' based on context.
 Density level requested: ${density}. (high = lots of emojis, medium = some, low = few).
@@ -43,7 +50,7 @@ Example output: [{"id": "1", "text": "Hello world 👋"}, {"id": "2", "text": "T
       temperature: 0.2,
       max_tokens: 4096,
     }),
-    signal: AbortSignal.timeout(12000),
+    signal: AbortSignal.timeout(20000),
   });
 
   if (!res.ok) {
@@ -54,12 +61,37 @@ Example output: [{"id": "1", "text": "Hello world 👋"}, {"id": "2", "text": "T
 
   const data = await res.json();
   const rawText: string = data?.choices?.[0]?.message?.content ?? "";
-  const clean = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
+  let clean = rawText.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
 
-  const parsed = JSON.parse(clean);
-  if (Array.isArray(parsed)) {
+  // Extract JSON array boundary if surrounded by conversational text
+  const firstBracket = clean.indexOf("[");
+  const lastBracket = clean.lastIndexOf("]");
+  if (firstBracket !== -1 && lastBracket !== -1 && lastBracket > firstBracket) {
+    clean = clean.substring(firstBracket, lastBracket + 1);
+  }
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(clean);
+  } catch {
+    parsed = JSON.parse(rawText);
+  }
+
+  const list = Array.isArray(parsed)
+    ? parsed
+    : Array.isArray((parsed as Record<string, unknown>)?.captions)
+    ? (parsed as { captions: unknown[] }).captions
+    : Array.isArray((parsed as Record<string, unknown>)?.data)
+    ? (parsed as { data: unknown[] }).data
+    : null;
+
+  if (Array.isArray(list)) {
     return captions.map((orig) => {
-      const updated = parsed.find((p: { id?: string | number; text?: string }) => String(p?.id) === String(orig.id));
+      const updated = list.find((p) => {
+        if (!p || typeof p !== "object") return false;
+        const candidate = p as { id?: string | number };
+        return String(candidate.id) === String(orig.id);
+      }) as { text?: string } | undefined;
       return updated && typeof updated.text === "string" ? { ...orig, text: updated.text } : orig;
     });
   }
@@ -67,15 +99,33 @@ Example output: [{"id": "1", "text": "Hello world 👋"}, {"id": "2", "text": "T
   throw new Error(`Invalid JSON format from model ${model}`);
 }
 
+async function alignEmojisWithFallback(
+  captions: CaptionInput[],
+  density: string,
+  openRouterKey: string,
+): Promise<CaptionInput[]> {
+  for (const model of CANDIDATE_MODELS) {
+    try {
+      const updatedCaptions = await alignEmojisBatch(captions, density, openRouterKey, model);
+      return updatedCaptions;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      console.warn(`Emoji align attempt with model '${model}' failed: ${msg}. Retrying with next model...`);
+    }
+  }
+  console.warn("All emoji alignment models failed for batch. Returning original captions.");
+  return captions;
+}
+
 export default {
-  fetch: withSupabase({ auth: 'user' }, async (req, ctx) => {
+  fetch: withSupabase({ auth: 'user' }, async (req: Request, _ctx: unknown) => {
     if (req.method === "OPTIONS") {
       return new Response(null, { headers: corsHeaders });
     }
 
     try {
       const body = await req.json();
-      const captions = body?.captions ?? [];
+      const captions: CaptionInput[] = body?.captions ?? [];
       const density = body?.density ?? "medium";
 
       if (!Array.isArray(captions) || captions.length === 0) {
@@ -93,21 +143,20 @@ export default {
         });
       }
 
-      for (const model of CANDIDATE_MODELS) {
-        try {
-          const updatedCaptions = await alignEmojisWithModel(captions, density, openRouterKey, model);
-          return new Response(JSON.stringify({ captions: updatedCaptions }), {
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          });
-        } catch (err) {
-          const msg = err instanceof Error ? err.message : String(err);
-          console.warn(`Emoji align attempt with model '${model}' failed: ${msg}. Retrying with next model...`);
-        }
+      // Process in chunks of 30 for reliability and fast responses
+      const BATCH_SIZE = 30;
+      const chunks: CaptionInput[][] = [];
+      for (let i = 0; i < captions.length; i += BATCH_SIZE) {
+        chunks.push(captions.slice(i, i + BATCH_SIZE));
       }
 
-      // Fallback: return original captions unmodified if all AI models fail
-      console.warn("All emoji alignment models failed. Returning original captions.");
-      return new Response(JSON.stringify({ captions }), {
+      const batchResults = await Promise.all(
+        chunks.map((chunk) => alignEmojisWithFallback(chunk, density, openRouterKey))
+      );
+
+      const updatedCaptions = batchResults.flat();
+
+      return new Response(JSON.stringify({ captions: updatedCaptions }), {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     } catch (err) {

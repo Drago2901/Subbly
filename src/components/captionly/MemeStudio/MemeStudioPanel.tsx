@@ -159,6 +159,7 @@ export const MemeStudioPanel: React.FC<MemeStudioPanelProps> = ({
             <MediaBrowseTab
               mediaType="meme"
               onInsertMedia={onInsertMedia}
+              onGoToUpload={() => setActiveTab("upload")}
               replaceTargetId={replaceTargetId}
               placeholderText="Search trending & classic memes..."
             />

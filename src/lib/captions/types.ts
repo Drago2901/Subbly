@@ -129,10 +129,6 @@ export const FONT_OPTIONS = [
   "Dancing Script",
   "Satisfy",
   "Kalam",
-  // Custom local fonts
-  "Balonku",
-  "Cookie Monster",
-  "Vegan Style",
 ];
 
 /** Rotating sample lines used to preview caption templates. */

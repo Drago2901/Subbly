@@ -141,65 +141,6 @@ const FRAME_PRESETS: FramePreset[] = [
 
 const DEMO_VIDEO_URL = "/test-video.mp4";
 
-const DEMO_CAPTIONS: Caption[] = [
-  {
-    id: "demo-1",
-    start: 0.5,
-    end: 2.8,
-    text: "Welcome to Subbly! 🚀",
-    words: [
-      { text: "Welcome", start: 0.5, end: 1.0 },
-      { text: "to", start: 1.0, end: 1.3 },
-      { text: "Subbly!", start: 1.3, end: 2.0 },
-      { text: "🚀", start: 2.0, end: 2.8 },
-    ],
-  },
-  {
-    id: "demo-2",
-    start: 3.0,
-    end: 5.5,
-    text: "World-class AI video caption editor 🎬",
-    words: [
-      { text: "World-class", start: 3.0, end: 3.6 },
-      { text: "AI", start: 3.6, end: 3.9 },
-      { text: "video", start: 3.9, end: 4.3 },
-      { text: "caption", start: 4.3, end: 4.8 },
-      { text: "editor", start: 4.8, end: 5.2 },
-      { text: "🎬", start: 5.2, end: 5.5 },
-    ],
-  },
-  {
-    id: "demo-3",
-    start: 5.8,
-    end: 8.5,
-    text: "Customize fonts, colors, and viral animations ✨",
-    words: [
-      { text: "Customize", start: 5.8, end: 6.4 },
-      { text: "fonts,", start: 6.4, end: 6.9 },
-      { text: "colors,", start: 6.9, end: 7.4 },
-      { text: "and", start: 7.4, end: 7.6 },
-      { text: "viral", start: 7.6, end: 8.0 },
-      { text: "animations", start: 8.0, end: 8.3 },
-      { text: "✨", start: 8.3, end: 8.5 },
-    ],
-  },
-  {
-    id: "demo-4",
-    start: 8.8,
-    end: 11.5,
-    text: "Export high-resolution videos in seconds! 🔥",
-    words: [
-      { text: "Export", start: 8.8, end: 9.3 },
-      { text: "high-resolution", start: 9.3, end: 10.0 },
-      { text: "videos", start: 10.0, end: 10.5 },
-      { text: "in", start: 10.5, end: 10.7 },
-      { text: "seconds!", start: 10.7, end: 11.2 },
-      { text: "🔥", start: 11.2, end: 11.5 },
-    ],
-  },
-];
-
-
 const invokeEdgeFunction = async (
   name: string,
   options?: Parameters<typeof supabase.functions.invoke>[1],
@@ -694,7 +635,9 @@ const Editor = () => {
             setCaptions((cur) =>
               cur.map((c) => {
                 const match = mapped.find((x) => x.id === c.id);
-                return match ? { ...c, text: match.text, words: match.words } : c;
+                if (!match) return c;
+                const newWords = match.words || (c.words ? alignEmojisWithWords(c.words, match.text) : undefined);
+                return { ...c, text: match.text, words: newWords };
               }),
             );
             toast.success("AI Emojis integrated with viral context");
@@ -954,13 +897,26 @@ const Editor = () => {
     }
   };
 
-  const loadDemoProject = useCallback(() => {
+  const loadDemoProject = useCallback(async () => {
     const mockDemoFile = new File([], "Test video.mp4", { type: "video/mp4" });
     setFile(mockDemoFile);
     setVideoUrl(DEMO_VIDEO_URL);
-    setCaptions(DEMO_CAPTIONS);
+    setCaptions([]);
+    setHistory([[]]);
+    setHistoryIndex(0);
     setTitle("Test Video Project");
-    toast.success("Demo video & captions loaded! Edit text, change styles, or export.");
+    toast.success("Demo video loaded!");
+
+    try {
+      const res = await fetch(DEMO_VIDEO_URL);
+      if (res.ok) {
+        const blob = await res.blob();
+        const demoFile = new File([blob], "Test video.mp4", { type: "video/mp4" });
+        setFile(demoFile);
+      }
+    } catch (e) {
+      console.warn("Could not fetch demo video file for audio extraction:", e);
+    }
   }, []);
 
   useEffect(() => {
@@ -1026,6 +982,8 @@ const Editor = () => {
             });
             if (emojiRes?.captions?.[0]?.words) {
               alignedWords = emojiRes.captions[0].words;
+            } else if (emojiRes?.captions?.[0]?.text) {
+              alignedWords = alignEmojisWithWords(alignedWords, emojiRes.captions[0].text);
             }
           } catch (emojiErr) {
             console.warn("AI Emojis skipped during transcription:", emojiErr);
@@ -1146,7 +1104,7 @@ const Editor = () => {
         toast.info("Export cancelled by user");
       } else {
         console.error("Video export pipeline error:", err);
-        const errMsg = err instanceof Error ? err.message : (err && typeof err === "object" && "message" in err) ? String((err as any).message) : String(err);
+        const errMsg = err instanceof Error ? err.message : (err && typeof err === "object" && "message" in err) ? String((err as { message: unknown }).message) : String(err);
         toast.error(`Export failed: ${errMsg}`);
       }
     } finally {
@@ -1275,7 +1233,7 @@ const Editor = () => {
         )}
       </div>
     ),
-    [file, exporting, exportProgress, exportStage, quality, captions, exportVideo, handleExportSrt],
+    [file, exporting, exportProgress, exportStage, quality, exportVideo],
   );
 
   if (loadingProject) {

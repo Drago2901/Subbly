@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from "react";
-import { Search, X, Plus, Eye, Check, RefreshCw } from "lucide-react";
+import { Search, X, Plus, Eye, Check, RefreshCw, Upload } from "lucide-react";
 import { memeStudioService } from "@/lib/memeStudio/service";
 import { MEME_CATEGORIES } from "@/lib/memeStudio/data";
 import type { MemeItem, MemeType, MemeCategory } from "@/lib/memeStudio/types";
@@ -7,6 +7,7 @@ import type { MemeItem, MemeType, MemeCategory } from "@/lib/memeStudio/types";
 interface MediaBrowseTabProps {
   mediaType: MemeType | "all";
   onInsertMedia: (item: MemeItem) => void;
+  onGoToUpload?: () => void;
   replaceTargetId?: string | null;
   placeholderText?: string;
 }
@@ -14,6 +15,7 @@ interface MediaBrowseTabProps {
 export const MediaBrowseTab: React.FC<MediaBrowseTabProps> = ({
   mediaType,
   onInsertMedia,
+  onGoToUpload,
   replaceTargetId,
   placeholderText = "Search memes, GIFs, or reactions...",
 }) => {
@@ -92,11 +94,23 @@ export const MediaBrowseTab: React.FC<MediaBrowseTabProps> = ({
           <div className="flex flex-col items-center justify-center h-48 text-center space-y-2 text-[#888] dark:text-[#7E8695]">
             <Search className="h-7 w-7 stroke-[1.5] opacity-40" />
             <p className="text-xs font-bold text-[#1A1A1A] dark:text-white">
-              No media found
+              {mediaType === "meme" && !searchQuery ? "No memes available" : "No media found"}
             </p>
-            <p className="text-[11px]">
-              Try searching with another keyword or pick a different category.
+            <p className="text-[11px] max-w-[260px] leading-relaxed">
+              {mediaType === "meme" && !searchQuery
+                ? "No memes in the library. You can upload custom memes to use in your video."
+                : "Try searching with another keyword or pick a different category."}
             </p>
+            {mediaType === "meme" && !searchQuery && onGoToUpload && (
+              <button
+                type="button"
+                onClick={onGoToUpload}
+                className="mt-2 inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-[#FF6B2C] text-white text-[11px] font-bold shadow-sm hover:bg-[#FF874D] transition cursor-pointer"
+              >
+                <Upload className="h-3 w-3" />
+                Upload Meme
+              </button>
+            )}
             {searchQuery && (
               <button
                 type="button"
