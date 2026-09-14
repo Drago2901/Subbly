@@ -36,6 +36,8 @@ import {
 } from "lucide-react";
 import { MediaAddDropdown } from "@/components/captionly/MemeStudio/MediaAddDropdown";
 import { MemeStudioPanel } from "@/components/captionly/MemeStudio/MemeStudioPanel";
+import { useEditorHistory } from "@/components/captionly/Editor/useEditorHistory";
+import { useEditorKeyboard } from "@/components/captionly/Editor/useEditorKeyboard";
 import type { MemeItem, MemeStudioTab, MemeType } from "@/lib/memeStudio/types";
 import { useTheme } from "@/hooks/useTheme";
 import { supabase } from "@/integrations/supabase/client";
@@ -301,9 +303,7 @@ const Editor = () => {
   const [selectedCaptionId, setSelectedCaptionId] = useState<string | null>(null);
   const [lockedTracks, setLockedTracks] = useState<number[]>([]);
 
-  const [history, setHistory] = useState<Caption[][]>([[]]);
-  const [historyIndex, setHistoryIndex] = useState(0);
-  const isUndoRedoingRef = useRef(false);
+  const { canUndo, canRedo, handleUndo, handleRedo } = useEditorHistory(captions, setCaptions);
 
   const frame = useMemo(() => {
     return framePreset.id !== "original"
@@ -495,53 +495,6 @@ const Editor = () => {
     );
   }, [selectedCaptionId]);
 
-  // Debounced history record
-  useEffect(() => {
-    if (isUndoRedoingRef.current) {
-      isUndoRedoingRef.current = false;
-      return;
-    }
-    if (captions.length === 0 && history.length <= 1 && (history[0]?.length === 0)) return;
-
-    const timer = setTimeout(() => {
-      const currentEntry = history[historyIndex];
-      const nextStr = JSON.stringify(captions);
-      const currentStr = currentEntry ? JSON.stringify(currentEntry) : "";
-
-      if (nextStr !== currentStr) {
-        setHistory((prev) => {
-          const sliced = prev.slice(0, historyIndex + 1);
-          return [...sliced, JSON.parse(JSON.stringify(captions))];
-        });
-        setHistoryIndex((prev) => prev + 1);
-      }
-    }, 400);
-
-    return () => clearTimeout(timer);
-  }, [captions, historyIndex, history]);
-
-  const handleUndo = useCallback(() => {
-    if (historyIndex > 0) {
-      isUndoRedoingRef.current = true;
-      const prevIndex = historyIndex - 1;
-      setHistoryIndex(prevIndex);
-      const entry = history[prevIndex];
-      if (entry) setCaptions(JSON.parse(JSON.stringify(entry)));
-      toast.success("Undo successful");
-    }
-  }, [historyIndex, history]);
-
-  const handleRedo = useCallback(() => {
-    if (historyIndex < history.length - 1) {
-      isUndoRedoingRef.current = true;
-      const nextIndex = historyIndex + 1;
-      setHistoryIndex(nextIndex);
-      const entry = history[nextIndex];
-      if (entry) setCaptions(JSON.parse(JSON.stringify(entry)));
-      toast.success("Redo successful");
-    }
-  }, [historyIndex, history]);
-
   // Synchronize play/pause state from video element
   useEffect(() => {
     const video = videoRef.current;
@@ -561,34 +514,20 @@ const Editor = () => {
     };
   }, [videoElement, videoUrl, transcribing]);
 
-  // Global Spacebar Keydown Listener for Play/Pause
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      const activeEl = document.activeElement;
-      if (
-        activeEl &&
-        (activeEl.tagName === "INPUT" ||
-          activeEl.tagName === "TEXTAREA" ||
-          (activeEl as HTMLElement).isContentEditable)
-      ) {
-        return;
+  // Global Keyboard Shortcuts (Undo, Redo, Play/Pause)
+  useEditorKeyboard({
+    onUndo: handleUndo,
+    onRedo: handleRedo,
+    onTogglePlay: () => {
+      const v = videoRef.current;
+      if (!v) return;
+      if (v.paused) {
+        v.play().catch(() => {});
+      } else {
+        v.pause();
       }
-
-      if (e.code === "Space") {
-        e.preventDefault();
-        const v = videoRef.current;
-        if (!v) return;
-        if (v.paused) {
-          v.play().catch(() => { });
-        } else {
-          v.pause();
-        }
-      }
-    };
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+    },
+  });
 
   // AI Emoji generation side effects
   useEffect(() => {
@@ -1323,7 +1262,7 @@ const Editor = () => {
               <button
                 title="Undo edit"
                 onClick={handleUndo}
-                disabled={historyIndex === 0}
+                disabled={!canUndo}
                 className="flex h-8.5 w-8.5 items-center justify-center rounded-lg border border-border bg-secondary text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:scale-100 disabled:cursor-not-allowed hover:bg-muted hover:scale-105 active:scale-95 transition cursor-pointer"
               >
                 <Undo2 className="h-4 w-4" />
@@ -1331,7 +1270,7 @@ const Editor = () => {
               <button
                 title="Redo edit"
                 onClick={handleRedo}
-                disabled={historyIndex >= history.length - 1}
+                disabled={!canRedo}
                 className="flex h-8.5 w-8.5 items-center justify-center rounded-lg border border-border bg-secondary text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:scale-100 disabled:cursor-not-allowed hover:bg-muted hover:scale-105 active:scale-95 transition cursor-pointer"
               >
                 <Redo2 className="h-4 w-4" />
