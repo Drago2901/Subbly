@@ -23,6 +23,7 @@ export type Caption = {
   mediaUrl?: string;
   mediaTitle?: string;
   mediaAspectRatio?: number;
+  originalText?: string;
 };
 
 export type CaptionAnimation =

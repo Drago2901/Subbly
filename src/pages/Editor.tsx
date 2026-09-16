@@ -282,6 +282,7 @@ const Editor = () => {
   const [currentTime, setCurrentTime] = useState(0);
   const [language, setLanguage] = useState<string>("auto");
   const [translating, setTranslating] = useState(false);
+  const translationCacheRef = useRef<Record<string, string[]>>({});
 
   const [quality, setQuality] = useState<"standard" | "high">("standard");
   const [exportStage, setExportStage] = useState<"render" | "transcode">("render");
@@ -614,7 +615,14 @@ const Editor = () => {
         if (error) throw error;
         if (data) {
           setTitle(data.title || "Untitled project");
-          if (data.captions) setCaptions(data.captions as Caption[]);
+          if (data.captions) {
+            const loaded = (data.captions as Caption[]).map((c) => ({
+              ...c,
+              originalText: c.originalText || c.text,
+            }));
+            translationCacheRef.current = {};
+            setCaptions(loaded);
+          }
           if (data.style) setStyle(data.style as CaptionStyle);
           setStoredSourcePath(data.source_video_path);
           setStoredSourceMime(data.source_video_mime);
@@ -663,7 +671,14 @@ const Editor = () => {
         const parsed = JSON.parse(pending);
         if (parsed) {
           setTitle(parsed.title || "Untitled project");
-          if (parsed.captions) setCaptions(parsed.captions);
+          if (parsed.captions) {
+            const loaded = (parsed.captions as Caption[]).map((c: Caption) => ({
+              ...c,
+              originalText: c.originalText || c.text,
+            }));
+            translationCacheRef.current = {};
+            setCaptions(loaded);
+          }
           if (parsed.style) setStyle(parsed.style);
           if (parsed.language) setLanguage(parsed.language);
 
@@ -846,9 +861,16 @@ const Editor = () => {
 
   const loadDemoProject = useCallback(async () => {
     setVideoUrl(DEMO_VIDEO_URL);
-    setCaptions([]);
-    resetHistory([]);
-    setTitle("Test Video Project");
+    const demoCaps: Caption[] = [
+      { id: "demo-1", start: 0.5, end: 3.2, text: "Welcome to Subbly AI video captioning!", originalText: "Welcome to Subbly AI video captioning!" },
+      { id: "demo-2", start: 3.4, end: 6.5, text: "Translate your captions into over 25 languages instantly.", originalText: "Translate your captions into over 25 languages instantly." },
+      { id: "demo-3", start: 6.8, end: 9.8, text: "Boost your engagement and reach global audiences today.", originalText: "Boost your engagement and reach global audiences today." },
+    ];
+    setCaptions(demoCaps);
+    resetHistory(demoCaps);
+    translationCacheRef.current = {};
+    setLanguage("auto");
+    setTitle("Demo Project");
     const demoToast = toast.loading("Loading demo video stream…");
 
     try {
@@ -868,10 +890,19 @@ const Editor = () => {
   }, [resetHistory]);
 
   useEffect(() => {
-    if (searchParams.get("demo") === "true" && !file) {
-      loadDemoProject();
+    if (searchParams.get("demo") === "true") {
+      if (!file) {
+        loadDemoProject();
+      } else if (captions.length === 0) {
+        const demoCaps: Caption[] = [
+          { id: "demo-1", start: 0.5, end: 3.2, text: "Welcome to Subbly AI video captioning!", originalText: "Welcome to Subbly AI video captioning!" },
+          { id: "demo-2", start: 3.4, end: 6.5, text: "Translate your captions into over 25 languages instantly.", originalText: "Translate your captions into over 25 languages instantly." },
+          { id: "demo-3", start: 6.8, end: 9.8, text: "Boost your engagement and reach global audiences today.", originalText: "Boost your engagement and reach global audiences today." },
+        ];
+        setCaptions(demoCaps);
+      }
     }
-  }, [searchParams, file, loadDemoProject]);
+  }, [searchParams, file, captions.length, loadDemoProject]);
 
   const transcribe = async () => {
     if (!user) {
@@ -895,7 +926,7 @@ const Editor = () => {
       const audioBlob = await extractAudioNative(file);
 
       setTranscribeStage("Transcribing…");
-      toast.loading("AI speech engine generating captions…", { id: stageToast });
+      toast.loading("Go touch grass. We’ll make the captions. 💀☕", { id: stageToast });
 
       const isWav = audioBlob.type.includes("wav") || file.name.toLowerCase().endsWith(".wav");
       const isMp3 = audioBlob.type.includes("mpeg") || audioBlob.type.includes("mp3") || file.name.toLowerCase().endsWith(".mp3");
@@ -940,7 +971,10 @@ const Editor = () => {
         const rawWords = transcriptionData.words as Word[];
         const segments = wordsToCaptions(rawWords);
         if (segments.length > 0) {
-          setCaptions(segments);
+          const initialWithOrig = segments.map((s) => ({ ...s, originalText: s.text }));
+          translationCacheRef.current = {};
+          setLanguage("auto");
+          setCaptions(initialWithOrig);
           const providerInfo = transcriptionData.provider ? ` (${transcriptionData.tookMs ? `${(transcriptionData.tookMs / 1000).toFixed(1)}s` : "done"})` : "";
           toast.success(`AI Transcription completed successfully!${providerInfo}`, { id: stageToast });
 
@@ -963,7 +997,9 @@ const Editor = () => {
                 }
                 const enrichedSegments = wordsToCaptions(enrichedWords);
                 if (enrichedSegments.length > 0) {
-                  setCaptions(enrichedSegments);
+                  const enrichedWithOrig = enrichedSegments.map((s) => ({ ...s, originalText: s.text }));
+                  translationCacheRef.current = {};
+                  setCaptions(enrichedWithOrig);
                 }
               } catch (emojiErr) {
                 console.warn("Background AI Emojis alignment skipped:", emojiErr);
@@ -993,28 +1029,66 @@ const Editor = () => {
   const handleLanguageChange = async (nextLang: string) => {
     const prevLang = language;
     setLanguage(nextLang);
-    if (!captions.length || nextLang === "auto") return;
+    if (!captions.length) {
+      toast.info("No captions to translate. Click 'Auto Transcribe' or '+ Add Caption' first.");
+      return;
+    }
 
+    const langLabel = LANGUAGES.find((l) => l.code === nextLang)?.label || nextLang;
+
+    // 1. Switching back to Auto (Original audio language) — Instant 0ms
+    if (nextLang === "auto") {
+      setCaptions((cur) =>
+        cur.map((c) => ({
+          ...c,
+          text: c.originalText || c.text,
+        }))
+      );
+      toast.success("Restored original captions");
+      return;
+    }
+
+    // 2. Check Client-Side Cache — Instant 0ms
+    const cached = translationCacheRef.current[nextLang];
+    if (cached && cached.length === captions.length) {
+      setCaptions((cur) =>
+        cur.map((c, i) => ({
+          ...c,
+          originalText: c.originalText || c.text,
+          text: cached[i] ?? c.text,
+          words: undefined,
+        }))
+      );
+      toast.success(`Switched to ${langLabel}`);
+      return;
+    }
+
+    // 3. Fast Edge Function Translation via Groq LPU / Gemini Direct
     setTranslating(true);
-    const stageToast = toast.loading(`Translating all captions to ${LANGUAGES.find(l => l.code === nextLang)?.label || nextLang}…`);
+    const stageToast = toast.loading(`Translating all captions to ${langLabel}…`);
     try {
-      const texts = captions.map(c => c.text);
+      // Always translate from original text to maintain highest fidelity
+      const texts = captions.map((c) => c.originalText || c.text);
       const res = await invokeEdgeFunction("translate-captions", {
         body: {
           texts,
           language: nextLang,
-        }
+        },
       });
       if (res && Array.isArray(res.translations)) {
         const translated: string[] = res.translations;
-        setCaptions(cur =>
+        translationCacheRef.current[nextLang] = translated;
+        setCaptions((cur) =>
           cur.map((c, i) => ({
             ...c,
+            originalText: c.originalText || c.text,
             text: translated[i] ?? c.text,
             words: undefined,
           }))
         );
-        toast.success(`Captions translated to ${LANGUAGES.find(l => l.code === nextLang)?.label || nextLang}`);
+        toast.success(`Captions translated to ${langLabel}`);
+      } else {
+        throw new Error(res?.error || "Translation engine returned an empty response.");
       }
     } catch (e: unknown) {
       console.error("Translation issue:", e);
@@ -1132,7 +1206,10 @@ const Editor = () => {
       try {
         const imported = srtToCaptions(text);
         if (imported.length > 0) {
-          setCaptions(imported);
+          const withOrig = imported.map((c) => ({ ...c, originalText: c.text }));
+          translationCacheRef.current = {};
+          setLanguage("auto");
+          setCaptions(withOrig);
           toast.success(`Imported ${imported.length} caption cards from SRT file`);
         } else {
           toast.error("SRT file format matches but holds no valid captions.");
@@ -1466,7 +1543,7 @@ const Editor = () => {
                 <div className="flex items-center gap-2.5">
                   <Globe className="h-4 w-4 text-muted-foreground" strokeWidth={2} />
                   <span className="text-[11.5px] font-bold text-muted-foreground">Caption Language</span>
-                  <Select value={language} onValueChange={handleLanguageChange}>
+                  <Select value={language} onValueChange={handleLanguageChange} disabled={translating}>
                     <SelectTrigger className="h-7.5 w-[130px] rounded-lg border border-border bg-secondary px-2.5 text-[11.5px] font-bold text-foreground focus:ring-0 focus:ring-offset-0 transition hover:bg-muted cursor-pointer">
                       <SelectValue />
                     </SelectTrigger>
@@ -1911,7 +1988,7 @@ const Editor = () => {
                             <span className="text-[11px] font-bold text-foreground">Caption Language</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Select value={language} onValueChange={handleLanguageChange}>
+                            <Select value={language} onValueChange={handleLanguageChange} disabled={translating}>
                               <SelectTrigger className="h-7.5 w-[120px] rounded-lg border border-border bg-card px-2 text-[10.5px] font-bold text-foreground focus:ring-0 cursor-pointer">
                                 <SelectValue />
                               </SelectTrigger>
