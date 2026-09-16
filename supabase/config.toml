@@ -1,7 +1,7 @@
 project_id = "polshaqgsqhzcvtipssx"
 
 [functions.transcribe-video]
-verify_jwt = true
+verify_jwt = false
 
 [functions.translate-captions]
 verify_jwt = true

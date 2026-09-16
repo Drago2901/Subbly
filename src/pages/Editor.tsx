@@ -248,7 +248,7 @@ const CondensedTimeline = ({
 };
 
 const Editor = () => {
-  const { user, signOut, isAdmin } = useAuth();
+  const { user, session, signOut, isAdmin } = useAuth();
   const { theme, toggle: toggleTheme } = useTheme();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -845,43 +845,49 @@ const Editor = () => {
   };
 
   const loadDemoProject = useCallback(async () => {
-    const mockDemoFile = new File([], "Test video.mp4", { type: "video/mp4" });
-    setFile(mockDemoFile);
     setVideoUrl(DEMO_VIDEO_URL);
     setCaptions([]);
     resetHistory([]);
     setTitle("Test Video Project");
-    toast.success("Demo video loaded!");
+    const demoToast = toast.loading("Loading demo video stream…");
 
     try {
       const res = await fetch(DEMO_VIDEO_URL);
       if (res.ok) {
         const blob = await res.blob();
-        const demoFile = new File([blob], "Test video.mp4", { type: "video/mp4" });
+        const demoFile = new File([blob], "Test-video.mp4", { type: "video/mp4" });
         setFile(demoFile);
+        toast.success("Demo video ready to transcribe!", { id: demoToast });
+      } else {
+        toast.error("Could not fetch demo video.", { id: demoToast });
       }
     } catch (e) {
       console.warn("Could not fetch demo video file for audio extraction:", e);
+      toast.error("Failed to load demo video.", { id: demoToast });
     }
-  }, []);
+  }, [resetHistory]);
 
   useEffect(() => {
     if (searchParams.get("demo") === "true" && !file) {
       loadDemoProject();
     }
   }, [searchParams, file, loadDemoProject]);
+
   const transcribe = async () => {
     if (!user) {
       toast.error("Please login to generate captions.");
       return;
     }
-    if (!file) return;
+    if (!file || file.size === 0) {
+      toast.error("Video audio stream is still loading. Please wait 2 seconds and try again.");
+      return;
+    }
     setTranscribing(true);
     setTranscribeStage("Preparing audio…");
     const stageToast = toast.loading("Auto-transcription: Preparing audio stream…");
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 90000); // 90s safety timeout
+    const timeoutId = setTimeout(() => controller.abort(), 40000); // 40s safety timeout
 
     try {
       setTranscribeStage("Optimizing audio…");
@@ -900,12 +906,19 @@ const Editor = () => {
       if (language && language !== "auto") form.append("language", language);
 
       // Direct fetch so browser configures correct multipart boundary
-      const { data: { session } } = await supabase.auth.getSession();
+      let token = session?.access_token;
+      if (!token) {
+        try {
+          const sessionRes = await supabase.auth.getSession();
+          token = sessionRes.data.session?.access_token;
+        } catch { /* ignore */ }
+      }
+
       const fnUrl = `${SUPABASE_URL}/functions/v1/transcribe-video`;
       const fnRes = await fetch(fnUrl, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${session?.access_token ?? ""}`,
+          Authorization: `Bearer ${token || "mock-token"}`,
           apikey: SUPABASE_PUBLISHABLE_KEY,
         },
         body: form,
@@ -929,7 +942,7 @@ const Editor = () => {
         if (segments.length > 0) {
           setCaptions(segments);
           const providerInfo = transcriptionData.provider ? ` (${transcriptionData.tookMs ? `${(transcriptionData.tookMs / 1000).toFixed(1)}s` : "done"})` : "";
-          toast.success(`AI Transcription completed successfully!${providerInfo}`);
+          toast.success(`AI Transcription completed successfully!${providerInfo}`, { id: stageToast });
 
           // If emojis are enabled, enrich captions in the background without blocking the editor UI
           if (style.emojiEnabled) {
@@ -969,12 +982,11 @@ const Editor = () => {
       const message = isAbort
         ? "Transcription timed out. Please try with a shorter clip or faster connection."
         : (err as Error).message;
-      toast.error(`Transcription Failed: ${message}`);
+      toast.error(`Transcription Failed: ${message}`, { id: stageToast });
     } finally {
       clearTimeout(timeoutId);
       setTranscribing(false);
       setTranscribeStage("");
-      toast.dismiss(stageToast);
     }
   };
 

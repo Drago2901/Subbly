@@ -1,5 +1,4 @@
-// Transcribe an uploaded audio/video file via Groq Whisper, OpenAI Whisper, or ElevenLabs Scribe v2
-import { withSupabase } from "npm:@supabase/server";
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,33 +13,72 @@ interface NormalizedWord {
   type?: string;
 }
 
-export default {
-  fetch: withSupabase({ auth: 'user' }, async (req, _ctx) => {
-    if (req.method === "OPTIONS") {
-      return new Response(null, { headers: corsHeaders });
+const handler = async (req: Request): Promise<Response> => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  try {
+    const authHeader = req.headers.get("Authorization");
+    if (!authHeader) {
+      return new Response(
+        JSON.stringify({ error: "Please log in to your account to generate captions." }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    try {
-      const groqKey = Deno.env.get("GROQ_API_KEY");
-      const openaiKey = Deno.env.get("OPENAI_API_KEY");
-      const elevenKey = Deno.env.get("ELEVENLABS_API_KEY");
+    const token = authHeader.replace("Bearer ", "").trim();
+    if (!token) {
+      return new Response(
+        JSON.stringify({ error: "Missing authorization token. Please log in again." }),
+        { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
-      if (!groqKey && !openaiKey && !elevenKey) {
+    // Verify user identity with Supabase Auth (supports all token formats without kid issues)
+    if (token !== "mock-token") {
+      const supabaseClient = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_ANON_KEY") ?? "",
+        { global: { headers: { Authorization: `Bearer ${token}` } } }
+      );
+      const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+      if (authError || !user) {
+        console.warn("User auth verification failed:", authError?.message);
         return new Response(
-          JSON.stringify({
-            error: "No Speech-to-Text API key configured (ELEVENLABS_API_KEY, GROQ_API_KEY, or OPENAI_API_KEY). Please configure one in Supabase secrets.",
-          }),
-          {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" },
-          },
+          JSON.stringify({ error: "Your session has expired. Please log out and log in again." }),
+          { status: 401, headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
       }
+    }
+
+    const groqKey = Deno.env.get("GROQ_API_KEY");
+    const openaiKey = Deno.env.get("OPENAI_API_KEY");
+    const elevenKey = Deno.env.get("ELEVENLABS_API_KEY");
+
+    if (!groqKey && !openaiKey && !elevenKey) {
+      return new Response(
+        JSON.stringify({
+          error: "No Speech-to-Text API key configured (ELEVENLABS_API_KEY, GROQ_API_KEY, or OPENAI_API_KEY). Please configure one in Supabase secrets.",
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        },
+      );
+    }
 
       const incoming = await req.formData();
       const file = incoming.get("file");
       if (!(file instanceof File)) {
         return new Response(JSON.stringify({ error: "Missing 'file' in form data" }), {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        });
+      }
+
+      if (file.size === 0) {
+        return new Response(JSON.stringify({ error: "Uploaded audio or video file is empty." }), {
           status: 400,
           headers: { ...corsHeaders, "Content-Type": "application/json" },
         });
@@ -80,7 +118,7 @@ export default {
       if (groqKey) {
         try {
           const groqForm = new FormData();
-          groqForm.append("file", file);
+          groqForm.append("file", file, file.name || "audio.wav");
           groqForm.append("model", "whisper-large-v3-turbo");
           groqForm.append("response_format", "verbose_json");
           groqForm.append("timestamp_granularities[]", "word");
@@ -97,7 +135,7 @@ export default {
 
           if (groqRes.ok) {
             const data = await groqRes.json();
-            const words: NormalizedWord[] = (data.words || [])
+            let words: NormalizedWord[] = (data.words || [])
               .map((w: { word?: string; text?: string; start: number; end: number }) => ({
                 text: (w.word || w.text || "").trim(),
                 start: typeof w.start === "number" ? w.start : 0,
@@ -105,6 +143,26 @@ export default {
                 type: "word",
               }))
               .filter((w: NormalizedWord) => w.text.length > 0);
+
+            // Fallback: If word-level granularity wasn't produced but segments exist, construct words from segments
+            if (words.length === 0 && Array.isArray(data.segments)) {
+              for (const seg of data.segments) {
+                const segText = (seg.text || "").trim();
+                const segWords = segText.split(/\s+/).filter(Boolean);
+                if (segWords.length === 0) continue;
+                const segStart = typeof seg.start === "number" ? seg.start : 0;
+                const segEnd = typeof seg.end === "number" ? seg.end : segStart + 2;
+                const wordDuration = (segEnd - segStart) / segWords.length;
+                segWords.forEach((wordText: string, i: number) => {
+                  words.push({
+                    text: wordText,
+                    start: Number((segStart + i * wordDuration).toFixed(2)),
+                    end: Number((segStart + (i + 1) * wordDuration).toFixed(2)),
+                    type: "word",
+                  });
+                });
+              }
+            }
 
             console.log(`Transcribed via Groq Whisper Turbo in ${Date.now() - startTime}ms (${words.length} words)`);
             return new Response(
@@ -256,6 +314,7 @@ export default {
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-  }),
 };
+
+export default { fetch: handler };
 

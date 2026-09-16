@@ -9,7 +9,6 @@ async function testCall() {
   
   // Construct FormData
   const formData = new FormData();
-  // In Node.js, we can append a Blob created from the buffer
   const blob = new Blob([fileData], { type: 'audio/wav' });
   formData.append('file', blob, 'audio.wav');
   formData.append('language', 'en');
