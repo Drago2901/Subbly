@@ -1,51 +1,123 @@
 /**
  * Extracts audio from a video/audio file using the browser's native Web Audio API.
- * Produces a 16kHz mono 16-bit PCM WAV blob — no WebAssembly or CDN downloads required.
- * This is dramatically faster than FFmpeg-based extraction.
+ * - If the file is already an audio file (mp3, wav, m4a, ogg, etc.), returns it immediately without re-encoding.
+ * - Otherwise decodes audio to a 16kHz mono 16-bit PCM WAV.
+ * - If native decoding fails on a video container and file is <= 25MB, falls back to returning the original file.
  */
-export async function extractAudioNative(videoFile: File): Promise<Blob> {
-  const arrayBuffer = await videoFile.arrayBuffer();
+export async function extractAudioNative(file: File): Promise<Blob> {
+  // 1. Instant passthrough if already an audio file
+  const isAudioFile =
+    file.type.startsWith("audio/") ||
+    /\.(mp3|wav|m4a|aac|ogg|flac|wma)$/i.test(file.name);
 
-  // Decode audio using the browser's native codec support
-  const audioCtx = new AudioContext({ sampleRate: 16000 });
-  let audioBuffer: AudioBuffer;
+  if (isAudioFile) {
+    return file;
+  }
+
+  // 2. If video is very small (<= 3MB), pass through directly to avoid decode overhead
+  // Speech-to-text engines (Groq, OpenAI, ElevenLabs) accept MP4/WebM directly under 25MB.
+  if (file.size <= 3 * 1024 * 1024 && /\.(mp4|webm)$/i.test(file.name)) {
+    return file;
+  }
+
+  // 3. Native Web Audio extraction for video files
   try {
-    audioBuffer = await audioCtx.decodeAudioData(arrayBuffer);
-  } finally {
-    await audioCtx.close();
-  }
+    const arrayBuffer = await file.arrayBuffer();
 
-  // Mix all channels down to mono
-  const numChannels = audioBuffer.numberOfChannels;
-  const length = audioBuffer.length;
-  let monoData: Float32Array;
+    const AudioCtxClass =
+      window.AudioContext ||
+      (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
 
-  if (numChannels === 1) {
-    monoData = audioBuffer.getChannelData(0);
-  } else if (numChannels === 2) {
-    monoData = new Float32Array(length);
-    const left = audioBuffer.getChannelData(0);
-    const right = audioBuffer.getChannelData(1);
-    for (let i = 0; i < length; i++) {
-      monoData[i] = (left[i] + right[i]) * 0.5;
+    if (!AudioCtxClass) {
+      throw new Error("Web Audio API not supported in this environment");
     }
-  } else {
-    monoData = new Float32Array(length);
-    const channels = [];
-    for (let ch = 0; ch < numChannels; ch++) {
-      channels.push(audioBuffer.getChannelData(ch));
-    }
-    const factor = 1 / numChannels;
-    for (let i = 0; i < length; i++) {
-      let sum = 0;
-      for (let ch = 0; ch < numChannels; ch++) {
-        sum += channels[ch][i];
+
+    // Initialize with default hardware sample rate to avoid browser NotSupportedError
+    const audioCtx = new AudioCtxClass();
+
+    let audioBuffer: AudioBuffer;
+    try {
+      // Decode audio using browser's native container/codec support (5s safety timeout)
+      audioBuffer = await Promise.race([
+        audioCtx.decodeAudioData(arrayBuffer),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Audio decoding timed out")), 5000)
+        ),
+      ]);
+    } finally {
+      try {
+        await audioCtx.close();
+      } catch {
+        // Ignore close errors
       }
-      monoData[i] = sum * factor;
     }
-  }
 
-  return encodeWav(monoData, 16000);
+    // High-speed native resampling down to 16kHz mono using OfflineAudioContext
+    const OfflineCtxClass =
+      window.OfflineAudioContext ||
+      (window as unknown as { webkitOfflineAudioContext: typeof OfflineAudioContext }).webkitOfflineAudioContext;
+
+    const targetSampleRate = 16000;
+    const targetLength = Math.max(1, Math.ceil(audioBuffer.duration * targetSampleRate));
+
+    if (OfflineCtxClass) {
+      try {
+        const offlineCtx = new OfflineCtxClass(1, targetLength, targetSampleRate);
+        const source = offlineCtx.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(offlineCtx.destination);
+        source.start(0);
+
+        const rendered = await offlineCtx.startRendering();
+        const monoData = rendered.getChannelData(0);
+        return encodeWav(monoData, targetSampleRate);
+      } catch (offlineErr) {
+        console.warn("OfflineAudioContext resampling failed, falling back to manual downsampling:", offlineErr);
+      }
+    }
+
+    // Fallback: Mix channels and manual downsample
+    const numChannels = audioBuffer.numberOfChannels;
+    const length = audioBuffer.length;
+    let mixedMono: Float32Array;
+
+    if (numChannels === 1) {
+      mixedMono = audioBuffer.getChannelData(0);
+    } else {
+      mixedMono = new Float32Array(length);
+      const factor = 1 / numChannels;
+      for (let ch = 0; ch < numChannels; ch++) {
+        const channelData = audioBuffer.getChannelData(ch);
+        for (let i = 0; i < length; i++) {
+          mixedMono[i] += channelData[i] * factor;
+        }
+      }
+    }
+
+    // Downsample to 16kHz if needed
+    if (audioBuffer.sampleRate !== targetSampleRate) {
+      const ratio = audioBuffer.sampleRate / targetSampleRate;
+      const downsampled = new Float32Array(targetLength);
+      for (let i = 0; i < targetLength; i++) {
+        const origIndex = Math.floor(i * ratio);
+        downsampled[i] = origIndex < length ? mixedMono[origIndex] : 0;
+      }
+      return encodeWav(downsampled, targetSampleRate);
+    }
+
+    return encodeWav(mixedMono, targetSampleRate);
+  } catch (err) {
+    console.warn("Native Web Audio extraction failed:", err);
+    // If video file is reasonably sized (<= 25MB), fallback to returning original video
+    const FALLBACK_MAX_BYTES = 25 * 1024 * 1024;
+    if (file.size <= FALLBACK_MAX_BYTES) {
+      console.info("Falling back to sending original media file directly for transcription.");
+      return file;
+    }
+    throw new Error(
+      `Could not extract audio track from video (${err instanceof Error ? err.message : "decode failure"}). Please upload a smaller video or an audio file.`
+    );
+  }
 }
 
 /** Encode a Float32Array of mono PCM samples into a 16-bit PCM WAV Blob. */
@@ -86,3 +158,4 @@ function encodeWav(samples: Float32Array, sampleRate: number): Blob {
 
   return new Blob([headerBuffer, int16Samples.buffer], { type: "audio/wav" });
 }
+

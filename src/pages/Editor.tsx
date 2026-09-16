@@ -877,22 +877,29 @@ const Editor = () => {
     }
     if (!file) return;
     setTranscribing(true);
-    setTranscribeStage("Extracting audio…");
-    const stageToast = toast.loading("Auto-transcription: Extracting audio tracks…");
+    setTranscribeStage("Preparing audio…");
+    const stageToast = toast.loading("Auto-transcription: Preparing audio stream…");
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 90000); // 90s safety timeout
 
     try {
-      setTranscribeStage("Processing voice…");
-      toast.loading("Extracting speech tracks from video metadata…", { id: stageToast });
+      setTranscribeStage("Optimizing audio…");
+      toast.loading("Extracting and optimizing speech tracks…", { id: stageToast });
       const audioBlob = await extractAudioNative(file);
 
       setTranscribeStage("Transcribing…");
-      toast.loading("☕ Grab a coffee while we do the magic...", { id: stageToast });
+      toast.loading("AI speech engine generating captions…", { id: stageToast });
+
+      const isWav = audioBlob.type.includes("wav") || file.name.toLowerCase().endsWith(".wav");
+      const isMp3 = audioBlob.type.includes("mpeg") || audioBlob.type.includes("mp3") || file.name.toLowerCase().endsWith(".mp3");
+      const ext = isWav ? "wav" : isMp3 ? "mp3" : (file.name.split(".").pop() || "wav");
+
       const form = new FormData();
-      form.append("file", audioBlob, "audio.wav");
+      form.append("file", audioBlob, `audio.${ext}`);
       if (language && language !== "auto") form.append("language", language);
 
-      // Use direct fetch so the browser sets the correct multipart Content-Type
-      // boundary automatically (supabase.functions.invoke overrides it and breaks FormData)
+      // Direct fetch so browser configures correct multipart boundary
       const { data: { session } } = await supabase.auth.getSession();
       const fnUrl = `${SUPABASE_URL}/functions/v1/transcribe-video`;
       const fnRes = await fetch(fnUrl, {
@@ -902,7 +909,9 @@ const Editor = () => {
           apikey: SUPABASE_PUBLISHABLE_KEY,
         },
         body: form,
+        signal: controller.signal,
       });
+
       if (!fnRes.ok) {
         const errText = await fnRes.text();
         let errMsg = "Transcription failed. Please try again.";
@@ -914,38 +923,55 @@ const Editor = () => {
       }
       const transcriptionData = await fnRes.json();
 
-      if (transcriptionData?.words && Array.isArray(transcriptionData.words)) {
-        let alignedWords = transcriptionData.words as Word[];
-        if (style.emojiEnabled) {
-          setTranscribeStage("Aligning emojis…");
-          toast.loading("Running AI semantic emoji alignments…", { id: stageToast });
-          try {
-            const emojiRes = await invokeEdgeFunction("align-emojis", {
-              body: {
-                captions: [{ id: "temp", text: alignedWords.map((w) => w.text).join(" "), words: alignedWords }],
-                density: style.emojiDensity || "medium",
-              },
-            });
-            if (emojiRes?.captions?.[0]?.words) {
-              alignedWords = emojiRes.captions[0].words;
-            } else if (emojiRes?.captions?.[0]?.text) {
-              alignedWords = alignEmojisWithWords(alignedWords, emojiRes.captions[0].text);
-            }
-          } catch (emojiErr) {
-            console.warn("AI Emojis skipped during transcription:", emojiErr);
-          }
-        }
+      if (transcriptionData?.words && Array.isArray(transcriptionData.words) && transcriptionData.words.length > 0) {
+        const rawWords = transcriptionData.words as Word[];
+        const segments = wordsToCaptions(rawWords);
+        if (segments.length > 0) {
+          setCaptions(segments);
+          const providerInfo = transcriptionData.provider ? ` (${transcriptionData.tookMs ? `${(transcriptionData.tookMs / 1000).toFixed(1)}s` : "done"})` : "";
+          toast.success(`AI Transcription completed successfully!${providerInfo}`);
 
-        const segments = wordsToCaptions(alignedWords);
-        setCaptions(segments);
-        toast.success("AI Transcription completed successfully!");
+          // If emojis are enabled, enrich captions in the background without blocking the editor UI
+          if (style.emojiEnabled) {
+            (async () => {
+              try {
+                const cleanText = rawWords.map((w) => w.text.trim()).filter(Boolean).join(" ");
+                const emojiRes = await invokeEdgeFunction("align-emojis", {
+                  body: {
+                    captions: [{ id: "temp", text: cleanText, words: rawWords }],
+                    density: style.emojiDensity || "medium",
+                  },
+                });
+                let enrichedWords = rawWords;
+                if (emojiRes?.captions?.[0]?.words) {
+                  enrichedWords = emojiRes.captions[0].words;
+                } else if (emojiRes?.captions?.[0]?.text) {
+                  enrichedWords = alignEmojisWithWords(rawWords, emojiRes.captions[0].text);
+                }
+                const enrichedSegments = wordsToCaptions(enrichedWords);
+                if (enrichedSegments.length > 0) {
+                  setCaptions(enrichedSegments);
+                }
+              } catch (emojiErr) {
+                console.warn("Background AI Emojis alignment skipped:", emojiErr);
+              }
+            })();
+          }
+        } else {
+          throw new Error("Could not parse recognizable speech into subtitle segments.");
+        }
       } else {
         throw new Error("No speech segments recognized in this video file.");
       }
     } catch (err: unknown) {
       console.error("Transcription pipeline issue:", err);
-      toast.error(`Transcription Failed: ${(err as Error).message}`);
+      const isAbort = (err as { name?: string })?.name === "AbortError";
+      const message = isAbort
+        ? "Transcription timed out. Please try with a shorter clip or faster connection."
+        : (err as Error).message;
+      toast.error(`Transcription Failed: ${message}`);
     } finally {
+      clearTimeout(timeoutId);
       setTranscribing(false);
       setTranscribeStage("");
       toast.dismiss(stageToast);

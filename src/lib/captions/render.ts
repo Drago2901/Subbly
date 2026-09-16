@@ -851,22 +851,33 @@ function getRenderWords(
   caption: Caption,
   style: CaptionStyle,
 ): RenderWord[] {
-  const sourceWords = style.karaoke && caption.words?.length
-    ? caption.words.map((word) => ({ text: word.text, start: word.start, end: word.end }))
+  const hasRealWords = Array.isArray(caption.words) && caption.words.length > 0;
+  const sourceWords = hasRealWords
+    ? caption.words!
+        .map((word) => ({
+          text: (word.text || "").trim(),
+          start: typeof word.start === "number" ? word.start : caption.start,
+          end: typeof word.end === "number" ? word.end : caption.end,
+        }))
+        .filter((w) => w.text.length > 0)
     : (() => {
-      const tokens = splitIntoWordTokens(caption.text);
-      const duration = Math.max(0.1, caption.end - caption.start);
-      const wordDur = duration / tokens.length;
-      return tokens.map((text, idx) => ({
-        text,
-        start: caption.start + idx * wordDur,
-        end: caption.start + (idx + 1) * wordDur,
-      }));
-    })();
+        const tokens = splitIntoWordTokens(caption.text)
+          .map((t) => t.trim())
+          .filter((t) => t.length > 0);
+        const safeTokens = tokens.length > 0 ? tokens : [caption.text.trim() || ""];
+        const duration = Math.max(0.1, caption.end - caption.start);
+        const wordDur = duration / safeTokens.length;
+        return safeTokens.map((text, idx) => ({
+          text,
+          start: caption.start + idx * wordDur,
+          end: caption.start + (idx + 1) * wordDur,
+        }));
+      })();
 
   return sourceWords.map((word, idx) => {
     let text = style.uppercase ? word.text.toUpperCase() : word.text;
-    if (style.karaoke && idx < sourceWords.length - 1 && !text.endsWith(" ")) {
+    // Append a single trailing space between words for clean horizontal flow
+    if (idx < sourceWords.length - 1 && !text.endsWith(" ")) {
       text += " ";
     }
     return {

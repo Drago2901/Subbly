@@ -1076,10 +1076,15 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
                     if (itemStyle.karaoke) {
                       const wordsToRender = (activeItem.words && activeItem.words.length > 0)
                         ? activeItem.words
+                            .map((w) => ({
+                              ...w,
+                              text: (w.text || "").trim(),
+                            }))
+                            .filter((w) => w.text.length > 0)
                         : (() => {
-                            const tokens = activeItem.text.match(/\S+\s*/g) || [activeItem.text];
+                            const tokens = (activeItem.text.match(/\S+/g) || [activeItem.text.trim()]).filter(Boolean);
                             const duration = Math.max(0.1, activeItem.end - activeItem.start);
-                            const wordDur = duration / tokens.length;
+                            const wordDur = duration / Math.max(1, tokens.length);
                             return tokens.map((text, idx) => ({
                               text,
                               start: activeItem.start + idx * wordDur,
@@ -1091,8 +1096,7 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
                         const isActive = time >= w.start && time <= w.end;
                         const isPast = time > w.end;
                         const text = itemStyle.uppercase ? w.text.toUpperCase() : w.text;
-                        const hasTrailingSpace = text.endsWith(" ");
-                        const showSpace = i < wordsToRender.length - 1 && !hasTrailingSpace;
+                        const showSpace = i < wordsToRender.length - 1;
                         return (
                           <span key={i} className="inline-block">
                             <span
