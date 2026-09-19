@@ -1074,6 +1074,7 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
                       );
                     }
                     if (itemStyle.karaoke) {
+                      const isCJK = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff66-\uff9f]/.test(activeItem.text);
                       const wordsToRender = (activeItem.words && activeItem.words.length > 0)
                         ? activeItem.words
                             .map((w) => ({
@@ -1096,7 +1097,7 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
                         const isActive = time >= w.start && time <= w.end;
                         const isPast = time > w.end;
                         const text = itemStyle.uppercase ? w.text.toUpperCase() : w.text;
-                        const showSpace = i < wordsToRender.length - 1;
+                        const showSpace = !isCJK && i < wordsToRender.length - 1;
                         return (
                           <span key={i} className="inline-block">
                             <span

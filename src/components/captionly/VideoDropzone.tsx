@@ -7,6 +7,8 @@ type Props = {
   onDemo?: () => void;
 };
 
+import { toast } from "sonner";
+
 export function VideoDropzone({ onFile, onDemo }: Props) {
   const [drag, setDrag] = useState(false);
 
@@ -14,8 +16,13 @@ export function VideoDropzone({ onFile, onDemo }: Props) {
     (files: FileList | null) => {
       if (!files || files.length === 0) return;
       const f = files[0];
-      if (!f.type.startsWith("video/")) {
-        alert("Please drop a video file.");
+      const isMedia =
+        f.type.startsWith("video/") ||
+        f.type.startsWith("audio/") ||
+        /\.(mp4|mov|webm|mkv|avi|wmv|flv|m4v|3gp|mp3|wav|m4a|aac|ogg|flac)$/i.test(f.name);
+
+      if (!isMedia) {
+        toast.error("Please drop a valid video or audio file (MP4, MOV, WebM, MKV, MP3, WAV, etc.).");
         return;
       }
       onFile(f);
@@ -52,7 +59,7 @@ export function VideoDropzone({ onFile, onDemo }: Props) {
         />
         <input
           type="file"
-          accept="video/*"
+          accept="video/*,audio/*,.mkv,.avi,.mov,.mp4,.webm,.mp3,.wav,.m4a"
           className="hidden"
           onChange={(e) => handleFiles(e.target.files)}
         />

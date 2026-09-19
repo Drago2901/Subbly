@@ -24,6 +24,7 @@ export type Caption = {
   mediaTitle?: string;
   mediaAspectRatio?: number;
   originalText?: string;
+  originalWords?: Word[];
 };
 
 export type CaptionAnimation =

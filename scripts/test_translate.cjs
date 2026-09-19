@@ -1,13 +1,13 @@
 const fs = require('fs');
 
 async function testTranslate() {
-  const url = "https://syyfclyefqjguhpwtqrq.supabase.co/functions/v1/translate-captions";
-  const token = "mock-token";
+  const url = "https://polshaqgsqhzcvtipssx.supabase.co/functions/v1/translate-captions";
+  const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBvbHNoYXFnc3FoemN2dGlwc3N4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODM2ODI0NjYsImV4cCI6MjA5OTI1ODQ2Nn0.2lqBOkAvcmHRnrt6--CiCNGMMs9zpHzCla6OZnNNo0o";
   
   // Construct body
   const body = {
-    texts: ["Hello world", "This is a test of the emergency broadcast system"],
-    language: "the exact same language, but enhanced by adding contextually relevant emojis to important words and phrases."
+    texts: ["Hello world, welcome to Subbly", "Create engaging captions in seconds"],
+    language: "hinglish"
   };
 
   console.log('Sending request to', url);

@@ -55,11 +55,11 @@ export const MemeStudioPanel: React.FC<MemeStudioPanelProps> = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end pointer-events-none">
+    <div className="fixed inset-0 z-[100] flex justify-end pointer-events-none">
       {/* Dimmed backdrop for mobile or click-outside */}
       <div
         onClick={onClose}
-        className="fixed inset-0 bg-black/40 backdrop-blur-[2px] transition-opacity duration-200 pointer-events-auto md:bg-black/20"
+        className="fixed inset-0 bg-black/50 backdrop-blur-[2px] transition-opacity duration-200 pointer-events-auto z-[100] md:bg-black/20"
         aria-hidden="true"
       />
 
@@ -69,7 +69,7 @@ export const MemeStudioPanel: React.FC<MemeStudioPanelProps> = ({
         role="dialog"
         aria-modal="true"
         aria-label="Meme Studio"
-        className="relative w-full sm:w-[450px] h-full bg-[#FFFFFF] dark:bg-[#12151B] border-l border-[#E8E4DE] dark:border-[#242832] shadow-2xl flex flex-col pointer-events-auto z-50 animate-in slide-in-from-right duration-250 ease-out select-none"
+        className="relative w-full sm:w-[450px] h-full bg-[#FFFFFF] dark:bg-[#12151B] border-l border-[#E8E4DE] dark:border-[#242832] shadow-2xl flex flex-col pointer-events-auto z-[101] animate-in slide-in-from-right duration-250 ease-out select-none"
       >
         {/* 1. Panel Header */}
         <div className="p-4 pb-3 border-b border-[#E8E4DE] dark:border-[#222630] flex flex-col gap-1">

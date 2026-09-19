@@ -135,7 +135,7 @@ const handler = async (req: Request): Promise<Response> => {
 
           if (groqRes.ok) {
             const data = await groqRes.json();
-            let words: NormalizedWord[] = (data.words || [])
+            const words: NormalizedWord[] = (data.words || [])
               .map((w: { word?: string; text?: string; start: number; end: number }) => ({
                 text: (w.word || w.text || "").trim(),
                 start: typeof w.start === "number" ? w.start : 0,

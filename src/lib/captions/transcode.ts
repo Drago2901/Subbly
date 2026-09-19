@@ -4,7 +4,7 @@ import { fetchFile, toBlobURL } from "@ffmpeg/util";
 let ffmpegInstance: FFmpeg | null = null;
 let loadPromise: Promise<FFmpeg> | null = null;
 
-async function getFFmpeg(onLog?: (msg: string) => void): Promise<FFmpeg> {
+export async function getFFmpeg(onLog?: (msg: string) => void): Promise<FFmpeg> {
   if (ffmpegInstance) return ffmpegInstance;
   if (loadPromise) return loadPromise;
 
@@ -55,12 +55,13 @@ async function getFFmpeg(onLog?: (msg: string) => void): Promise<FFmpeg> {
 export async function transcodeWebmToMp4(opts: {
   webmBlob: Blob;
   originalFile?: File | Blob;
+  duration?: number;
   quality?: "standard" | "high";
   onProgress?: (progress: number) => void;
   onLog?: (msg: string) => void;
   signal?: AbortSignal;
 }): Promise<Blob> {
-  const { webmBlob, originalFile, quality, onProgress, onLog, signal } = opts;
+  const { webmBlob, originalFile, duration, quality, onProgress, onLog, signal } = opts;
   if (signal?.aborted) throw cancelled();
 
   onLog?.("[Export] transcoding started");
@@ -85,7 +86,7 @@ export async function transcodeWebmToMp4(opts: {
     await ffmpeg.writeFile(inputName, await fetchFile(webmBlob));
     if (signal?.aborted) throw cancelled();
 
-    if (originalFile) {
+    if (originalFile && originalFile.size > 0) {
       const sourceExt = originalFile instanceof File ? (originalFile.name.split(".").pop() || "mp4") : "mp4";
       sourceName = `source.${sourceExt}`;
       await ffmpeg.writeFile(sourceName, await fetchFile(originalFile));
@@ -100,12 +101,18 @@ export async function transcodeWebmToMp4(opts: {
 
     if (sourceName) {
       args.push("-i", sourceName);
-      // Map video from rendered canvas WebM, and optional audio from source file
+      // Map video from rendered canvas WebM, and audio from source file
       args.push("-map", "0:v:0", "-map", "1:a:0?");
     } else {
       // Map video and optional audio from rendered WebM
       args.push("-map", "0:v:0", "-map", "0:a:0?");
     }
+
+    // Clamp duration and enforce -shortest to prevent runaway encoding or infinite loops
+    if (duration && duration > 0) {
+      args.push("-t", duration.toFixed(3));
+    }
+    args.push("-shortest");
 
     args.push(
       "-vf", "fps=30",
@@ -120,11 +127,17 @@ export async function transcodeWebmToMp4(opts: {
       "-ac", "2",
       "-af", "aresample=async=1:first_pts=0",
       "-avoid_negative_ts", "make_zero",
-      "-movflags", "+faststart",
       outputName,
     );
 
-    const exitCode = await ffmpeg.exec(args);
+    // Safety timeout: 180s maximum
+    const execTimeoutMs = 180000;
+    const exitCode = await Promise.race([
+      ffmpeg.exec(args),
+      new Promise<number>((_, reject) =>
+        setTimeout(() => reject(new Error("FFmpeg transcoding timed out")), execTimeoutMs)
+      ),
+    ]);
 
     if (signal?.aborted) throw cancelled();
     if (exitCode !== 0) throw new Error("ffmpeg failed to transcode the video to MP4.");

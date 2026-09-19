@@ -26,6 +26,11 @@ import AICaptionGenerator from "./pages/landing/AICaptionGenerator.tsx";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { RainBackground } from "@/components/ui/RainBackground";
 import { CookieConsent } from "@/components/ui/CookieConsent";
+import { registerServiceWorker } from "@/lib/pwa/registerServiceWorker";
+import { PwaUpdateToast } from "@/components/pwa/PwaUpdateToast";
+
+// Initialize PWA service worker lifecycle manager
+registerServiceWorker();
 
 const queryClient = new QueryClient();
 
@@ -41,6 +46,7 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
+        <PwaUpdateToast />
         <BrowserRouter>
         <ThemeProvider>
           <RainBackgroundWrapper />

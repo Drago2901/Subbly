@@ -876,8 +876,9 @@ function getRenderWords(
 
   return sourceWords.map((word, idx) => {
     let text = style.uppercase ? word.text.toUpperCase() : word.text;
-    // Append a single trailing space between words for clean horizontal flow
-    if (idx < sourceWords.length - 1 && !text.endsWith(" ")) {
+    const isCJK = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff66-\uff9f]/.test(caption.text);
+    // Append a single trailing space between words for clean horizontal flow (skip for CJK)
+    if (!isCJK && idx < sourceWords.length - 1 && !text.endsWith(" ")) {
       text += " ";
     }
     return {

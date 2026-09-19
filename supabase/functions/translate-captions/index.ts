@@ -65,7 +65,29 @@ function buildPrompts(texts: string[], targetName: string) {
 }
 
 function extractTranslations(raw: string, expectedCount: number, originalTexts: string[]): string[] {
-  const clean = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "").trim();
+  let clean = raw.trim();
+  // Strip markdown code fences if present anywhere
+  const fenceMatch = clean.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+  if (fenceMatch) {
+    clean = fenceMatch[1].trim();
+  } else {
+    // If model included introductory text before JSON, isolate first { or [ to matching end
+    const firstBrace = clean.indexOf("{");
+    const firstBracket = clean.indexOf("[");
+    const startIdx = firstBrace !== -1 && firstBracket !== -1
+      ? Math.min(firstBrace, firstBracket)
+      : firstBrace !== -1
+      ? firstBrace
+      : firstBracket;
+    if (startIdx !== -1) {
+      const lastBrace = clean.lastIndexOf("}");
+      const lastBracket = clean.lastIndexOf("]");
+      const endIdx = Math.max(lastBrace, lastBracket);
+      if (endIdx > startIdx) {
+        clean = clean.substring(startIdx, endIdx + 1).trim();
+      }
+    }
+  }
 
   try {
     const parsed = JSON.parse(clean);
@@ -74,6 +96,16 @@ function extractTranslations(raw: string, expectedCount: number, originalTexts: 
       list = parsed;
     } else if (Array.isArray(parsed?.translations)) {
       list = parsed.translations;
+    } else if (Array.isArray(parsed?.lines)) {
+      list = parsed.lines;
+    } else if (Array.isArray(parsed?.subtitles)) {
+      list = parsed.subtitles;
+    } else if (Array.isArray(parsed?.data)) {
+      list = parsed.data;
+    } else if (Array.isArray(parsed?.results)) {
+      list = parsed.results;
+    } else if (Array.isArray(parsed?.captions)) {
+      list = parsed.captions;
     } else if (typeof parsed === "object" && parsed !== null) {
       list = [];
       for (let i = 0; i < expectedCount; i++) {
@@ -82,20 +114,25 @@ function extractTranslations(raw: string, expectedCount: number, originalTexts: 
     }
 
     if (list && list.length > 0) {
-      return originalTexts.map((orig, i) => {
-        const item = list![i];
+      const results: string[] = [];
+      for (let i = 0; i < expectedCount; i++) {
+        const item = list[i];
         if (typeof item === "string" && item.trim()) {
-          return item.replace(/^\d+[.:)]\s*/, "").trim();
+          results.push(item.replace(/^\d+[.:)]\s*/, "").trim());
+        } else if (typeof item === "object" && item !== null && "text" in item && typeof (item as { text: unknown }).text === "string") {
+          results.push(((item as { text: string }).text || "").replace(/^\d+[.:)]\s*/, "").trim());
+        } else {
+          results.push(originalTexts[i] ?? "");
         }
-        return orig;
-      });
+      }
+      return results;
     }
   } catch {
     // fall through to regex extraction
   }
 
   // Regex fallback: extract lines matching "1. text" or "1: text" or quotes
-  const lines = clean.split("\n");
+  const lines = raw.split("\n");
   const extracted: Record<number, string> = {};
   for (const line of lines) {
     const match = line.match(/^(\d+)[.:)]\s*(.+)/);
@@ -113,6 +150,20 @@ function extractTranslations(raw: string, expectedCount: number, originalTexts: 
   }
 
   throw new Error("Failed to parse translations from model output");
+}
+
+function isHinglishValid(results: string[]): boolean {
+  return !results.some((r) => /[\u0900-\u097F]/.test(r));
+}
+
+function hasMeaningfulTranslation(results: string[], original: string[], targetName: string): boolean {
+  if (!results || results.length !== original.length) return false;
+  const isHinglish = targetName.toLowerCase().includes("hinglish");
+  if (isHinglish && !isHinglishValid(results)) {
+    return false; // Devanagari script is strictly invalid for Hinglish; trigger failover
+  }
+  if (targetName.toLowerCase().startsWith("english")) return true;
+  return results.some((r, i) => r.trim().toLowerCase() !== (original[i] ?? "").trim().toLowerCase());
 }
 
 // ── 1. GROQ LPU INFERENCE (Sub-second speed: ~200–500ms) ───────────
@@ -140,7 +191,7 @@ async function translateWithGroq(
       response_format: { type: "json_object" },
       max_completion_tokens: 4096,
     }),
-    signal: AbortSignal.timeout(7000),
+    signal: AbortSignal.timeout(10000),
   });
 
   if (!res.ok) {
@@ -179,7 +230,7 @@ async function translateWithGemini(
         maxOutputTokens: 4096,
       },
     }),
-    signal: AbortSignal.timeout(7000),
+    signal: AbortSignal.timeout(10000),
   });
 
   if (!res.ok) {
@@ -219,7 +270,7 @@ async function translateWithOpenRouter(
       response_format: { type: "json_object" },
       max_tokens: 4096,
     }),
-    signal: AbortSignal.timeout(8000),
+    signal: AbortSignal.timeout(10000),
   });
 
   if (!res.ok) {
@@ -238,14 +289,24 @@ async function translateBatchWithProviders(
   targetName: string,
   keys: { groqKey?: string; geminiKey?: string; openRouterKey?: string },
 ): Promise<string[]> {
+  let fallbackCandidate: string[] | null = null;
+
   // Tier 1: Groq (Primary ultra-fast LPU inference)
   if (keys.groqKey) {
     const groqModels = ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
     for (const model of groqModels) {
       try {
         const result = await translateWithGroq(texts, targetName, keys.groqKey, model);
-        if (result && result.length === texts.length) {
+        const isHinglish = targetName.toLowerCase().includes("hinglish");
+        if (isHinglish && !isHinglishValid(result)) {
+          console.warn(`Groq (${model}) returned Devanagari script for Hinglish, failing over.`);
+          continue;
+        }
+        if (hasMeaningfulTranslation(result, texts, targetName)) {
           return result;
+        }
+        if (!fallbackCandidate && result && result.length === texts.length) {
+          fallbackCandidate = result;
         }
       } catch (err) {
         console.warn(`Groq (${model}) translation failed:`, err instanceof Error ? err.message : err);
@@ -259,8 +320,16 @@ async function translateBatchWithProviders(
     for (const model of geminiModels) {
       try {
         const result = await translateWithGemini(texts, targetName, keys.geminiKey, model);
-        if (result && result.length === texts.length) {
+        const isHinglish = targetName.toLowerCase().includes("hinglish");
+        if (isHinglish && !isHinglishValid(result)) {
+          console.warn(`Gemini (${model}) returned Devanagari script for Hinglish, failing over.`);
+          continue;
+        }
+        if (hasMeaningfulTranslation(result, texts, targetName)) {
           return result;
+        }
+        if (!fallbackCandidate && result && result.length === texts.length) {
+          fallbackCandidate = result;
         }
       } catch (err) {
         console.warn(`Gemini (${model}) translation failed:`, err instanceof Error ? err.message : err);
@@ -278,8 +347,16 @@ async function translateBatchWithProviders(
     for (const model of openRouterModels) {
       try {
         const result = await translateWithOpenRouter(texts, targetName, keys.openRouterKey, model);
-        if (result && result.length === texts.length) {
+        const isHinglish = targetName.toLowerCase().includes("hinglish");
+        if (isHinglish && !isHinglishValid(result)) {
+          console.warn(`OpenRouter (${model}) returned Devanagari script for Hinglish, failing over.`);
+          continue;
+        }
+        if (hasMeaningfulTranslation(result, texts, targetName)) {
           return result;
+        }
+        if (!fallbackCandidate && result && result.length === texts.length) {
+          fallbackCandidate = result;
         }
       } catch (err) {
         console.warn(`OpenRouter (${model}) translation failed:`, err instanceof Error ? err.message : err);
@@ -287,7 +364,12 @@ async function translateBatchWithProviders(
     }
   }
 
-  console.error("All translation providers failed for batch. Returning original texts.");
+  // If models returned valid candidate (e.g. brand names / proper nouns that don't change), use it!
+  if (fallbackCandidate && fallbackCandidate.length === texts.length) {
+    return fallbackCandidate;
+  }
+
+  console.warn(`All translation providers failed to alter text for ${texts.length} captions to ${targetName}. Preserving source texts.`);
   return texts;
 }
 
@@ -296,19 +378,29 @@ async function translateAllCaptions(
   targetName: string,
   keys: { groqKey?: string; geminiKey?: string; openRouterKey?: string },
 ): Promise<string[]> {
-  // Use BATCH_SIZE = 75 so that short-form videos complete in a single sub-second call
-  const BATCH_SIZE = 75;
+  // Use BATCH_SIZE = 14 so that short-form videos complete in parallel sub-second calls without timeouts
+  const BATCH_SIZE = 14;
   const chunks: string[][] = [];
 
   for (let i = 0; i < texts.length; i += BATCH_SIZE) {
     chunks.push(texts.slice(i, i + BATCH_SIZE));
   }
 
-  const batchResults = await Promise.all(
-    chunks.map((chunk) => translateBatchWithProviders(chunk, targetName, keys)),
-  );
+  // Execute up to 4 batches concurrently to balance speed with provider rate limits
+  const results: string[][] = new Array(chunks.length);
+  const CONCURRENCY = 4;
+  for (let i = 0; i < chunks.length; i += CONCURRENCY) {
+    const slice = chunks.slice(i, i + CONCURRENCY);
+    const sliceIndices = slice.map((_, idx) => i + idx);
+    const sliceResults = await Promise.all(
+      slice.map((chunk) => translateBatchWithProviders(chunk, targetName, keys)),
+    );
+    for (let j = 0; j < sliceResults.length; j++) {
+      results[sliceIndices[j]] = sliceResults[j];
+    }
+  }
 
-  return batchResults.flat();
+  return results.flat();
 }
 
 const handler = async (req: Request): Promise<Response> => {

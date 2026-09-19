@@ -1,0 +1,25 @@
+{
+  "name": "Subbly — AI Video Caption Editor",
+  "short_name": "Subbly",
+  "description": "Auto-generate, edit, style and export viral video captions with AI.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#09090b",
+  "theme_color": "#FF6B2C",
+  "categories": ["video", "productivity", "multimedia"],
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192 512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon"
+    }
+  ]
+}

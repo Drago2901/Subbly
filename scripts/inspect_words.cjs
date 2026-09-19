@@ -1,7 +1,7 @@
 const fs = require('fs');
 
 async function inspectWords() {
-  const url = "https://syyfclyefqjguhpwtqrq.supabase.co/functions/v1/transcribe-video";
+  const url = "https://polshaqgsqhzcvtipssx.supabase.co/functions/v1/transcribe-video";
   const token = "mock-token";
   
   const fileData = fs.readFileSync('public/test-speech.wav');

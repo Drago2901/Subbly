@@ -291,8 +291,13 @@ const Auth = () => {
     setSubmitting(true);
     try {
       const cleanEmail = email.trim().toLowerCase();
-      const { data: profile } = await (supabase
-        .from("profiles") as any)
+      const { data: profile } = await (supabase.from("profiles" as never) as unknown as {
+        select: (col: string) => {
+          eq: (col: string, val: string) => {
+            maybeSingle: () => Promise<{ data: { email?: string } | null }>;
+          };
+        };
+      })
         .select("email")
         .eq("email", cleanEmail)
         .maybeSingle();

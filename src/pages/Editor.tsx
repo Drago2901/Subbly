@@ -70,8 +70,12 @@ import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/componen
 import { AvatarDropdown } from "@/components/AvatarDropdown";
 import { wordsToCaptions } from "@/lib/captions/segment";
 import { burnCaptions, ExportCancelledError } from "@/lib/captions/render";
-import { transcodeWebmToMp4, validateExportDuration } from "@/lib/captions/transcode";
-import { extractAudioNative } from "@/lib/captions/audio";
+import {
+  extractAudioNative,
+  splitWavIntoChunks,
+  TranscriptionError,
+  type AudioExtractionProgress,
+} from "@/lib/captions/audio";
 import { alignEmojisWithWords, stripEmojis } from "@/lib/captions/emoji";
 import {
   DEFAULT_STYLE,
@@ -147,30 +151,103 @@ const invokeEdgeFunction = async (
   name: string,
   options?: Parameters<typeof supabase.functions.invoke>[1],
 ) => {
-  const { data, error } = await supabase.functions.invoke(name, options);
-  if (error) {
-    let message = error.message || "An error occurred calling the edge function";
-    try {
-      const errWithContext = error as { context?: Response };
-      if (errWithContext.context && typeof errWithContext.context.text === "function") {
-        const text = await errWithContext.context.text();
-        try {
-          const parsed = JSON.parse(text);
-          if (parsed && (parsed.error || parsed.message)) {
-            message = parsed.error || parsed.message;
-          }
-        } catch {
-          if (text && text.length < 250) {
-            message = text;
-          }
-        }
-      }
-    } catch (e) {
-      console.warn("Failed to extract edge function error response:", e);
+  const directUrl = `${SUPABASE_URL}/functions/v1/${name}`;
+
+  let authToken = SUPABASE_PUBLISHABLE_KEY;
+  try {
+    const raw = localStorage.getItem("sb-polshaqgsqhzcvtipssx-auth-token");
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed?.access_token) authToken = parsed.access_token;
     }
-    throw new Error(message);
+  } catch {
+    // fallback
   }
-  return data;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+  try {
+    const directRes = await fetch(directUrl, {
+      method: "POST",
+      headers: {
+        "apikey": SUPABASE_PUBLISHABLE_KEY,
+        "Authorization": `Bearer ${authToken}`,
+        "Content-Type": "application/json",
+        ...(options?.headers || {}),
+      },
+      body: typeof options?.body === "string" ? options.body : JSON.stringify(options?.body || {}),
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!directRes.ok) {
+      const text = await directRes.text();
+      let msg = `Function error (${directRes.status})`;
+      try {
+        const parsed = JSON.parse(text);
+        if (parsed.error || parsed.message) msg = parsed.error || parsed.message;
+      } catch {
+        if (text && text.length < 200) msg = text;
+      }
+      throw new Error(msg);
+    }
+
+    const json = await directRes.json();
+    return json;
+  } catch (err: any) {
+    clearTimeout(timeoutId);
+    // If direct fetch fails with network issue, attempt standard invoke as fallback
+    try {
+      const { data, error } = await supabase.functions.invoke(name, options);
+      if (!error && data) return data;
+      if (error) throw error;
+    } catch {
+      // rethrow direct fetch error
+    }
+    throw err;
+  }
+};
+
+export const tokenizeCaptionText = (text: string, lang?: string): string[] => {
+  const clean = text.trim();
+  if (!clean) return [];
+
+  // For Latin / space-delimited text without CJK characters, regular whitespace splitting preserves attached punctuation
+  const hasCJK = /[\u3040-\u30ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\uff66-\uff9f]/.test(clean);
+  if (!hasCJK) {
+    return clean.split(/\s+/).filter(Boolean);
+  }
+
+  if (typeof Intl !== "undefined" && "Segmenter" in Intl) {
+    try {
+      const targetLocale = lang && lang !== "auto" && lang !== "hinglish" ? lang : "ja";
+      const segmenter = new Intl.Segmenter(targetLocale, { granularity: "word" });
+      const tokens: string[] = [];
+      for (const seg of segmenter.segment(clean)) {
+        const t = seg.segment.trim();
+        if (t) tokens.push(t);
+      }
+      if (tokens.length > 0) return tokens;
+    } catch {
+      // Fallback
+    }
+  }
+
+  return clean.split(/\s+/).filter(Boolean);
+};
+
+export const buildProportionalWords = (text: string, start: number, end: number, lang?: string): Word[] => {
+  const tokens = tokenizeCaptionText(text, lang);
+  if (tokens.length === 0) return [];
+  const duration = Math.max(0.1, end - start);
+  const wordDur = duration / tokens.length;
+  return tokens.map((token, idx) => ({
+    text: token,
+    start: Number((start + idx * wordDur).toFixed(2)),
+    end: Number((start + (idx + 1) * wordDur).toFixed(2)),
+  }));
 };
 
 const formatTime = (secs: number) => {
@@ -252,7 +329,7 @@ const Editor = () => {
   const { theme, toggle: toggleTheme } = useTheme();
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const [activeMobileTab, setActiveMobileTab] = useState<"captions" | "style" | "anim" | "tmpl" | "brand">("style");
+  const [activeMobileTab, setActiveMobileTab] = useState<"captions" | "style" | "anim" | "meme" | "tmpl" | "brand">("captions");
   const [activeTab, setActiveTab] = useState<"style" | "anim" | "tmpl" | "brand">("style");
   const [timelineExpanded, setTimelineExpanded] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
@@ -282,6 +359,7 @@ const Editor = () => {
   const [currentTime, setCurrentTime] = useState(0);
   const [language, setLanguage] = useState<string>("auto");
   const [translating, setTranslating] = useState(false);
+  const [translatingLang, setTranslatingLang] = useState<string | null>(null);
   const translationCacheRef = useRef<Record<string, string[]>>({});
 
   const [quality, setQuality] = useState<"standard" | "high">("standard");
@@ -631,7 +709,7 @@ const Editor = () => {
 
           if (data.source_video_path) {
             const { data: urlData, error: urlError } = await supabase.storage
-              .from("videos")
+              .from("project-videos")
               .createSignedUrl(data.source_video_path, 7200);
 
             if (urlError) throw urlError;
@@ -859,13 +937,26 @@ const Editor = () => {
     }
   };
 
+  const createDemoCaptions = (): Caption[] => {
+    const demoItems = [
+      { id: "demo-1", start: 0.5, end: 3.2, text: "Welcome to Subbly AI video captioning!" },
+      { id: "demo-2", start: 3.4, end: 6.5, text: "Translate your captions into over 25 languages instantly." },
+      { id: "demo-3", start: 6.8, end: 9.8, text: "Boost your engagement and reach global audiences today." },
+    ];
+    return demoItems.map((item) => {
+      const words = buildProportionalWords(item.text, item.start, item.end, "en");
+      return {
+        ...item,
+        originalText: item.text,
+        words,
+        originalWords: [...words],
+      };
+    });
+  };
+
   const loadDemoProject = useCallback(async () => {
     setVideoUrl(DEMO_VIDEO_URL);
-    const demoCaps: Caption[] = [
-      { id: "demo-1", start: 0.5, end: 3.2, text: "Welcome to Subbly AI video captioning!", originalText: "Welcome to Subbly AI video captioning!" },
-      { id: "demo-2", start: 3.4, end: 6.5, text: "Translate your captions into over 25 languages instantly.", originalText: "Translate your captions into over 25 languages instantly." },
-      { id: "demo-3", start: 6.8, end: 9.8, text: "Boost your engagement and reach global audiences today.", originalText: "Boost your engagement and reach global audiences today." },
-    ];
+    const demoCaps = createDemoCaptions();
     setCaptions(demoCaps);
     resetHistory(demoCaps);
     translationCacheRef.current = {};
@@ -894,15 +985,27 @@ const Editor = () => {
       if (!file) {
         loadDemoProject();
       } else if (captions.length === 0) {
-        const demoCaps: Caption[] = [
-          { id: "demo-1", start: 0.5, end: 3.2, text: "Welcome to Subbly AI video captioning!", originalText: "Welcome to Subbly AI video captioning!" },
-          { id: "demo-2", start: 3.4, end: 6.5, text: "Translate your captions into over 25 languages instantly.", originalText: "Translate your captions into over 25 languages instantly." },
-          { id: "demo-3", start: 6.8, end: 9.8, text: "Boost your engagement and reach global audiences today.", originalText: "Boost your engagement and reach global audiences today." },
-        ];
+        const demoCaps = createDemoCaptions();
         setCaptions(demoCaps);
       }
     }
   }, [searchParams, file, captions.length, loadDemoProject]);
+
+  const handleCaptionsChange = useCallback((nextCaptions: Caption[]) => {
+    if (language === "auto") {
+      const updated = nextCaptions.map((c) => ({
+        ...c,
+        originalText: c.mediaType ? c.originalText : c.text,
+        originalWords: c.mediaType ? c.originalWords : (c.words || buildProportionalWords(c.text, c.start, c.end, "auto")),
+      }));
+      translationCacheRef.current = {};
+      setCaptions(updated);
+    } else {
+      const speechOnly = nextCaptions.filter((c) => !c.mediaType).map((c) => c.text);
+      translationCacheRef.current[language] = speechOnly;
+      setCaptions(nextCaptions);
+    }
+  }, [language]);
 
   const transcribe = async () => {
     if (!user) {
@@ -914,29 +1017,36 @@ const Editor = () => {
       return;
     }
     setTranscribing(true);
-    setTranscribeStage("Preparing audio…");
-    const stageToast = toast.loading("Auto-transcription: Preparing audio stream…");
+    setTranscribeStage("Preparing video…");
+    const stageToast = toast.loading("Auto-transcription: Preparing media…");
 
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 40000); // 40s safety timeout
+    // 180s network timeout to accommodate large / multi-chunk videos without failing
+    const networkTimeoutId = setTimeout(() => controller.abort(), 180000);
 
     try {
-      setTranscribeStage("Optimizing audio…");
-      toast.loading("Extracting and optimizing speech tracks…", { id: stageToast });
-      const audioBlob = await extractAudioNative(file);
+      setTranscribeStage("Extracting audio…");
+      toast.loading("Extracting speech tracks from video…", { id: stageToast });
 
-      setTranscribeStage("Transcribing…");
-      toast.loading("Go touch grass. We’ll make the captions. 💀☕", { id: stageToast });
+      const audioBlob = await extractAudioNative(file, {
+        durationSec: meta?.duration,
+        onProgress: (p: AudioExtractionProgress) => {
+          setTranscribeStage(p.message);
+          toast.loading(p.message, { id: stageToast });
+        },
+        signal: controller.signal,
+      });
 
-      const isWav = audioBlob.type.includes("wav") || file.name.toLowerCase().endsWith(".wav");
-      const isMp3 = audioBlob.type.includes("mpeg") || audioBlob.type.includes("mp3") || file.name.toLowerCase().endsWith(".mp3");
-      const ext = isWav ? "wav" : isMp3 ? "mp3" : (file.name.split(".").pop() || "wav");
+      setTranscribeStage("Processing audio…");
+      toast.loading("Optimizing audio waveforms…", { id: stageToast });
 
-      const form = new FormData();
-      form.append("file", audioBlob, `audio.${ext}`);
-      if (language && language !== "auto") form.append("language", language);
+      // Split audio into chunks (<= 10 mins each) if it exceeds API limits
+      const chunks = await splitWavIntoChunks(audioBlob, 600);
 
-      // Direct fetch so browser configures correct multipart boundary
+      const allWords: Word[] = [];
+      let totalTookMs = 0;
+      let usedProvider = "";
+
       let token = session?.access_token;
       if (!token) {
         try {
@@ -945,59 +1055,93 @@ const Editor = () => {
         } catch { /* ignore */ }
       }
 
-      const fnUrl = `${SUPABASE_URL}/functions/v1/transcribe-video`;
-      const fnRes = await fetch(fnUrl, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token || "mock-token"}`,
-          apikey: SUPABASE_PUBLISHABLE_KEY,
-        },
-        body: form,
-        signal: controller.signal,
-      });
+      for (let i = 0; i < chunks.length; i++) {
+        const chunk = chunks[i];
+        const chunkLabel = chunks.length > 1 ? ` (part ${i + 1} of ${chunks.length})` : "";
+        setTranscribeStage(`Transcribing speech${chunkLabel}…`);
+        toast.loading(`Transcribing speech${chunkLabel}… 💀☕`, { id: stageToast });
 
-      if (!fnRes.ok) {
-        const errText = await fnRes.text();
-        let errMsg = "Transcription failed. Please try again.";
-        try {
-          const parsed = JSON.parse(errText);
-          errMsg = parsed.error || parsed.message || errMsg;
-        } catch { /* not json */ }
-        throw new Error(errMsg);
+        const isWav = chunk.blob.type.includes("wav") || file.name.toLowerCase().endsWith(".wav");
+        const isMp3 = chunk.blob.type.includes("mpeg") || chunk.blob.type.includes("mp3") || file.name.toLowerCase().endsWith(".mp3");
+        const ext = isWav ? "wav" : isMp3 ? "mp3" : (file.name.split(".").pop() || "wav");
+
+        const form = new FormData();
+        form.append("file", chunk.blob, `audio_${i}.${ext}`);
+        if (language && language !== "auto") form.append("language", language);
+
+        const fnUrl = `${SUPABASE_URL}/functions/v1/transcribe-video`;
+        const fnRes = await fetch(fnUrl, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token || "mock-token"}`,
+            apikey: SUPABASE_PUBLISHABLE_KEY,
+          },
+          body: form,
+          signal: controller.signal,
+        });
+
+        if (!fnRes.ok) {
+          const errText = await fnRes.text();
+          let errMsg = "Transcription failed. Please try again.";
+          try {
+            const parsed = JSON.parse(errText);
+            errMsg = parsed.error || parsed.message || errMsg;
+          } catch { /* not json */ }
+          throw new TranscriptionError("TRANSCRIPTION_FAILURE", errMsg);
+        }
+
+        const transcriptionData = await fnRes.json();
+        if (transcriptionData?.words && Array.isArray(transcriptionData.words) && transcriptionData.words.length > 0) {
+          const chunkWords = (transcriptionData.words as Word[]).map((w) => ({
+            ...w,
+            start: Number((w.start + chunk.startSec).toFixed(2)),
+            end: Number((w.end + chunk.startSec).toFixed(2)),
+          }));
+          allWords.push(...chunkWords);
+          if (transcriptionData.tookMs) totalTookMs += transcriptionData.tookMs;
+          if (transcriptionData.provider) usedProvider = transcriptionData.provider;
+        }
       }
-      const transcriptionData = await fnRes.json();
 
-      if (transcriptionData?.words && Array.isArray(transcriptionData.words) && transcriptionData.words.length > 0) {
-        const rawWords = transcriptionData.words as Word[];
-        const segments = wordsToCaptions(rawWords);
+      if (allWords.length > 0) {
+        setTranscribeStage("Generating captions…");
+        const segments = wordsToCaptions(allWords);
         if (segments.length > 0) {
-          const initialWithOrig = segments.map((s) => ({ ...s, originalText: s.text }));
+          const initialWithOrig = segments.map((s) => ({
+            ...s,
+            originalText: s.text,
+            originalWords: s.words ? JSON.parse(JSON.stringify(s.words)) : undefined,
+          }));
           translationCacheRef.current = {};
           setLanguage("auto");
           setCaptions(initialWithOrig);
-          const providerInfo = transcriptionData.provider ? ` (${transcriptionData.tookMs ? `${(transcriptionData.tookMs / 1000).toFixed(1)}s` : "done"})` : "";
+          const providerInfo = usedProvider ? ` (${totalTookMs ? `${(totalTookMs / 1000).toFixed(1)}s` : "done"})` : "";
           toast.success(`AI Transcription completed successfully!${providerInfo}`, { id: stageToast });
 
           // If emojis are enabled, enrich captions in the background without blocking the editor UI
           if (style.emojiEnabled) {
             (async () => {
               try {
-                const cleanText = rawWords.map((w) => w.text.trim()).filter(Boolean).join(" ");
+                const cleanText = allWords.map((w) => w.text.trim()).filter(Boolean).join(" ");
                 const emojiRes = await invokeEdgeFunction("align-emojis", {
                   body: {
-                    captions: [{ id: "temp", text: cleanText, words: rawWords }],
+                    captions: [{ id: "temp", text: cleanText, words: allWords }],
                     density: style.emojiDensity || "medium",
                   },
                 });
-                let enrichedWords = rawWords;
+                let enrichedWords = allWords;
                 if (emojiRes?.captions?.[0]?.words) {
                   enrichedWords = emojiRes.captions[0].words;
                 } else if (emojiRes?.captions?.[0]?.text) {
-                  enrichedWords = alignEmojisWithWords(rawWords, emojiRes.captions[0].text);
+                  enrichedWords = alignEmojisWithWords(allWords, emojiRes.captions[0].text);
                 }
                 const enrichedSegments = wordsToCaptions(enrichedWords);
                 if (enrichedSegments.length > 0) {
-                  const enrichedWithOrig = enrichedSegments.map((s) => ({ ...s, originalText: s.text }));
+                  const enrichedWithOrig = enrichedSegments.map((s) => ({
+                    ...s,
+                    originalText: s.text,
+                    originalWords: s.words ? JSON.parse(JSON.stringify(s.words)) : undefined,
+                  }));
                   translationCacheRef.current = {};
                   setCaptions(enrichedWithOrig);
                 }
@@ -1007,28 +1151,30 @@ const Editor = () => {
             })();
           }
         } else {
-          throw new Error("Could not parse recognizable speech into subtitle segments.");
+          throw new TranscriptionError("TRANSCRIPTION_FAILURE", "Could not parse recognizable speech into subtitle segments.");
         }
       } else {
-        throw new Error("No speech segments recognized in this video file.");
+        throw new TranscriptionError("NO_AUDIO_TRACK", "No speech segments recognized in this media file.");
       }
     } catch (err: unknown) {
       console.error("Transcription pipeline issue:", err);
-      const isAbort = (err as { name?: string })?.name === "AbortError";
-      const message = isAbort
-        ? "Transcription timed out. Please try with a shorter clip or faster connection."
-        : (err as Error).message;
-      toast.error(`Transcription Failed: ${message}`, { id: stageToast });
+      if (err instanceof TranscriptionError) {
+        toast.error(err.message, { id: stageToast, duration: 6000 });
+      } else {
+        const isAbort = (err as { name?: string })?.name === "AbortError";
+        const message = isAbort
+          ? "Transcription timed out. Please check your connection or try again."
+          : (err as Error)?.message || "Audio processing failed.";
+        toast.error(message, { id: stageToast, duration: 6000 });
+      }
     } finally {
-      clearTimeout(timeoutId);
+      clearTimeout(networkTimeoutId);
       setTranscribing(false);
       setTranscribeStage("");
     }
   };
 
   const handleLanguageChange = async (nextLang: string) => {
-    const prevLang = language;
-    setLanguage(nextLang);
     if (!captions.length) {
       toast.info("No captions to translate. Click 'Auto Transcribe' or '+ Add Caption' first.");
       return;
@@ -1036,13 +1182,39 @@ const Editor = () => {
 
     const langLabel = LANGUAGES.find((l) => l.code === nextLang)?.label || nextLang;
 
+    // Filter subtitle speech captions vs overlay media
+    const speechIndices: number[] = [];
+    const speechTexts: string[] = [];
+    captions.forEach((c, idx) => {
+      if (!c.mediaType) {
+        speechIndices.push(idx);
+        speechTexts.push((c.originalText || c.text).trim());
+      }
+    });
+
+    if (speechIndices.length === 0) {
+      toast.info("No speech captions to translate.");
+      return;
+    }
+
     // 1. Switching back to Auto (Original audio language) — Instant 0ms
     if (nextLang === "auto") {
+      setLanguage("auto");
       setCaptions((cur) =>
-        cur.map((c) => ({
-          ...c,
-          text: c.originalText || c.text,
-        }))
+        cur.map((c) => {
+          if (c.mediaType) return c;
+          const origText = c.originalText || c.text;
+          const restoredWords = c.originalWords && c.originalWords.length > 0
+            ? [...c.originalWords]
+            : buildProportionalWords(origText, c.start, c.end, "auto");
+          return {
+            ...c,
+            text: origText,
+            words: restoredWords,
+            originalText: origText,
+            originalWords: restoredWords,
+          };
+        })
       );
       toast.success("Restored original captions");
       return;
@@ -1050,57 +1222,73 @@ const Editor = () => {
 
     // 2. Check Client-Side Cache — Instant 0ms
     const cached = translationCacheRef.current[nextLang];
-    if (cached && cached.length === captions.length) {
-      setCaptions((cur) =>
-        cur.map((c, i) => ({
-          ...c,
-          originalText: c.originalText || c.text,
-          text: cached[i] ?? c.text,
-          words: undefined,
-        }))
-      );
+    if (cached && cached.length === speechIndices.length) {
+      setLanguage(nextLang);
+      setCaptions((cur) => {
+        let speechCounter = 0;
+        return cur.map((c) => {
+          if (c.mediaType) return c;
+          const nextText = cached[speechCounter++] ?? c.text;
+          const baseOriginalWords = c.originalWords || (c.words ? [...c.words] : undefined);
+          return {
+            ...c,
+            originalText: c.originalText || c.text,
+            originalWords: baseOriginalWords,
+            text: nextText,
+            words: buildProportionalWords(nextText, c.start, c.end, nextLang),
+          };
+        });
+      });
       toast.success(`Switched to ${langLabel}`);
       return;
     }
 
     // 3. Fast Edge Function Translation via Groq LPU / Gemini Direct
     setTranslating(true);
-    const stageToast = toast.loading(`Translating all captions to ${langLabel}…`);
+    setTranslatingLang(nextLang);
+    const stageToast = toast.loading(`Translating captions to ${langLabel}…`);
     try {
-      // Always translate from original text to maintain highest fidelity
-      const texts = captions.map((c) => c.originalText || c.text);
       const res = await invokeEdgeFunction("translate-captions", {
         body: {
-          texts,
+          texts: speechTexts,
           language: nextLang,
         },
       });
-      if (res && Array.isArray(res.translations)) {
+      console.log("[handleLanguageChange] Got res:", res);
+
+      if (res && Array.isArray(res.translations) && res.translations.length > 0) {
         const translated: string[] = res.translations;
         translationCacheRef.current[nextLang] = translated;
-        setCaptions((cur) =>
-          cur.map((c, i) => ({
-            ...c,
-            originalText: c.originalText || c.text,
-            text: translated[i] ?? c.text,
-            words: undefined,
-          }))
-        );
-        toast.success(`Captions translated to ${langLabel}`);
+        setLanguage(nextLang);
+        setCaptions((cur) => {
+          let speechCounter = 0;
+          return cur.map((c) => {
+            if (c.mediaType) return c;
+            const nextText = translated[speechCounter++] ?? c.text;
+            const baseOriginalWords = c.originalWords || (c.words ? [...c.words] : undefined);
+            return {
+              ...c,
+              originalText: c.originalText || c.text,
+              originalWords: baseOriginalWords,
+              text: nextText,
+              words: buildProportionalWords(nextText, c.start, c.end, nextLang),
+            };
+          });
+        });
+        toast.success(`Captions translated to ${langLabel}`, { id: stageToast });
       } else {
         throw new Error(res?.error || "Translation engine returned an empty response.");
       }
     } catch (e: unknown) {
       console.error("Translation issue:", e);
-      setLanguage(prevLang);
       const rawMsg = (e as Error).message || "";
       const errMsg = rawMsg.toLowerCase().includes("timed out")
         ? "Translation request timed out. Please try again."
         : rawMsg;
-      toast.error(`Translation error: ${errMsg}`);
+      toast.error(`Translation error: ${errMsg}`, { id: stageToast });
     } finally {
       setTranslating(false);
-      toast.dismiss(stageToast);
+      setTranslatingLang(null);
     }
   };
 
@@ -1112,34 +1300,36 @@ const Editor = () => {
     exportAbortRef.current = new AbortController();
 
     const outputQuality = quality;
+    const expectedDuration = videoRef.current?.duration || meta?.duration || 0;
+    let renderedWebmBlob: Blob | null = null;
 
     try {
       const webmBlob = await burnCaptions({
         videoFile: file,
         captions,
         style,
-        onProgress: (info) => {
-          setExportProgress(info.progress);
-        },
+        onProgress: ({ progress }) => setExportProgress(progress),
         onLog: (msg) => console.log(msg),
         signal: exportAbortRef.current.signal,
         output: frame || undefined,
         quality: outputQuality,
       });
 
+      renderedWebmBlob = webmBlob;
+
       setExportStage("transcode");
       setExportProgress(0);
 
       const mp4Blob = await transcodeWebmToMp4({
         webmBlob: new File([webmBlob], "rendered.webm", { type: "video/webm" }),
-        originalFile: file,
+        originalFile: file && file.size > 0 ? file : undefined,
+        duration: expectedDuration > 0 ? expectedDuration : undefined,
         quality: outputQuality,
         onProgress: (progress) => setExportProgress(progress),
         onLog: (msg) => console.log(msg),
         signal: exportAbortRef.current.signal,
       });
 
-      const expectedDuration = videoRef.current?.duration || 0;
       if (expectedDuration > 0) {
         const durationCheck = await validateExportDuration(mp4Blob, expectedDuration);
         if (!durationCheck.valid && durationCheck.error) {
@@ -1154,13 +1344,14 @@ const Editor = () => {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
 
       toast.success("HD MP4 Export completed successfully!");
 
       if (projectId && user) {
         const randPath = `${user.id}/${projectId}_export.mp4`;
         const { error: uploadErr } = await supabase.storage
-          .from("exports")
+          .from("project-exports")
           .upload(randPath, mp4Blob, { upsert: true });
 
         if (!uploadErr) {
@@ -1176,6 +1367,19 @@ const Editor = () => {
         toast.info("Export cancelled by user");
       } else {
         console.error("Video export pipeline error:", err);
+        // Fallback: If WebM was rendered, ensure user can still download their captioned video
+        if (renderedWebmBlob && renderedWebmBlob.size > 0) {
+          toast.warning("MP4 encoding failed. Downloading WebM video with burned-in captions instead.");
+          const blobUrl = URL.createObjectURL(renderedWebmBlob);
+          const link = document.createElement("a");
+          link.href = blobUrl;
+          link.download = `${title || "subbly_video"}_captioned.webm`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
+          return;
+        }
         const errMsg = err instanceof Error ? err.message : (err && typeof err === "object" && "message" in err) ? String((err as { message: unknown }).message) : String(err);
         toast.error(`Export failed: ${errMsg}`);
       }
@@ -1184,7 +1388,7 @@ const Editor = () => {
       setExportProgress(0);
       exportAbortRef.current = null;
     }
-  }, [file, exporting, quality, captions, style, frame, title, projectId, user]);
+  }, [file, exporting, quality, captions, style, frame, title, projectId, user, meta?.duration]);
 
   const cancelExport = () => {
     if (exportAbortRef.current) {
@@ -1438,7 +1642,7 @@ const Editor = () => {
             key={`${language}_${captions.length}`}
             captions={captions}
             currentTime={currentTime}
-            onChange={setCaptions}
+            onChange={handleCaptionsChange}
             onSeek={seek}
             lockedTracks={lockedTracks}
           />
@@ -1539,11 +1743,11 @@ const Editor = () => {
           <div className="flex flex-shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-4 py-2.5">
             {/* Left: Language selector */}
             <div className="flex items-center gap-3">
-              {meta && (
+              {(meta || captions.length > 0 || file) && (
                 <div className="flex items-center gap-2.5">
                   <Globe className="h-4 w-4 text-muted-foreground" strokeWidth={2} />
                   <span className="text-[11.5px] font-bold text-muted-foreground">Caption Language</span>
-                  <Select value={language} onValueChange={handleLanguageChange} disabled={translating}>
+                  <Select value={translatingLang || language} onValueChange={handleLanguageChange} disabled={translating}>
                     <SelectTrigger className="h-7.5 w-[130px] rounded-lg border border-border bg-secondary px-2.5 text-[11.5px] font-bold text-foreground focus:ring-0 focus:ring-offset-0 transition hover:bg-muted cursor-pointer">
                       <SelectValue />
                     </SelectTrigger>
@@ -1617,7 +1821,7 @@ const Editor = () => {
             duration={meta.duration}
             currentTime={currentTime}
             captions={captions}
-            onChange={setCaptions}
+            onChange={handleCaptionsChange}
             onSeek={(t) => {
               setCurrentTime(t);
               if (videoRef.current) videoRef.current.currentTime = t;
@@ -1775,35 +1979,73 @@ const Editor = () => {
             {isMobile && (
               <div className="flex flex-1 flex-col overflow-hidden bg-background h-full relative">
                 {/* 1. Top Nav Bar */}
-                <div className="h-11 flex-shrink-0 flex items-center justify-between px-3 border-b border-border bg-card">
-                  <button
-                    onClick={() => {
-                      if (window.history.length > 1) {
-                        navigate(-1);
-                      } else {
-                        navigate(user ? "/projects" : "/");
-                      }
-                    }}
-                    className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-secondary text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] cursor-pointer"
-                    aria-label="Back"
-                  >
-                    <ArrowLeft className="h-4 w-4" strokeWidth={2.2} />
-                  </button>
+                <div className="h-11 flex-shrink-0 flex items-center justify-between px-2.5 border-b border-border bg-card gap-1">
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <button
+                      onClick={() => {
+                        if (window.history.length > 1) {
+                          navigate(-1);
+                        } else {
+                          navigate(user ? "/projects" : "/");
+                        }
+                      }}
+                      className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-secondary text-muted-foreground hover:text-foreground min-h-[40px] min-w-[40px] cursor-pointer"
+                      aria-label="Back"
+                    >
+                      <ArrowLeft className="h-4 w-4" strokeWidth={2.2} />
+                    </button>
 
-                  <Input
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Project title"
-                    className="h-8 flex-1 border-transparent bg-transparent px-1 text-center text-xs font-bold text-foreground hover:border-border focus-visible:border-border focus-visible:ring-0 placeholder:text-muted-foreground max-w-[150px] mx-1"
-                  />
+                    {/* Mobile Undo / Redo controls */}
+                    <div className="flex items-center gap-0.5 bg-secondary/70 border border-border rounded-lg p-0.5">
+                      <button
+                        type="button"
+                        onClick={handleUndo}
+                        disabled={!canUndo}
+                        className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:pointer-events-none transition cursor-pointer"
+                        title="Undo"
+                        aria-label="Undo"
+                      >
+                        <Undo2 className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleRedo}
+                        disabled={!canRedo}
+                        className="flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:text-foreground disabled:opacity-30 disabled:pointer-events-none transition cursor-pointer"
+                        title="Redo"
+                        aria-label="Redo"
+                      >
+                        <Redo2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
 
-                  <div className="flex items-center gap-1">
+                  {/* Title and Auto-save indicator */}
+                  <div className="flex items-center justify-center min-w-0 flex-1 px-1">
+                    <Input
+                      value={title}
+                      onChange={(e) => setTitle(e.target.value)}
+                      placeholder="Project title"
+                      className="h-8 border-transparent bg-transparent px-1 text-center text-xs font-bold text-foreground hover:border-border focus-visible:border-border focus-visible:ring-0 placeholder:text-muted-foreground max-w-[130px] truncate"
+                    />
+                    {file && (
+                      <div className="flex-shrink-0 ml-0.5" title={autoSaveState === "saving" ? "Saving..." : "All changes saved"}>
+                        {autoSaveState === "saving" ? (
+                          <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                        ) : autoSaveState === "saved" ? (
+                          <Cloud className="h-3 w-3 text-emerald-500" />
+                        ) : null}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1 flex-shrink-0">
                     <MediaAddDropdown onOpenMemeStudio={handleOpenMemeStudio} />
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button
                           type="button"
-                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-secondary text-muted-foreground hover:text-foreground min-h-[44px] min-w-[44px] cursor-pointer"
+                          className="flex h-9 w-9 items-center justify-center rounded-lg border border-border bg-secondary text-muted-foreground hover:text-foreground min-h-[40px] min-w-[40px] cursor-pointer"
                           aria-label="Project actions menu"
                         >
                           <MoreVertical className="h-4 w-4" />
@@ -1811,6 +2053,28 @@ const Editor = () => {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end" className="w-52 bg-popover border border-border text-popover-foreground shadow-xl rounded-xl">
                         <DropdownMenuLabel className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-2 py-1">Actions</DropdownMenuLabel>
+                        <DropdownMenuItem onClick={handleUndo} disabled={!canUndo} className="text-xs cursor-pointer py-2 hover:bg-accent rounded-lg flex items-center justify-between">
+                          <span className="flex items-center gap-2"><Undo2 className="h-3.5 w-3.5" /> Undo</span>
+                          <span className="text-[10px] text-muted-foreground">Ctrl+Z</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleRedo} disabled={!canRedo} className="text-xs cursor-pointer py-2 hover:bg-accent rounded-lg flex items-center justify-between">
+                          <span className="flex items-center gap-2"><Redo2 className="h-3.5 w-3.5" /> Redo</span>
+                          <span className="text-[10px] text-muted-foreground">Ctrl+Y</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator className="bg-border" />
+                        <DropdownMenuItem onClick={toggleTheme} className="text-xs cursor-pointer py-2 hover:bg-accent rounded-lg flex items-center gap-2">
+                          {theme === "dark" ? <Sun className="h-3.5 w-3.5 text-amber-500" /> : <Moon className="h-3.5 w-3.5 text-indigo-500" />}
+                          <span>{theme === "dark" ? "Light Mode" : "Dark Mode"}</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator className="bg-border" />
+                        <DropdownMenuItem
+                          onClick={() => handleOpenMemeStudio({ tab: "gifs" })}
+                          className="text-xs cursor-pointer py-2 hover:bg-accent rounded-lg flex items-center justify-between text-primary font-bold"
+                        >
+                          <span className="flex items-center gap-2"><Smile className="h-3.5 w-3.5" /> Meme Studio</span>
+                          <span className="text-[9px] bg-primary text-primary-foreground px-1.5 py-0.5 rounded font-extrabold uppercase scale-90">Beta</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator className="bg-border" />
                         <DropdownMenuItem onClick={handleImportSrtClick} className="text-xs cursor-pointer py-2 hover:bg-accent rounded-lg">Import SRT</DropdownMenuItem>
                         {captions.length > 0 && (
                           <DropdownMenuItem onClick={handleExportSrt} className="text-xs cursor-pointer py-2 hover:bg-accent rounded-lg">Export SRT</DropdownMenuItem>
@@ -1841,7 +2105,7 @@ const Editor = () => {
                       <button
                         onClick={exportVideo}
                         disabled={exporting}
-                        className="flex h-9 px-3 items-center justify-center gap-1.5 rounded-lg bg-gradient-primary text-xs font-bold text-primary-foreground shadow-glow transition hover:opacity-95 disabled:opacity-75 min-h-[44px] cursor-pointer"
+                        className="flex h-9 px-3 items-center justify-center gap-1.5 rounded-lg bg-gradient-primary text-xs font-bold text-primary-foreground shadow-glow transition hover:opacity-95 disabled:opacity-75 min-h-[40px] cursor-pointer"
                       >
                         {exporting ? (
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1988,7 +2252,7 @@ const Editor = () => {
                             <span className="text-[11px] font-bold text-foreground">Caption Language</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Select value={language} onValueChange={handleLanguageChange} disabled={translating}>
+                            <Select value={translatingLang || language} onValueChange={handleLanguageChange} disabled={translating}>
                               <SelectTrigger className="h-7.5 w-[120px] rounded-lg border border-border bg-card px-2 text-[10.5px] font-bold text-foreground focus:ring-0 cursor-pointer">
                                 <SelectValue />
                               </SelectTrigger>
@@ -2042,12 +2306,39 @@ const Editor = () => {
                                   <Plus className="h-3 w-3" />
                                   <span>Add caption</span>
                                 </button>
+                                <button
+                                  onClick={() => {
+                                    setActiveMobileTab("meme");
+                                    handleOpenMemeStudio({ tab: "gifs" });
+                                  }}
+                                  className="w-full flex h-10 items-center justify-center gap-1.5 rounded-lg border border-primary/30 bg-primary/10 text-[11px] font-bold text-primary hover:bg-primary/20 transition cursor-pointer shadow-sm"
+                                >
+                                  <Smile className="h-3.5 w-3.5" />
+                                  <span>Open Meme Studio (Add GIFs & Memes)</span>
+                                </button>
                               </div>
                             </div>
                           ) : (
                             captionsPanel
                           )}
                         </div>
+                      </div>
+                    ) : activeMobileTab === "meme" ? (
+                      <div className="flex flex-col items-center justify-center text-center p-6 bg-card border-b border-border my-2 mx-3 rounded-2xl bg-secondary/40 border border-border shadow-sm">
+                        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-gradient-primary text-primary-foreground mb-3 shadow-glow">
+                          <Smile className="h-6 w-6" />
+                        </div>
+                        <h3 className="text-sm font-extrabold text-foreground mb-1">Meme Studio (Beta)</h3>
+                        <p className="text-xs text-muted-foreground mb-4 max-w-[280px] leading-relaxed">
+                          Search and overlay trending memes, reaction GIFs, stickers, and sound bites onto your video.
+                        </p>
+                        <button
+                          onClick={() => handleOpenMemeStudio({ tab: "gifs" })}
+                          className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-primary text-primary-foreground font-bold text-xs shadow-glow hover:scale-105 active:scale-95 transition cursor-pointer"
+                        >
+                          <Smile className="h-4 w-4" />
+                          <span>Open Meme Studio</span>
+                        </button>
                       </div>
                     ) : (
                       /* Renders the style panels corresponding to Style, Anim, Templates, and Brand settings tabs */
@@ -2088,19 +2379,35 @@ const Editor = () => {
                     { id: "captions", label: "Captions", icon: FileText },
                     { id: "style", label: "Style", icon: Type },
                     { id: "anim", label: "Anim", icon: Sparkles },
+                    { id: "meme", label: "Memes", icon: Smile, badge: "Beta" },
                     { id: "tmpl", label: "Templates", icon: Layers },
                     { id: "brand", label: "Brand", icon: Palette },
                   ] as const).map((tabItem) => {
                     const Icon = tabItem.icon;
-                    const active = activeMobileTab === tabItem.id;
+                    const active = tabItem.id === "meme" ? (isMemeStudioOpen || activeMobileTab === "meme") : activeMobileTab === tabItem.id;
                     return (
                       <button
                         key={tabItem.id}
-                        onClick={() => setActiveMobileTab(tabItem.id)}
-                        className={`flex flex-col items-center justify-center flex-1 h-full min-h-[44px] min-w-[44px] gap-1 transition cursor-pointer ${active ? "text-primary" : "text-muted-foreground hover:text-foreground"
-                          }`}
+                        onClick={() => {
+                          if (tabItem.id === "meme") {
+                            setActiveMobileTab("meme");
+                            handleOpenMemeStudio({ tab: "gifs" });
+                          } else {
+                            setActiveMobileTab(tabItem.id);
+                          }
+                        }}
+                        className={`relative flex flex-col items-center justify-center flex-1 h-full min-h-[44px] min-w-[44px] gap-1 transition cursor-pointer ${
+                          active ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                        }`}
                       >
-                        <Icon className="h-5 w-5" strokeWidth={2} />
+                        <div className="relative flex items-center justify-center">
+                          <Icon className="h-5 w-5" strokeWidth={2} />
+                          {"badge" in tabItem && (
+                            <span className="absolute -top-1 -right-2.5 bg-primary text-primary-foreground text-[7px] font-black px-1 py-0.2 rounded-full uppercase tracking-tight scale-75">
+                              {tabItem.badge}
+                            </span>
+                          )}
+                        </div>
                         <span className="text-[10px] font-bold tracking-wide select-none">{tabItem.label}</span>
                       </button>
                     );
