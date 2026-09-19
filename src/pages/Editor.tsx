@@ -68,7 +68,8 @@ import { CaptionList } from "@/components/captionly/CaptionList";
 import { StylePanel } from "@/components/captionly/StylePanel";
 import { Timeline } from "@/components/captionly/Timeline";
 import { ExportProgressDialog } from "@/components/captionly/ExportProgressDialog";
-import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
+
+
 import { AvatarDropdown } from "@/components/AvatarDropdown";
 import { wordsToCaptions } from "@/lib/captions/segment";
 import { burnCaptions, ExportCancelledError } from "@/lib/captions/render";
@@ -328,6 +329,9 @@ const CondensedTimeline = ({
   );
 };
 
+// Left panel tool IDs for the desktop dynamic panel system
+type LeftTool = "captions" | "style" | "templates" | "brand" | "media" | null;
+
 const Editor = () => {
   const { user, session, signOut, isAdmin } = useAuth();
   const { theme, toggle: toggleTheme } = useTheme();
@@ -335,6 +339,12 @@ const Editor = () => {
   const isMobile = useIsMobile();
   const [activeMobileTab, setActiveMobileTab] = useState<"captions" | "style" | "anim" | "meme" | "tmpl" | "brand">("captions");
   const [activeTab, setActiveTab] = useState<"style" | "anim" | "tmpl" | "brand">("style");
+  // Dynamic left-panel state for desktop
+  const [activeLeftTool, setActiveLeftTool] = useState<LeftTool>("captions");
+
+  const toggleLeftTool = (tool: Exclude<LeftTool, null>) => {
+    setActiveLeftTool((prev) => (prev === tool ? null : tool));
+  };
   const [timelineExpanded, setTimelineExpanded] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const projectId = searchParams.get("project");
@@ -1734,6 +1744,10 @@ const Editor = () => {
             onChange={handleCaptionsChange}
             onSeek={seek}
             lockedTracks={lockedTracks}
+            onOpenStyles={() => {
+              setActiveTab("style");
+              setActiveLeftTool("style");
+            }}
           />
         );
 
@@ -1801,31 +1815,52 @@ const Editor = () => {
 
         const selectedCaption = captions.find(c => c.id === selectedCaptionId) || null;
 
+        const commonStylePanelProps = {
+          style: selectedCaption?.style ? { ...style, ...selectedCaption.style } : style,
+          onChange: handleStyleChange,
+          selectedCaption: selectedCaption,
+          onCaptionChange: (id: string, patch: Partial<typeof captions[0]>) => {
+            setCaptions((cur) => {
+              const target = cur.find((c) => c.id === id);
+              const targetTrack = target ? (target.track || 1) : 1;
+              return cur.map((c) => {
+                const cTrack = c.track || 1;
+                if (cTrack === targetTrack) {
+                  return {
+                    ...c,
+                    ...patch,
+                    style: patch.style ? { ...c.style, ...patch.style } : c.style
+                  };
+                }
+                return c;
+              });
+            });
+          },
+          isLocked: selectedCaption ? lockedTracks.includes(selectedCaption.track || 1) : false,
+          showTabsHeader: false as const,
+        };
+
+        // Style panel — caption appearance + animation (style & anim tabs only)
         const stylePanel = (
           <StylePanel
-            style={selectedCaption?.style ? { ...style, ...selectedCaption.style } : style}
-            onChange={handleStyleChange}
-            selectedCaption={selectedCaption}
-            onCaptionChange={(id, patch) => {
-              setCaptions((cur) => {
-                const target = cur.find((c) => c.id === id);
-                const targetTrack = target ? (target.track || 1) : 1;
-                return cur.map((c) => {
-                  const cTrack = c.track || 1;
-                  if (cTrack === targetTrack) {
-                    return {
-                      ...c,
-                      ...patch,
-                      style: patch.style ? { ...c.style, ...patch.style } : c.style
-                    };
-                  }
-                  return c;
-                });
-              });
-            }}
-            isLocked={selectedCaption ? lockedTracks.includes(selectedCaption.track || 1) : false}
-            activeTab={activeTab}
-            showTabsHeader={false}
+            {...commonStylePanelProps}
+            activeTab={activeTab === "tmpl" || activeTab === "brand" ? "style" : activeTab}
+          />
+        );
+
+        // Templates panel — preset layouts only
+        const templatesPanel = (
+          <StylePanel
+            {...commonStylePanelProps}
+            activeTab="tmpl"
+          />
+        );
+
+        // Brand panel — brand kit only
+        const brandPanel = (
+          <StylePanel
+            {...commonStylePanelProps}
+            activeTab="brand"
           />
         );
 
@@ -1952,34 +1987,60 @@ const Editor = () => {
         return (
           <div className="flex flex-1 overflow-hidden select-none">
 
-            {/* Desktop Layout - Slim Sidebar Left + Resizable Horizontal Panels */}
+            {/* Desktop Layout - Slim Sidebar + Dynamic Panels + Preview */}
             {!isMobile && (
               <div className="flex flex-1 overflow-hidden">
                 {/* 2.1 SLIM NAVIGATION SIDEBAR */}
-                <aside className="w-16 flex-shrink-0 bg-card border-r border-border flex flex-col items-center justify-between py-4 select-none">
+                <aside className="w-16 flex-shrink-0 bg-card border-r border-border flex flex-col items-center justify-between py-4 select-none z-30">
                   <div className="flex flex-col gap-4.5 w-full items-center">
-                    {/* Captions */}
-                    <SidebarIcon title="Captions" icon={Type} active={activeTab === "style"} onClick={() => setActiveTab("style")} />
-                    {/* Animation Styles */}
-                    <SidebarIcon title="Animation Styles" icon={Sparkles} active={activeTab === "anim"} onClick={() => setActiveTab("anim")} />
-                    {/* Caption Templates */}
-                    <SidebarIcon title="Caption Templates" icon={Layers} active={activeTab === "tmpl"} onClick={() => setActiveTab("tmpl")} />
-                    {/* Brand Kit */}
-                    <SidebarIcon title="Brand Kit" icon={Palette} active={activeTab === "brand"} onClick={() => setActiveTab("brand")} />
+                    {/* Captions Panel Toggle */}
+                    <SidebarIcon
+                      title="Captions"
+                      icon={Type}
+                      active={activeLeftTool === "captions"}
+                      onClick={() => toggleLeftTool("captions")}
+                    />
+                    {/* Caption Style Panel Toggle */}
+                    <SidebarIcon
+                      title="Caption Style"
+                      icon={Sparkles}
+                      active={activeLeftTool === "style"}
+                      onClick={() => toggleLeftTool("style")}
+                    />
+                    {/* Templates Panel Toggle */}
+                    <SidebarIcon
+                      title="Templates"
+                      icon={Layers}
+                      active={activeLeftTool === "templates"}
+                      onClick={() => toggleLeftTool("templates")}
+                    />
+                    {/* Brand Kit Panel Toggle */}
+                    <SidebarIcon
+                      title="Brand Kit"
+                      icon={Palette}
+                      active={activeLeftTool === "brand"}
+                      onClick={() => toggleLeftTool("brand")}
+                    />
 
-                    {/* Meme Studio (Beta) */}
+                    {/* Media Panel Toggle (Meme Studio) — opens as full-screen overlay */}
                     <div className="relative group flex items-center justify-center w-full select-none px-1">
                       {isMemeStudioOpen && (
                         <div className="absolute left-0 top-1 bottom-1 w-[3px] bg-primary rounded-r-md" />
                       )}
                       <button
                         type="button"
-                        onClick={() => handleOpenMemeStudio({ tab: "gifs" })}
+                        onClick={() => {
+                          if (isMemeStudioOpen) {
+                            setIsMemeStudioOpen(false);
+                          } else {
+                            handleOpenMemeStudio({ tab: memeStudioTab });
+                          }
+                        }}
                         className={`flex h-11 w-11 items-center justify-center rounded-xl transition duration-300 hover:scale-[1.05] active:scale-95 cursor-pointer relative ${isMemeStudioOpen
                           ? "bg-gradient-primary text-primary-foreground shadow-glow"
                           : "bg-transparent text-muted-foreground hover:text-foreground hover:bg-muted"
-                          }`}
-                        title="Meme Studio (Beta)"
+                        }`}
+                        title="Media & Stickers"
                       >
                         <Smile className="h-[21px] w-[21px]" />
                         <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground text-[8px] font-bold px-1 rounded-full uppercase tracking-wider scale-90">
@@ -1987,7 +2048,7 @@ const Editor = () => {
                         </span>
                       </button>
                       <span className="absolute left-16 rounded bg-popover border border-border px-2 py-1 text-[10px] font-bold text-popover-foreground opacity-0 transition-opacity pointer-events-none group-hover:opacity-100 z-50 whitespace-nowrap shadow-md">
-                        Meme Studio (Beta)
+                        Media & Stickers
                       </span>
                     </div>
 
@@ -2033,34 +2094,137 @@ const Editor = () => {
                   </div>
                 </aside>
 
-
-                {/* 2.2 HORIZONTAL WORKSPACE ROW */}
+                {/* 2.2 DYNAMIC HORIZONTAL WORKSPACE */}
                 <div className="flex-1 flex flex-col overflow-hidden bg-background bg-grid-dark-pattern dark:bg-grid-white-pattern relative">
                   {/* Soft ambient background glows */}
                   <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-primary/5 via-transparent to-transparent opacity-40" />
 
-                  {/* Top Workspace Panels */}
-                  <div className="flex-1 min-h-0 overflow-hidden px-4 py-3 z-10">
-                    <ResizablePanelGroup direction="horizontal" className="h-full w-full gap-3">
-                      {/* Left: captionsPanel */}
-                      <ResizablePanel defaultSize={26} minSize={15} maxSize={40} className="rounded-2xl border border-border bg-card overflow-hidden shadow-2xl">
-                        {captionsPanel}
-                      </ResizablePanel>
+                  {/* Top Workspace — Panels + Preview row */}
+                  <div className="flex-1 min-h-0 overflow-hidden px-4 py-3 z-10 flex gap-3">
 
-                      <ResizableHandle className="bg-transparent hover:bg-primary/20 transition w-1 cursor-col-resize" />
+                    {/* PANEL A: Captions List */}
+                    {activeLeftTool === "captions" && (
+                      <div className="flex-shrink-0 w-[280px] rounded-2xl border border-border bg-card overflow-hidden shadow-2xl flex flex-col animate-in slide-in-from-left-2 duration-200">
+                        {/* Panel header with close button */}
+                        <div className="flex items-center justify-between h-10 px-3 border-b border-border bg-card/80 flex-shrink-0">
+                          <div className="flex items-center gap-2">
+                            <div className="h-5 w-5 flex items-center justify-center rounded bg-primary/10 text-primary">
+                              <Type className="h-3 w-3" />
+                            </div>
+                            <span className="text-[12px] font-extrabold text-foreground tracking-tight">Captions</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setActiveLeftTool(null)}
+                            className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition cursor-pointer"
+                            title="Close panel"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        <div className="flex-1 overflow-hidden">
+                          {captionsPanel}
+                        </div>
+                      </div>
+                    )}
 
-                      {/* Middle: previewPanel */}
-                      <ResizablePanel defaultSize={48} minSize={35} className="bg-transparent overflow-hidden">
-                        {previewPanel}
-                      </ResizablePanel>
+                    {/* PANEL B: Caption Style (appearance + animation) */}
+                    {activeLeftTool === "style" && (
+                      <div className="flex-shrink-0 w-[300px] rounded-2xl border border-border bg-card overflow-hidden shadow-2xl flex flex-col animate-in slide-in-from-left-2 duration-200">
+                        <div className="flex items-center justify-between h-10 px-3 border-b border-border bg-card/80 flex-shrink-0">
+                          <div className="flex items-center gap-2">
+                            <div className="h-5 w-5 flex items-center justify-center rounded bg-primary/10 text-primary">
+                              <Sparkles className="h-3 w-3" />
+                            </div>
+                            <span className="text-[12px] font-extrabold text-foreground tracking-tight">Caption Style</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setActiveLeftTool(null)}
+                            className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition cursor-pointer"
+                            title="Close panel"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        {/* Style / Animation sub-tab switcher */}
+                        <div className="flex items-center gap-1 px-2 pt-2 pb-1.5 border-b border-border flex-shrink-0">
+                          {(["style", "anim"] as const).map((tab) => (
+                            <button
+                              key={tab}
+                              type="button"
+                              onClick={() => setActiveTab(tab)}
+                              className={`flex-1 py-1.5 text-[11px] font-bold rounded-lg transition cursor-pointer ${
+                                activeTab === tab
+                                  ? "bg-primary/10 text-primary"
+                                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                              }`}
+                            >
+                              {tab === "style" ? "Style" : "Animation"}
+                            </button>
+                          ))}
+                        </div>
+                        <div className="flex-1 overflow-hidden">
+                          {stylePanel}
+                        </div>
+                      </div>
+                    )}
 
-                      <ResizableHandle className="bg-transparent hover:bg-primary/20 transition w-1 cursor-col-resize" />
+                    {/* PANEL C: Templates */}
+                    {activeLeftTool === "templates" && (
+                      <div className="flex-shrink-0 w-[300px] rounded-2xl border border-border bg-card overflow-hidden shadow-2xl flex flex-col animate-in slide-in-from-left-2 duration-200">
+                        <div className="flex items-center justify-between h-10 px-3 border-b border-border bg-card/80 flex-shrink-0">
+                          <div className="flex items-center gap-2">
+                            <div className="h-5 w-5 flex items-center justify-center rounded bg-primary/10 text-primary">
+                              <Layers className="h-3 w-3" />
+                            </div>
+                            <span className="text-[12px] font-extrabold text-foreground tracking-tight">Caption Templates</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setActiveLeftTool(null)}
+                            className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition cursor-pointer"
+                            title="Close panel"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        <div className="flex-1 overflow-hidden">
+                          {templatesPanel}
+                        </div>
+                      </div>
+                    )}
 
-                      {/* Right: stylePanel */}
-                      <ResizablePanel defaultSize={26} minSize={15} maxSize={40} className="rounded-2xl border border-border bg-card overflow-hidden shadow-2xl">
-                        {stylePanel}
-                      </ResizablePanel>
-                    </ResizablePanelGroup>
+                    {/* PANEL D: Brand Kit */}
+                    {activeLeftTool === "brand" && (
+                      <div className="flex-shrink-0 w-[300px] rounded-2xl border border-border bg-card overflow-hidden shadow-2xl flex flex-col animate-in slide-in-from-left-2 duration-200">
+                        <div className="flex items-center justify-between h-10 px-3 border-b border-border bg-card/80 flex-shrink-0">
+                          <div className="flex items-center gap-2">
+                            <div className="h-5 w-5 flex items-center justify-center rounded bg-primary/10 text-primary">
+                              <Palette className="h-3 w-3" />
+                            </div>
+                            <span className="text-[12px] font-extrabold text-foreground tracking-tight">Brand Kit</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setActiveLeftTool(null)}
+                            className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition cursor-pointer"
+                            title="Close panel"
+                          >
+                            <X className="h-3.5 w-3.5" />
+                          </button>
+                        </div>
+                        <div className="flex-1 overflow-hidden">
+                          {brandPanel}
+                        </div>
+                      </div>
+                    )}
+
+
+                    {/* VIDEO PREVIEW — Takes remaining space */}
+                    <div className="flex-1 min-w-0 bg-transparent overflow-hidden">
+                      {previewPanel}
+                    </div>
                   </div>
 
                   {/* Bottom Timeline Panel Container */}

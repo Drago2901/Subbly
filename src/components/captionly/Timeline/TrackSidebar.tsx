@@ -59,6 +59,7 @@ interface TrackSidebarProps {
   onToggleAudioSfxMute: () => void;
   onQuickAdd: (trackId: TimelineTrackId) => void;
   isMobile?: boolean;
+  sidebarScrollRef?: React.RefObject<HTMLDivElement>;
 }
 
 export const TrackSidebar: React.FC<TrackSidebarProps> = ({
@@ -78,6 +79,7 @@ export const TrackSidebar: React.FC<TrackSidebarProps> = ({
   onToggleAudioSfxMute,
   onQuickAdd,
   isMobile = false,
+  sidebarScrollRef,
 }) => {
   return (
     <div className="flex flex-col bg-card border-r border-border select-none z-20 flex-shrink-0">
@@ -86,8 +88,11 @@ export const TrackSidebar: React.FC<TrackSidebarProps> = ({
         <span>Tracks</span>
       </div>
 
-      {/* Track Rows Sidebar */}
-      <div className="flex flex-col">
+      {/* Track Rows — scrolls in sync with the right track lane area */}
+      <div
+        ref={sidebarScrollRef}
+        className="flex flex-col overflow-y-hidden"
+      >
         {TRACK_CONFIGS.map((track) => {
           const isCollapsed = trackCollapsed[track.id] ?? false;
           const isVisible = trackVisibility[track.id] ?? true;

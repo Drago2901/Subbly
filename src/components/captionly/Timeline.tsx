@@ -134,6 +134,7 @@ export function Timeline({
   const [snapGuideTime, setSnapGuideTime] = useState<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const sidebarScrollRef = useRef<HTMLDivElement>(null);
 
   // Real Audio Waveform state
   const [vocalWaveform, setVocalWaveform] = useState<number[]>(() => generateSyntheticSpeechEnvelope(300));
@@ -537,6 +538,43 @@ export function Timeline({
     [handleAddCaptionTrack, handleAddMemeGif]
   );
 
+  // Add a new clip immediately after the clip with the given id (same track)
+  const handleAddAfter = useCallback(
+    (captionId: string) => {
+      const source = captions.find((c) => c.id === captionId);
+      if (!source) return;
+      const start = source.end;
+      const end = Math.min(duration > 0 ? duration : start + 2.2, start + 2.2);
+      if (start >= (duration > 0 ? duration : Infinity)) return;
+      const newCap: Caption = {
+        id: crypto.randomUUID(),
+        start,
+        end,
+        text: "",
+        track: source.track ?? 2,
+        x: source.x ?? 0.5,
+        y: source.y ?? 0.72,
+        width: source.width,
+        height: source.height,
+        style: source.style ? JSON.parse(JSON.stringify(source.style)) : undefined,
+      };
+      onChange([...captions, newCap].sort((a, b) => a.start - b.start));
+      setSelected(newCap.id);
+      // Expand track if collapsed
+      const trackKey = (source.track ?? 2) === 1 ? "caption1" : "caption2";
+      setTrackCollapsed((prev) => ({ ...prev, [trackKey]: false }));
+    },
+    [captions, duration, onChange, setSelected]
+  );
+
+  // Update text of a caption inline
+  const handleUpdateText = useCallback(
+    (captionId: string, text: string) => {
+      onChange(captions.map((c) => (c.id === captionId ? { ...c, text } : c)));
+    },
+    [captions, onChange]
+  );
+
   return (
     <div
       ref={containerRef}
@@ -583,12 +621,19 @@ export function Timeline({
           onToggleAudioSfxMute={() => setAudioSfxMuted((prev) => !prev)}
           onQuickAdd={handleQuickAdd}
           isMobile={isMobile}
+          sidebarScrollRef={sidebarScrollRef}
         />
 
         {/* HORIZONTAL SCROLLABLE TIMELINE CONTENT (RIGHT) */}
         <div
           ref={scrollContainerRef}
           className="flex-1 min-w-0 overflow-x-auto overflow-y-auto relative scrollbar-thin select-none"
+          onScroll={(e) => {
+            // Sync vertical scroll to the track sidebar
+            if (sidebarScrollRef.current) {
+              sidebarScrollRef.current.scrollTop = (e.target as HTMLDivElement).scrollTop;
+            }
+          }}
         >
           <div style={{ width: totalWidth }} className="relative flex flex-col min-h-full">
             {/* TIME RULER */}
@@ -619,6 +664,8 @@ export function Timeline({
               onStartDrag={setActiveDrag}
               snapGuideTime={snapGuideTime}
               onQuickAdd={handleQuickAdd}
+              onAddAfter={handleAddAfter}
+              onUpdateText={handleUpdateText}
             />
 
             {/* SINGLE GLOBAL PLAYHEAD PASSING DOWN EVERY TRACK */}

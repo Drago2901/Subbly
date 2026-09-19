@@ -10,6 +10,7 @@ import { AnimationTab } from "./StylePanel/AnimationTab";
 import { TemplatesTab } from "./StylePanel/TemplatesTab";
 import { BrandKitTab } from "./StylePanel/BrandKitTab";
 import { type Tab, type Preset } from "./StylePanel/stylePanelConstants";
+import { Sliders, ChevronRight } from "lucide-react";
 
 export { type Tab, type Preset } from "./StylePanel/stylePanelConstants";
 
@@ -21,6 +22,7 @@ type Props = {
   isLocked?: boolean;
   activeTab?: Tab;
   showTabsHeader?: boolean;
+  onOpenAdjustments?: () => void;
 };
 
 export function StylePanel({
@@ -31,6 +33,7 @@ export function StylePanel({
   isLocked,
   activeTab,
   showTabsHeader = true,
+  onOpenAdjustments,
 }: Props) {
   const { user } = useAuth();
   const [tab, setTab] = useState<Tab>(activeTab || "style");

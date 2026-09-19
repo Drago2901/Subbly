@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { Plus, Trash2, Scissors, Combine, FileText, Search, MoreVertical, Clock } from "lucide-react";
+import { Plus, Trash2, Scissors, Combine, FileText, Search, MoreVertical, Clock, Palette, ChevronRight } from "lucide-react";
 import type { Caption } from "@/lib/captions/types";
 import {
   DropdownMenu,
@@ -14,6 +14,7 @@ type Props = {
   onChange: (next: Caption[]) => void;
   onSeek: (t: number) => void;
   lockedTracks?: number[];
+  onOpenStyles?: () => void;
 };
 
 const fmt = (t: number) => {
@@ -23,7 +24,7 @@ const fmt = (t: number) => {
   return `${m}:${s}.${ms}`;
 };
 
-export function CaptionList({ captions, currentTime, onChange, onSeek, lockedTracks = [] }: Props) {
+export function CaptionList({ captions, currentTime, onChange, onSeek, lockedTracks = [], onOpenStyles }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
 
   const update = (id: string, patch: Partial<Caption>) => {
@@ -172,6 +173,20 @@ export function CaptionList({ captions, currentTime, onChange, onSeek, lockedTra
             className="w-full rounded-lg border border-[#E8E4DE] bg-[#F9F8F5] dark:border-[#2C313C] dark:bg-[#1F232D] pl-9 pr-3 py-2 text-[12.5px] text-[#1A1A1A] dark:text-white placeholder-[#888] dark:placeholder-[#A1A8B5] outline-none transition focus:border-[#FF6B2C]"
           />
         </div>
+
+        {onOpenStyles && (
+          <button
+            type="button"
+            onClick={onOpenStyles}
+            className="w-full flex items-center justify-between px-3 py-2 rounded-lg border border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 transition text-xs font-bold cursor-pointer group shadow-sm"
+          >
+            <div className="flex items-center gap-2">
+              <Palette className="h-3.5 w-3.5" />
+              <span>Customize Styles & Typography</span>
+            </div>
+            <ChevronRight className="h-3.5 w-3.5 group-hover:translate-x-0.5 transition-transform" />
+          </button>
+        )}
       </div>
 
       {/* Caption Cards List */}
