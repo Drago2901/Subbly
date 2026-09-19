@@ -33,6 +33,8 @@ import {
   Play,
   Pause,
   Smile,
+  Monitor,
+  X,
 } from "lucide-react";
 import { MediaAddDropdown } from "@/components/captionly/MemeStudio/MediaAddDropdown";
 import { MemeStudioPanel } from "@/components/captionly/MemeStudio/MemeStudioPanel";
@@ -82,6 +84,8 @@ import {
   type Caption,
   type CaptionStyle,
   type Word,
+  type TimelineEffect,
+  type TimelineAudioClip,
 } from "@/lib/captions/types";
 import { useAuth } from "@/hooks/useAuth";
 import { captionsToSrt, srtToCaptions } from "@/lib/captions/srt";
@@ -381,8 +385,48 @@ const Editor = () => {
 
   const [selectedCaptionId, setSelectedCaptionId] = useState<string | null>(null);
   const [lockedTracks, setLockedTracks] = useState<number[]>([]);
+  const [effects, setEffects] = useState<TimelineEffect[]>([]);
+  const [audioClips, setAudioClips] = useState<TimelineAudioClip[]>([]);
 
+  const [timelineZoom, setTimelineZoom] = useState<number>(35);
   const { canUndo, canRedo, handleUndo, handleRedo, resetHistory } = useEditorHistory(captions, setCaptions);
+
+  // F11 Experience suggestion notification state
+  const [isBrowserFullscreen, setIsBrowserFullscreen] = useState(() => {
+    return typeof document !== "undefined" && Boolean(document.fullscreenElement);
+  });
+  const [f11Dismissed, setF11Dismissed] = useState(() => {
+    try {
+      return localStorage.getItem("subbly_hide_f11_hint") === "true";
+    } catch {
+      return false;
+    }
+  });
+
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsBrowserFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener("fullscreenchange", handleFsChange);
+    return () => document.removeEventListener("fullscreenchange", handleFsChange);
+  }, []);
+
+  const toggleBrowserFullscreen = useCallback(() => {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen?.().catch(() => {});
+    } else {
+      document.exitFullscreen?.().catch(() => {});
+    }
+  }, []);
+
+  const dismissF11Hint = useCallback(() => {
+    setF11Dismissed(true);
+    try {
+      localStorage.setItem("subbly_hide_f11_hint", "true");
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const frame = useMemo(() => {
     return framePreset.id !== "original"
@@ -593,10 +637,15 @@ const Editor = () => {
     };
   }, [videoElement, videoUrl, transcribing]);
 
-  // Global Keyboard Shortcuts (Undo, Redo, Play/Pause)
+  // Global Keyboard Shortcuts (Undo, Redo, Play/Pause, Zoom In/Out, Save)
   useEditorKeyboard({
     onUndo: handleUndo,
     onRedo: handleRedo,
+    onSave: () => {
+      handleManualSave();
+    },
+    onZoomIn: () => setTimelineZoom((z) => Math.min(100, z + 10)),
+    onZoomOut: () => setTimelineZoom((z) => Math.max(5, z - 10)),
     onTogglePlay: () => {
       const v = videoRef.current;
       if (!v) return;
@@ -1447,8 +1496,47 @@ const Editor = () => {
 
   const headerRight = useMemo(
     () => (
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2.5">
+        {/* F11 Experience suggestion notification */}
+        {!isBrowserFullscreen && !f11Dismissed && (
+          <div
+            onClick={toggleBrowserFullscreen}
+            role="button"
+            tabIndex={0}
+            title="Click to enter Fullscreen (or press F11)"
+            className="flex items-center gap-2.5 pl-2 pr-2.5 py-1.5 rounded-full border border-amber-500/80 bg-zinc-950/95 shadow-[0_0_16px_rgba(245,158,11,0.28)] hover:shadow-[0_0_22px_rgba(245,158,11,0.45)] hover:border-amber-400 transition-all duration-200 cursor-pointer select-none group"
+          >
+            {/* Monitor Icon inside dark circle */}
+            <div className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-900 border border-zinc-800 shadow-inner flex-shrink-0">
+              <Monitor className="h-3.5 w-3.5 text-zinc-100 group-hover:text-amber-400 transition-colors" strokeWidth={2.2} />
+            </div>
 
+            {/* Text labels */}
+            <div className="flex flex-col text-left justify-center pr-0.5 min-w-0">
+              <div className="flex items-center gap-1 leading-none">
+                <span className="text-[12px] font-extrabold text-[#f59e0b] tracking-wide">Press F11</span>
+                <Sparkles className="h-3 w-3 text-amber-400 animate-pulse" />
+              </div>
+              <span className="text-[9.5px] font-medium text-zinc-400 tracking-tight leading-none mt-0.5">
+                for best experience
+              </span>
+            </div>
+
+            {/* Dismiss Button */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                dismissF11Hint();
+              }}
+              className="ml-0.5 p-0.5 rounded-full text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition cursor-pointer"
+              aria-label="Dismiss F11 notification"
+              title="Dismiss"
+            >
+              <X className="h-3.5 w-3.5" strokeWidth={2.2} />
+            </button>
+          </div>
+        )}
 
         {file && (
           <div className="flex items-center gap-2 border border-border bg-secondary/80 p-1.5 rounded-lg">
@@ -1512,7 +1600,7 @@ const Editor = () => {
         )}
       </div>
     ),
-    [file, exporting, exportProgress, exportStage, quality, exportVideo],
+    [file, exporting, exportProgress, exportStage, quality, exportVideo, isBrowserFullscreen, f11Dismissed, toggleBrowserFullscreen, dismissF11Hint],
   );
 
   if (loadingProject) {
@@ -1574,6 +1662,7 @@ const Editor = () => {
               </span>
             )}
           </div>
+
           <div className="flex flex-shrink-0 items-center gap-3">
             {/* Header Undo / Redo */}
             <div className="flex items-center gap-1 border-r border-border pr-2.5">
@@ -1703,6 +1792,7 @@ const Editor = () => {
                   frame={frame}
                   lockedTracks={lockedTracks}
                   quality={quality}
+                  effects={effects}
                 />
               </div>
             </div>
@@ -1847,6 +1937,15 @@ const Editor = () => {
                   : [...prev, trackNum]
               )
             }
+            videoUrl={videoUrl}
+            audioSource={file}
+            effects={effects}
+            onEffectsChange={setEffects}
+            audioClips={audioClips}
+            onAudioClipsChange={setAudioClips}
+            onOpenMemeStudio={() => handleOpenMemeStudio({ tab: "gifs" })}
+            zoomPct={timelineZoom}
+            onZoomChange={setTimelineZoom}
           />
         ) : null;
 
@@ -1965,7 +2064,7 @@ const Editor = () => {
                   </div>
 
                   {/* Bottom Timeline Panel Container */}
-                  <div className="flex-shrink-0 h-[260px] flex flex-col overflow-hidden bg-card border border-border mx-4 mb-3 rounded-2xl shadow-2xl select-none">
+                  <div className="flex-shrink-0 h-[340px] flex flex-col overflow-hidden bg-card border border-border mx-4 mb-3 rounded-2xl shadow-2xl select-none">
                     {combinedToolbar}
                     <div className="flex-1 overflow-hidden">
                       {timelinePanel}
@@ -2041,6 +2140,7 @@ const Editor = () => {
 
                   <div className="flex items-center gap-1 flex-shrink-0">
                     <MediaAddDropdown onOpenMemeStudio={handleOpenMemeStudio} />
+
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <button
@@ -2153,6 +2253,7 @@ const Editor = () => {
                         frame={frame}
                         lockedTracks={lockedTracks}
                         quality={quality}
+                        effects={effects}
                       />
                     </div>
                   </div>

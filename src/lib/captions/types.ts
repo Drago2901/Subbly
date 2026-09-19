@@ -1072,3 +1072,50 @@ export const CAPTION_TEMPLATES: CaptionTemplate[] = [
   },
 ];
 
+// ==========================================
+// SUBBLY MULTI-TRACK TIMELINE SYSTEM TYPES
+// ==========================================
+
+export type TimelineTrackId =
+  | "video"
+  | "caption1"
+  | "caption2"
+  | "memes"
+  | "effects"
+  | "vocal"
+  | "audioSfx";
+
+export type VideoEffectType = "zoom" | "shake" | "flash" | "blur" | "glitch";
+
+export interface TimelineEffect {
+  id: string;
+  type: VideoEffectType;
+  name: string;
+  start: number;
+  end: number;
+  intensity?: number;
+}
+
+export interface TimelineAudioClip {
+  id: string;
+  url: string;
+  title: string;
+  start: number;
+  end: number;
+  duration: number;
+  volume: number; // 0..1.5
+  muted: boolean;
+  fadeIn?: number;
+  fadeOut?: number;
+  trackType: "vocal" | "audioSfx";
+}
+
+export interface TrackState {
+  id: TimelineTrackId;
+  label: string;
+  visible: boolean;
+  locked: boolean;
+  collapsed: boolean;
+  volume?: number;
+  muted?: boolean;
+}

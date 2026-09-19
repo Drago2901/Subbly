@@ -5,6 +5,8 @@ interface UseEditorKeyboardOptions {
   onRedo?: () => void;
   onSave?: () => void;
   onTogglePlay?: () => void;
+  onZoomIn?: () => void;
+  onZoomOut?: () => void;
   disabled?: boolean;
 }
 
@@ -13,6 +15,8 @@ export function useEditorKeyboard({
   onRedo,
   onSave,
   onTogglePlay,
+  onZoomIn,
+  onZoomOut,
   disabled = false,
 }: UseEditorKeyboardOptions) {
   useEffect(() => {
@@ -22,11 +26,11 @@ export function useEditorKeyboard({
       // Check if user is typing in an editable field
       const target = e.target as HTMLElement | null;
       const isInput =
-        target &&
+        Boolean(target &&
         (target.tagName === "INPUT" ||
           target.tagName === "TEXTAREA" ||
           target.isContentEditable ||
-          target.closest("[contenteditable]"));
+          (typeof target.closest === "function" && target.closest("[contenteditable]"))));
 
       const isMac = navigator.platform.toUpperCase().indexOf("MAC") >= 0;
       const cmdOrCtrl = isMac ? e.metaKey : e.ctrlKey;
@@ -53,6 +57,20 @@ export function useEditorKeyboard({
         return;
       }
 
+      // Timeline Zoom In: Ctrl/Cmd + = or +
+      if (cmdOrCtrl && (e.key === "=" || e.key === "+")) {
+        e.preventDefault();
+        onZoomIn?.();
+        return;
+      }
+
+      // Timeline Zoom Out: Ctrl/Cmd + - or _
+      if (cmdOrCtrl && (e.key === "-" || e.key === "_")) {
+        e.preventDefault();
+        onZoomOut?.();
+        return;
+      }
+
       // Play/Pause: Space (only when not editing text)
       if (e.code === "Space" && !isInput) {
         e.preventDefault();
@@ -63,5 +81,5 @@ export function useEditorKeyboard({
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [onUndo, onRedo, onSave, onTogglePlay, disabled]);
+  }, [onUndo, onRedo, onSave, onTogglePlay, onZoomIn, onZoomOut, disabled]);
 }

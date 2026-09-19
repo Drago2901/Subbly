@@ -1,6 +1,6 @@
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
 import { Pencil, Play, Pause, Volume2, VolumeX, Maximize, Minimize, Trash2, RefreshCw } from "lucide-react";
-import type { Caption, CaptionStyle, CaptionAnimation } from "@/lib/captions/types";
+import type { Caption, CaptionStyle, CaptionAnimation, TimelineEffect } from "@/lib/captions/types";
 
 interface ExtendedDocument extends Document {
   webkitFullscreenElement?: Element | null;
@@ -42,6 +42,7 @@ type Props = {
   frame?: { width: number; height: number; fit: "cover" | "contain" } | null;
   lockedTracks?: number[];
   quality?: "standard" | "high";
+  effects?: TimelineEffect[];
 };
 
 export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPreview(
@@ -61,6 +62,7 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
     frame,
     lockedTracks,
     quality = "standard",
+    effects = [],
   },
   ref,
 ) {
@@ -69,6 +71,30 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
   const canvasRef = useRef<HTMLDivElement>(null);
   useImperativeHandle(ref, () => innerRef.current as HTMLVideoElement, []);
   const [time, setTime] = useState(0);
+
+  // Active visual effect evaluation
+  const activeEffect = useMemo(() => {
+    return effects.find((e) => time >= e.start && time <= e.end);
+  }, [effects, time]);
+
+  const effectStyle = useMemo((): React.CSSProperties => {
+    if (!activeEffect) return {};
+    switch (activeEffect.type) {
+      case "zoom":
+        return { transform: "scale(1.18)", transition: "transform 0.15s ease-out" };
+      case "shake":
+        return { transform: `translate(${(Math.sin(time * 65) * 3.5).toFixed(1)}px, ${(Math.cos(time * 65) * 3.5).toFixed(1)}px)` };
+      case "flash":
+        return { filter: "brightness(1.85) contrast(1.15)" };
+      case "blur":
+        return { filter: "blur(5px)" };
+      case "glitch":
+        return { filter: "drop-shadow(3px 0 rgba(239, 68, 68, 0.75)) drop-shadow(-3px 0 rgba(59, 130, 246, 0.75))" };
+      default:
+        return {};
+    }
+  }, [activeEffect, time]);
+
   const [draggingCaptionId, setDraggingCaptionId] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
   const [resizing, setResizing] = useState<{
@@ -682,7 +708,7 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
           src={src}
           crossOrigin="anonymous"
           className="block h-full w-full relative z-10"
-          style={{ objectFit }}
+          style={{ objectFit, ...effectStyle }}
           playsInline
           onDoubleClick={(e) => {
             e.preventDefault();
