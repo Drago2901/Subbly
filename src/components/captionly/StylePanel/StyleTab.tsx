@@ -1,7 +1,8 @@
 import React from "react";
 import { AlignLeft, AlignCenter, AlignRight, AlignStartVertical, AlignCenterVertical, AlignEndVertical, Move } from "lucide-react";
-import { FONT_OPTIONS, type CaptionStyle, type Caption } from "@/lib/captions/types";
+import { type CaptionStyle, type Caption } from "@/lib/captions/types";
 import { AccordionCard, Field, SliderRow, ColorField, ToggleRow } from "./stylePanelControls";
+import { FontPicker } from "../FontPicker";
 
 interface StyleTabProps {
   style: CaptionStyle;
@@ -93,24 +94,11 @@ export function StyleTab({
       >
         <div className="space-y-4">
           <Field label="Font Family">
-            <select
-              aria-label="Caption font"
+            <FontPicker
               value={style.fontFamily}
-              onChange={(e) => set("fontFamily", e.target.value)}
-              className="w-full cursor-pointer rounded-lg border border-[#E8E4DE] dark:border-[#2C313C] bg-white dark:bg-[#181B22] px-3 py-2 text-[12.5px] text-[#1a1a1a] dark:text-white outline-none focus:border-[#FF6B2C]"
-              style={{ fontFamily: `"${style.fontFamily}", sans-serif` }}
-            >
-              {customFonts.length > 0 && (
-                <optgroup label="Imported">
-                  {customFonts.map((f) => (
-                    <option key={f} value={f}>{f}</option>
-                  ))}
-                </optgroup>
-              )}
-              {FONT_OPTIONS.map((f) => (
-                <option key={f} value={f}>{f}</option>
-              ))}
-            </select>
+              onChange={(f) => set("fontFamily", f)}
+              customFonts={customFonts}
+            />
           </Field>
 
           <div className="grid grid-cols-2 gap-4">

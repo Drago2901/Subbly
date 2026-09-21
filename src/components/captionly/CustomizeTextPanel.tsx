@@ -25,6 +25,7 @@ import {
 } from "@/lib/captions/types";
 import { getCustomFonts, loadGoogleFont } from "@/lib/captions/fontLoader";
 import { ANIM_STYLES } from "./StylePanel/stylePanelConstants";
+import { FontPicker } from "./FontPicker";
 
 // ─── Design tokens — dynamic CSS variables supporting light and dark mode ─────
 const tk = {
@@ -40,124 +41,6 @@ const tk = {
   accentBrd: "var(--tk-accent-brd)",
   accentText:"var(--tk-accent-text)",
 };
-
-// ─── Font Picker ──────────────────────────────────────────────────────────────
-function FontPicker({ value, onChange }: { value: string; onChange: (f: string) => void }) {
-  const [open, setOpen] = useState(false);
-  const [search, setSearch] = useState("");
-  const containerRef = useRef<HTMLDivElement>(null);
-  const searchRef = useRef<HTMLInputElement>(null);
-  const customFonts = getCustomFonts();
-
-  const allFonts = customFonts.length > 0
-    ? [...customFonts, ...FONT_OPTIONS.filter((f) => !customFonts.includes(f))]
-    : FONT_OPTIONS;
-
-  const filtered = search.trim()
-    ? allFonts.filter((f) => f.toLowerCase().includes(search.toLowerCase()))
-    : allFonts;
-
-  // Close on outside click
-  useEffect(() => {
-    if (!open) return;
-    const handler = (e: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false);
-        setSearch("");
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    return () => document.removeEventListener("mousedown", handler);
-  }, [open]);
-
-  // Focus search when opened
-  useEffect(() => {
-    if (open) setTimeout(() => searchRef.current?.focus(), 50);
-  }, [open]);
-
-  const select = (font: string) => {
-    loadGoogleFont(font);
-    onChange(font);
-    setOpen(false);
-    setSearch("");
-  };
-
-  return (
-    <div ref={containerRef} style={{ position: "relative" }}>
-      {/* Trigger */}
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        style={{
-          width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-          borderRadius: "6px", border: `1px solid ${open ? tk.accent : tk.border}`,
-          background: tk.surfaceBg, padding: "6px 10px", cursor: "pointer",
-        }}
-      >
-        <span style={{ fontFamily: `"${value}", sans-serif`, fontSize: "14px", color: tk.textPri, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {value}
-        </span>
-        <ChevronDown style={{ width: "12px", height: "12px", color: tk.textFaint, flexShrink: 0, marginLeft: "6px", transition: "transform 0.2s", transform: open ? "rotate(180deg)" : "rotate(0deg)" }} />
-      </button>
-
-      {/* Dropdown */}
-      {open && (
-        <div style={{
-          position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 999,
-          background: tk.panelBg, border: `1px solid ${tk.border}`, borderRadius: "8px",
-          boxShadow: "0 8px 32px rgba(0,0,0,0.25)", overflow: "hidden",
-        }}>
-          {/* Search */}
-          <div style={{ padding: "8px", borderBottom: `1px solid ${tk.border}` }}>
-            <input
-              ref={searchRef}
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search fonts…"
-              style={{
-                width: "100%", borderRadius: "5px", border: `1px solid ${tk.border}`,
-                background: tk.surfaceBg, padding: "4px 8px", fontSize: "11px",
-                color: tk.textPri, outline: "none", boxSizing: "border-box",
-              }}
-            />
-          </div>
-          {/* Font list */}
-          <div style={{ maxHeight: "240px", overflowY: "auto" }}>
-            {filtered.length === 0 && (
-              <div style={{ padding: "12px", textAlign: "center", fontSize: "11px", color: tk.textFaint }}>
-                No fonts found
-              </div>
-            )}
-            {filtered.map((font) => {
-              const active = font === value;
-              return (
-                <button
-                  key={font}
-                  type="button"
-                  onClick={() => select(font)}
-                  style={{
-                    width: "100%", display: "flex", alignItems: "center", justifyContent: "space-between",
-                    padding: "9px 12px", border: "none", cursor: "pointer", textAlign: "left",
-                    background: active ? tk.accentDim : "transparent",
-                    borderLeft: active ? `2px solid ${tk.accent}` : "2px solid transparent",
-                  }}
-                  onMouseEnter={(e) => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = tk.hoverBg; }}
-                  onMouseLeave={(e) => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
-                >
-                  <span style={{ fontFamily: `"${font}", sans-serif`, fontSize: "15px", color: active ? tk.accentText : tk.textPri, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-                    {font}
-                  </span>
-                  {active && <Check style={{ width: "12px", height: "12px", color: tk.accent, flexShrink: 0 }} />}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 type CustomizeTab = "style" | "animation" | "position" | "effects";

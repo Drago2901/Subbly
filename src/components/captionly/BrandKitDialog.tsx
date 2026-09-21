@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { FONT_OPTIONS } from "@/lib/captions/types";
+import { FontPicker } from "./FontPicker";
 
 export type BrandKit = {
   id?: string;
@@ -170,17 +171,10 @@ function ColorBox({ label, value, onChange }: { label: string; value: string; on
 }
 
 function FontBox({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void; }) {
-  const id = useId();
   return (
     <div className="space-y-2">
-      <Label htmlFor={id} className="text-xs uppercase tracking-wide text-muted-foreground">{label}</Label>
-      <select id={id} value={value} onChange={(e) => onChange(e.target.value)}
-        className="w-full rounded-md border border-border bg-surface-2 px-3 py-2 text-sm outline-none focus:border-primary"
-        style={{ fontFamily: `"${value}", sans-serif` }}>
-        {FONT_OPTIONS.map((f) => (
-          <option key={f} value={f} style={{ fontFamily: `"${f}", sans-serif` }}>{f}</option>
-        ))}
-      </select>
+      <Label className="text-xs uppercase tracking-wide text-muted-foreground">{label}</Label>
+      <FontPicker value={value} onChange={onChange} />
     </div>
   );
 }
