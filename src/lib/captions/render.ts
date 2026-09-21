@@ -175,9 +175,6 @@ export async function burnCaptions(opts: {
   const canvas = document.createElement("canvas");
 
   let recorder: MediaRecorder | null = null;
-  let audioContext: AudioContext | null = null;
-  let audioSource: MediaElementAudioSourceNode | null = null;
-  let audioDestination: MediaStreamAudioDestinationNode | null = null;
   let outputStream: MediaStream | null = null;
   let canvasStream: MediaStream | null = null;
   let watchdogId: number | null = null;
@@ -207,16 +204,6 @@ export async function burnCaptions(opts: {
       canvasStream?.getTracks().forEach((track) => {
         try { track.stop(); } catch { /* ignore */ }
       });
-    } catch {
-      // ignore
-    }
-
-    try {
-      audioSource?.disconnect();
-      audioDestination?.disconnect();
-      if (audioContext && audioContext.state !== "closed") {
-        await audioContext.close().catch(() => undefined);
-      }
     } catch {
       // ignore
     }
@@ -302,30 +289,6 @@ export async function burnCaptions(opts: {
       throw new Error("Could not prepare export canvas.");
     }
 
-    // Audio capture setup
-    const AudioContextClass = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (AudioContextClass) {
-      try {
-        audioContext = new AudioContextClass();
-        audioSource = audioContext.createMediaElementSource(video);
-        audioDestination = audioContext.createMediaStreamDestination();
-        audioSource.connect(audioDestination);
-        if (audioContext.state === "suspended") {
-          await audioContext.resume();
-        }
-      } catch (error) {
-        onLog?.(`[Export] Audio capture unavailable: ${error instanceof Error ? error.message : String(error)}`);
-        audioSource?.disconnect();
-        audioDestination?.disconnect();
-        audioSource = null;
-        audioDestination = null;
-        if (audioContext) {
-          await audioContext.close().catch(() => undefined);
-          audioContext = null;
-        }
-      }
-    }
-
     // Feature detection: verify if deterministic CanvasCaptureMediaStreamTrack.requestFrame is supported
     const supportsDeterministicTrack =
       typeof (canvas as unknown as { captureStream?: (fps?: number) => MediaStream }).captureStream === "function" &&
@@ -346,17 +309,16 @@ export async function burnCaptions(opts: {
       : (canvas.captureStream ? canvas.captureStream(FPS) : (canvas as unknown as { mozCaptureStream: (fps: number) => MediaStream }).mozCaptureStream(FPS));
 
     const videoTrack = canvasStream.getVideoTracks()[0] as unknown as { requestFrame?: () => void } | undefined;
-    const audioTracks = audioDestination?.stream.getAudioTracks() ?? [];
-    const hasAudio = audioTracks.length > 0;
-    outputStream = new MediaStream([...canvasStream.getVideoTracks(), ...audioTracks]);
+    outputStream = new MediaStream([...canvasStream.getVideoTracks()]);
+    const hasAudio = false;
 
     const renderQuality = quality ?? "standard";
     const videoBitsPerSecond = renderQuality === "high" ? 8_000_000 : 4_000_000;
     const mimeType = getExportMimeType();
 
     recorder = mimeType
-      ? new MediaRecorder(outputStream, { mimeType, videoBitsPerSecond, audioBitsPerSecond: 128_000 })
-      : new MediaRecorder(outputStream, { videoBitsPerSecond, audioBitsPerSecond: 128_000 });
+      ? new MediaRecorder(outputStream, { mimeType, videoBitsPerSecond })
+      : new MediaRecorder(outputStream, { videoBitsPerSecond });
 
     const chunks: BlobPart[] = [];
     let lastRecorderActivity = performance.now();
@@ -476,8 +438,8 @@ export async function burnCaptions(opts: {
 
       if (!supportsDeterministicTrack) {
         await new Promise((r) => setTimeout(r, Math.max(16, 1000 / FPS)));
-      } else if (frameIndex % 15 === 0) {
-        // Yield periodically so the browser UI stays responsive without sleeping on every single frame
+      } else {
+        // Micro-yield allowing the browser's MediaRecorder worker to cleanly encode each frame
         await new Promise((r) => setTimeout(r, 0));
       }
     }

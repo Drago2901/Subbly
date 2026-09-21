@@ -37,6 +37,14 @@ export type TimelineProps = {
   onOpenMemeStudio?: () => void;
   zoomPct?: number;
   onZoomChange?: (zoom: number) => void;
+  vocalVolume?: number;
+  onVocalVolumeChange?: (vol: number) => void;
+  vocalMuted?: boolean;
+  onToggleVocalMute?: () => void;
+  audioSfxVolume?: number;
+  onAudioSfxVolumeChange?: (vol: number) => void;
+  audioSfxMuted?: boolean;
+  onToggleAudioSfxMute?: () => void;
 };
 
 export function Timeline({
@@ -64,6 +72,14 @@ export function Timeline({
   onOpenMemeStudio,
   zoomPct: zoomPctProp,
   onZoomChange,
+  vocalVolume: vocalVolumeProp,
+  onVocalVolumeChange,
+  vocalMuted: vocalMutedProp,
+  onToggleVocalMute,
+  audioSfxVolume: audioSfxVolumeProp,
+  onAudioSfxVolumeChange,
+  audioSfxMuted: audioSfxMutedProp,
+  onToggleAudioSfxMute,
 }: TimelineProps) {
   const isMobile = useIsMobile();
   const [internalZoomPct, setInternalZoomPct] = useState(35);
@@ -120,10 +136,21 @@ export function Timeline({
     audioSfx: false,
   });
 
-  const [vocalVolume, setVocalVolume] = useState(1.0);
-  const [vocalMuted, setVocalMuted] = useState(false);
-  const [audioSfxVolume, setAudioSfxVolume] = useState(0.7);
-  const [audioSfxMuted, setAudioSfxMuted] = useState(false);
+  const [localVocalVolume, setLocalVocalVolume] = useState(1.0);
+  const vocalVolume = vocalVolumeProp !== undefined ? vocalVolumeProp : localVocalVolume;
+  const setVocalVolume = onVocalVolumeChange || setLocalVocalVolume;
+
+  const [localVocalMuted, setLocalVocalMuted] = useState(false);
+  const vocalMuted = vocalMutedProp !== undefined ? vocalMutedProp : localVocalMuted;
+  const handleToggleVocalMute = onToggleVocalMute || (() => setLocalVocalMuted((prev) => !prev));
+
+  const [localAudioSfxVolume, setLocalAudioSfxVolume] = useState(0.7);
+  const audioSfxVolume = audioSfxVolumeProp !== undefined ? audioSfxVolumeProp : localAudioSfxVolume;
+  const setAudioSfxVolume = onAudioSfxVolumeChange || setLocalAudioSfxVolume;
+
+  const [localAudioSfxMuted, setLocalAudioSfxMuted] = useState(false);
+  const audioSfxMuted = audioSfxMutedProp !== undefined ? audioSfxMutedProp : localAudioSfxMuted;
+  const handleToggleAudioSfxMute = onToggleAudioSfxMute || (() => setLocalAudioSfxMuted((prev) => !prev));
 
   // Dialogs
   const [audioRoutingOpen, setAudioRoutingOpen] = useState(false);
@@ -602,7 +629,7 @@ export function Timeline({
       />
 
       {/* 2. MAIN HORIZONTAL MULTI-TRACK AREA */}
-      <div className="flex flex-1 min-h-0 overflow-hidden relative">
+      <div className="grid grid-cols-[235px_minmax(0,1fr)] flex-1 min-h-0 overflow-hidden relative w-full h-full bg-card">
         {/* FIXED TRACK-LABEL SIDEBAR (LEFT) */}
         <TrackSidebar
           trackVisibility={trackVisibility}
@@ -616,18 +643,23 @@ export function Timeline({
           audioSfxVolume={audioSfxVolume}
           onAudioSfxVolumeChange={setAudioSfxVolume}
           vocalMuted={vocalMuted}
-          onToggleVocalMute={() => setVocalMuted((prev) => !prev)}
+          onToggleVocalMute={handleToggleVocalMute}
           audioSfxMuted={audioSfxMuted}
-          onToggleAudioSfxMute={() => setAudioSfxMuted((prev) => !prev)}
+          onToggleAudioSfxMute={handleToggleAudioSfxMute}
           onQuickAdd={handleQuickAdd}
           isMobile={isMobile}
           sidebarScrollRef={sidebarScrollRef}
+          onWheel={(e) => {
+            if (scrollContainerRef.current) {
+              scrollContainerRef.current.scrollTop += e.deltaY;
+            }
+          }}
         />
 
         {/* HORIZONTAL SCROLLABLE TIMELINE CONTENT (RIGHT) */}
         <div
           ref={scrollContainerRef}
-          className="flex-1 min-w-0 overflow-x-auto overflow-y-auto relative scrollbar-thin select-none"
+          className="min-w-0 flex-1 overflow-x-auto overflow-y-auto relative scrollbar-thin select-none h-full"
           onScroll={(e) => {
             // Sync vertical scroll to the track sidebar
             if (sidebarScrollRef.current) {
@@ -635,15 +667,17 @@ export function Timeline({
             }
           }}
         >
-          <div style={{ width: totalWidth }} className="relative flex flex-col min-h-full">
+          <div style={{ width: totalWidth, minWidth: totalWidth }} className="relative flex flex-col min-h-full">
             {/* TIME RULER */}
-            <TimeRuler
-              duration={duration}
-              pxPerSec={pxPerSec}
-              totalWidth={totalWidth}
-              currentTime={currentTime}
-              onSeek={onSeek}
-            />
+            <div className="sticky top-0 z-30 flex-shrink-0 bg-card w-full">
+              <TimeRuler
+                duration={duration}
+                pxPerSec={pxPerSec}
+                totalWidth={totalWidth}
+                currentTime={currentTime}
+                onSeek={onSeek}
+              />
+            </div>
 
             {/* TRACK LANES */}
             <TrackLanes

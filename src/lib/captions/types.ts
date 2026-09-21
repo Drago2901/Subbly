@@ -1103,11 +1103,13 @@ export interface TimelineAudioClip {
   start: number;
   end: number;
   duration: number;
-  volume: number; // 0..1.5
+  volume: number; // 0..2.0 (0% to 200%)
+  savedVolume?: number; // Preserves unmuted volume when muted
   muted: boolean;
-  fadeIn?: number;
-  fadeOut?: number;
+  fadeIn?: number; // 0.0 .. 10.0s (cannot exceed clip duration)
+  fadeOut?: number; // 0.0 .. 10.0s (cannot exceed clip duration)
   trackType: "vocal" | "audioSfx";
+  audioType?: "sfx" | "music" | "voiceover" | "audio";
 }
 
 export interface TrackState {

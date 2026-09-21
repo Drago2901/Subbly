@@ -5,17 +5,18 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { getSupportedMimeType } from "@/lib/captions/render";
 
-export type ExportStage = "render" | "transcode";
+export type ExportStage = "prepare" | "render" | "audio" | "transcode" | "validate" | "complete";
 
 type Props = {
   open: boolean;
   stage: ExportStage;
   progress: number; // 0..1 for current stage
   format: "webm" | "mp4";
+  stageMessage?: string;
   onCancel: () => void;
 };
 
-export function ExportProgressDialog({ open, stage, progress, format, onCancel }: Props) {
+export function ExportProgressDialog({ open, stage, progress, format, stageMessage, onCancel }: Props) {
   const startRef = useRef<number>(performance.now());
   const stageStartRef = useRef<number>(performance.now());
   const lastStageRef = useRef<ExportStage>(stage);
@@ -45,13 +46,26 @@ export function ExportProgressDialog({ open, stage, progress, format, onCancel }
     return () => window.clearInterval(id);
   }, [open]);
 
-  const willTranscode = format === "mp4";
-  // Overall progress weighting: render = 65%, transcode = 35% when both run
-  const overall = willTranscode
-    ? stage === "render"
-      ? progress * 0.65
-      : 0.65 + progress * 0.35
-    : progress;
+  // Overall progress weighting across actual pipeline stages
+  const overall = (() => {
+    const clamped = Math.max(0, Math.min(1, progress));
+    switch (stage) {
+      case "prepare":
+        return clamped * 0.05;
+      case "render":
+        return 0.05 + clamped * 0.60;
+      case "audio":
+        return 0.65 + clamped * 0.10;
+      case "transcode":
+        return 0.75 + clamped * 0.20;
+      case "validate":
+        return 0.95 + clamped * 0.05;
+      case "complete":
+        return 1.0;
+      default:
+        return clamped;
+    }
+  })();
 
   const elapsedSec = (now - startRef.current) / 1000;
   const eta =
@@ -60,9 +74,18 @@ export function ExportProgressDialog({ open, stage, progress, format, onCancel }
       : null;
 
   const stageLabel =
-    stage === "render"
-      ? "Rendering frames & captions..."
-      : "Transcoding HD MP4 & normalizing audio...";
+    stageMessage ||
+    (stage === "prepare"
+      ? "Preparing export snapshot..."
+      : stage === "render"
+      ? "Rendering video frames & captions..."
+      : stage === "audio"
+      ? "Mixing original audio, music & SFX..."
+      : stage === "transcode"
+      ? "Encoding HD MP4 (H.264 + AAC)..."
+      : stage === "validate"
+      ? "Validating MP4 output..."
+      : "Export complete!");
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onCancel()}>

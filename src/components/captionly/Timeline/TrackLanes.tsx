@@ -191,8 +191,8 @@ export const TrackLanes: React.FC<TrackLanesProps> = ({
 
   return (
     <div
-      style={{ width: totalWidth }}
-      className="relative flex flex-col bg-background/50 select-none overflow-hidden"
+      style={{ width: totalWidth, minWidth: totalWidth }}
+      className="relative flex flex-col bg-background/50 select-none overflow-hidden flex-shrink-0"
     >
       {/* Magnetic Snapping Guide Line */}
       {snapGuideTime !== null && (
@@ -208,7 +208,7 @@ export const TrackLanes: React.FC<TrackLanesProps> = ({
           height: trackCollapsed.video ? COLLAPSED_TRACK_HEIGHT : TRACK_CONFIGS[0].defaultHeight,
           display: trackVisibility.video ? "flex" : "none",
         }}
-        className="relative border-b border-border/80 bg-secondary/30 items-center overflow-hidden"
+        className="relative border-b border-border/80 bg-secondary/30 items-center overflow-hidden flex-shrink-0 box-border"
       >
         {/* Continuous Video Thumbnails Strip */}
         <div className="absolute inset-0 flex items-center overflow-hidden pointer-events-none opacity-85">
@@ -246,7 +246,7 @@ export const TrackLanes: React.FC<TrackLanesProps> = ({
           height: trackCollapsed.caption1 ? COLLAPSED_TRACK_HEIGHT : TRACK_CONFIGS[1].defaultHeight,
           display: trackVisibility.caption1 ? "flex" : "none",
         }}
-        className="relative border-b border-border/80 bg-background/40 items-center"
+        className="relative border-b border-border/80 bg-background/40 items-center flex-shrink-0 box-border"
       >
         {caption1Items.map((c) => {
           const left = c.start * pxPerSec;
@@ -364,7 +364,7 @@ export const TrackLanes: React.FC<TrackLanesProps> = ({
           height: trackCollapsed.caption2 ? COLLAPSED_TRACK_HEIGHT : TRACK_CONFIGS[2].defaultHeight,
           display: trackVisibility.caption2 ? "flex" : "none",
         }}
-        className="relative border-b border-border/80 bg-background/30 items-center"
+        className="relative border-b border-border/80 bg-background/30 items-center flex-shrink-0 box-border"
       >
         {caption2Items.length === 0 && !trackCollapsed.caption2 && (
           <button
@@ -511,7 +511,7 @@ export const TrackLanes: React.FC<TrackLanesProps> = ({
           height: trackCollapsed.memes ? COLLAPSED_TRACK_HEIGHT : TRACK_CONFIGS[3].defaultHeight,
           display: trackVisibility.memes ? "flex" : "none",
         }}
-        className="relative border-b border-border/80 bg-background/40 items-center"
+        className="relative border-b border-border/80 bg-background/40 items-center flex-shrink-0 box-border"
       >
         {memeGifItems.length === 0 && !trackCollapsed.memes && (
           <button
@@ -623,7 +623,7 @@ export const TrackLanes: React.FC<TrackLanesProps> = ({
           height: trackCollapsed.effects ? COLLAPSED_TRACK_HEIGHT : TRACK_CONFIGS[4].defaultHeight,
           display: trackVisibility.effects ? "flex" : "none",
         }}
-        className="relative border-b border-border/80 bg-background/30 items-center"
+        className="relative border-b border-border/80 bg-background/30 items-center flex-shrink-0 box-border"
       >
         {effects.length === 0 && !trackCollapsed.effects && (
           <button
@@ -727,7 +727,7 @@ export const TrackLanes: React.FC<TrackLanesProps> = ({
           height: trackCollapsed.vocal ? COLLAPSED_TRACK_HEIGHT : TRACK_CONFIGS[5].defaultHeight,
           display: trackVisibility.vocal ? "flex" : "none",
         }}
-        className="relative border-b border-border/80 bg-background/50 items-center overflow-hidden"
+        className="relative border-b border-border/80 bg-background/50 items-center overflow-hidden flex-shrink-0 box-border"
       >
         <canvas
           ref={vocalCanvasRef}
@@ -747,7 +747,7 @@ export const TrackLanes: React.FC<TrackLanesProps> = ({
           height: trackCollapsed.audioSfx ? COLLAPSED_TRACK_HEIGHT : TRACK_CONFIGS[6].defaultHeight,
           display: trackVisibility.audioSfx ? "flex" : "none",
         }}
-        className="relative border-b border-border/80 bg-background/30 items-center overflow-hidden"
+        className="relative border-b border-border/80 bg-background/30 items-center overflow-hidden flex-shrink-0 box-border"
       >
         <canvas
           ref={audioSfxCanvasRef}
@@ -786,7 +786,7 @@ export const TrackLanes: React.FC<TrackLanesProps> = ({
               }}
               className={`absolute top-1 bottom-1 rounded-lg border flex items-center px-2 cursor-pointer transition-shadow select-none group overflow-hidden ${
                 isSelected
-                  ? "bg-teal-500/25 border-teal-400 shadow-[0_0_12px_rgba(20,184,166,0.4)] text-foreground font-bold z-20"
+                  ? "bg-[#FF6B2C]/25 border-[#FF6B2C] shadow-[0_0_12px_rgba(255,107,44,0.4)] text-foreground font-bold z-20 ring-1 ring-[#FF6B2C]"
                   : "bg-teal-950/40 hover:bg-teal-900/40 border-teal-500/40 text-teal-200"
               }`}
             >
@@ -803,9 +803,9 @@ export const TrackLanes: React.FC<TrackLanesProps> = ({
                       origEnd: clip.end,
                     });
                   }}
-                  className="absolute left-0 top-0 bottom-0 w-2.5 cursor-ew-resize opacity-0 group-hover:opacity-100 hover:bg-teal-500/40 flex items-center justify-center transition-opacity"
+                  className="absolute left-0 top-0 bottom-0 w-2.5 cursor-ew-resize opacity-0 group-hover:opacity-100 hover:bg-orange-500/40 flex items-center justify-center transition-opacity"
                 >
-                  <div className="w-0.5 h-3 bg-teal-300 rounded-full" />
+                  <div className="w-0.5 h-3 bg-orange-300 rounded-full" />
                 </div>
               )}
 
@@ -825,8 +825,15 @@ export const TrackLanes: React.FC<TrackLanesProps> = ({
                 }}
                 className="flex-1 min-w-0 flex items-center gap-1.5 truncate text-[11px] select-none cursor-grab active:cursor-grabbing px-1"
               >
-                <Volume2 className="h-3.5 w-3.5 text-teal-400 flex-shrink-0" />
+                <Volume2 className={`h-3.5 w-3.5 flex-shrink-0 ${isSelected ? "text-[#FF6B2C]" : "text-teal-400"}`} />
                 <span className="truncate">{clip.title}</span>
+                {clip.muted ? (
+                  <span className="text-[9px] px-1 py-0.2 rounded bg-red-500/20 text-red-300 font-mono flex-shrink-0">MUTED</span>
+                ) : clip.volume !== undefined && Math.round(clip.volume * 100) !== 100 ? (
+                  <span className="text-[9px] px-1 py-0.2 rounded bg-white/10 text-muted-foreground font-mono flex-shrink-0">
+                    {Math.round(clip.volume * 100)}%
+                  </span>
+                ) : null}
               </div>
 
               {!isLocked && (
@@ -842,9 +849,9 @@ export const TrackLanes: React.FC<TrackLanesProps> = ({
                       origEnd: clip.end,
                     });
                   }}
-                  className="absolute right-0 top-0 bottom-0 w-2.5 cursor-ew-resize opacity-0 group-hover:opacity-100 hover:bg-teal-500/40 flex items-center justify-center transition-opacity"
+                  className="absolute right-0 top-0 bottom-0 w-2.5 cursor-ew-resize opacity-0 group-hover:opacity-100 hover:bg-orange-500/40 flex items-center justify-center transition-opacity"
                 >
-                  <div className="w-0.5 h-3 bg-teal-300 rounded-full" />
+                  <div className="w-0.5 h-3 bg-orange-300 rounded-full" />
                 </div>
               )}
             </div>

@@ -29,7 +29,7 @@ export const GlobalPlayhead: React.FC<GlobalPlayheadProps> = ({
         left: `${left}px`,
         height: `${totalHeight}px`,
       }}
-      className="absolute top-0 pointer-events-none z-30 transition-none will-change-[left]"
+      className="absolute top-0 pointer-events-none z-40 transition-none will-change-[left]"
     >
       {/* Playhead Vertical Guide Line */}
       <div className="absolute top-0 bottom-0 left-0 w-[2px] -translate-x-[1px] bg-primary shadow-[0_0_10px_rgba(255,92,58,0.55)]" />
@@ -37,7 +37,7 @@ export const GlobalPlayhead: React.FC<GlobalPlayheadProps> = ({
       {/* Playhead Grab Handle & Timestamp Tooltip */}
       <div
         onPointerDown={onScrubStart}
-        className="absolute top-0 left-0 -translate-x-1/2 pointer-events-auto cursor-ew-resize group flex flex-col items-center select-none"
+        className="sticky top-0 left-0 -translate-x-1/2 pointer-events-auto cursor-ew-resize group flex flex-col items-center select-none z-50"
       >
         {/* Floating Timestamp Badge */}
         <div className="bg-primary text-primary-foreground font-mono text-[9.5px] font-bold px-1.5 py-0.5 rounded-md shadow-md opacity-90 group-hover:opacity-100 group-hover:scale-105 transition tracking-tight whitespace-nowrap -translate-y-1">

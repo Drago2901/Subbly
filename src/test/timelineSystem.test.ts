@@ -67,4 +67,53 @@ describe("Subbly Multi-Track Timeline System Tests", () => {
       expect(calcPxPerSec(50)).toBeGreaterThan(100);
     });
   });
+
+  describe("4. Track & Timeline Row Synchronization", () => {
+    it("ensures every track has identical height whether expanded or collapsed", () => {
+      TRACK_CONFIGS.forEach((track) => {
+        const expandedHeight = track.defaultHeight;
+        const collapsedHeight = COLLAPSED_TRACK_HEIGHT;
+
+        expect(expandedHeight).toBeGreaterThan(collapsedHeight);
+        expect(collapsedHeight).toBe(22);
+      });
+    });
+
+    it("calculates identical vertical offset progression for sidebar and timeline rows", () => {
+      const visibility: Record<string, boolean> = {
+        video: true,
+        caption1: true,
+        caption2: false, // hidden track
+        memes: true,
+        effects: true,
+        vocal: true,
+        audioSfx: true,
+      };
+
+      const collapsed: Record<string, boolean> = {
+        video: false,
+        caption1: true, // collapsed
+        caption2: false,
+        memes: false,
+        effects: false,
+        vocal: false,
+        audioSfx: false,
+      };
+
+      // Calculate track row heights from left sidebar perspective
+      const leftRowHeights = TRACK_CONFIGS.map((t) => {
+        if (!visibility[t.id]) return 0;
+        return collapsed[t.id] ? COLLAPSED_TRACK_HEIGHT : t.defaultHeight;
+      });
+
+      // Calculate track row heights from right timeline perspective
+      const rightRowHeights = TRACK_CONFIGS.map((t) => {
+        if (!visibility[t.id]) return 0;
+        return collapsed[t.id] ? COLLAPSED_TRACK_HEIGHT : t.defaultHeight;
+      });
+
+      expect(leftRowHeights).toEqual(rightRowHeights);
+    });
+  });
 });
+

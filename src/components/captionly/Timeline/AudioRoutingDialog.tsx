@@ -1,5 +1,6 @@
 import React, { useRef, useState } from "react";
 import { Mic, Music, Upload, X } from "lucide-react";
+import { audioBufferToWav } from "@/lib/captions/audioMixer";
 import {
   Dialog,
   DialogContent,
@@ -104,6 +105,46 @@ export const AudioRoutingDialog: React.FC<AudioRoutingDialogProps> = ({
                 </p>
               </div>
             </button>
+
+            {/* Quick Demo Option for instant audio addition */}
+            <div className="pt-2 border-t border-border flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  try {
+                    const AudioCtxClass = window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+                    if (AudioCtxClass) {
+                      const ctx = new AudioCtxClass();
+                      const sampleRate = 48000;
+                      const length = Math.round(sampleRate * 2.2);
+                      const buffer = ctx.createBuffer(2, length, sampleRate);
+                      const dataL = buffer.getChannelData(0);
+                      const dataR = buffer.getChannelData(1);
+                      for (let i = 0; i < length; i++) {
+                        const t = i / sampleRate;
+                        const env = Math.exp(-t * 2.5);
+                        const s = 0.6 * Math.sin(t * (120 - t * 30) * Math.PI * 2) * env;
+                        dataL[i] = s;
+                        dataR[i] = s;
+                      }
+                      const demoBlob = audioBufferToWav(buffer);
+                      const demoFile = new File([demoBlob], "Explosion.wav", { type: "audio/wav" });
+                      onAddAudioFile("audioSfx", demoFile);
+                      onOpenChange(false);
+                      ctx.close().catch(() => {});
+                      return;
+                    }
+                  } catch {}
+                  // Fallback mock file
+                  const mockFile = new File(["RIFFmockWAVE"], "Explosion.wav", { type: "audio/wav" });
+                  onAddAudioFile("audioSfx", mockFile);
+                  onOpenChange(false);
+                }}
+                className="flex-1 py-2 px-3 rounded-xl bg-[#FF6B2C]/10 border border-[#FF6B2C]/30 text-[#FF6B2C] text-xs font-bold hover:bg-[#FF6B2C]/20 transition flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <span>🔊 Try Demo SFX (Explosion.wav)</span>
+              </button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>

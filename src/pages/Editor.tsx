@@ -75,11 +75,16 @@ import { CaptionList } from "@/components/captionly/CaptionList";
 import { StylePanel } from "@/components/captionly/StylePanel";
 import { Timeline } from "@/components/captionly/Timeline";
 import { ExportProgressDialog } from "@/components/captionly/ExportProgressDialog";
+import { AudioControlsPanel } from "@/components/captionly/Editor/AudioControlsPanel";
+import { useAudioPreviewEngine } from "@/lib/captions/useAudioPreviewEngine";
 
 
 import { AvatarDropdown } from "@/components/AvatarDropdown";
 import { wordsToCaptions } from "@/lib/captions/segment";
 import { burnCaptions, ExportCancelledError } from "@/lib/captions/render";
+import { transcodeWebmToMp4, validateMp4Export, validateExportDuration } from "@/lib/captions/transcode";
+import { mixProjectAudio } from "@/lib/captions/audioMixer";
+import type { ExportStage } from "@/components/captionly/ExportProgressDialog";
 import {
   extractAudioNative,
   splitWavIntoChunks,
@@ -392,7 +397,12 @@ const Editor = () => {
   const translationCacheRef = useRef<Record<string, string[]>>({});
 
   const [quality, setQuality] = useState<"standard" | "high">("standard");
-  const [exportStage, setExportStage] = useState<"render" | "transcode">("render");
+  const [exportStage, setExportStage] = useState<ExportStage>("prepare");
+  const [exportStageMessage, setExportStageMessage] = useState<string>("");
+  const [vocalVolume, setVocalVolume] = useState<number>(1.0);
+  const [vocalMuted, setVocalMuted] = useState<boolean>(false);
+  const [audioSfxVolume, setAudioSfxVolume] = useState<number>(0.7);
+  const [audioSfxMuted, setAudioSfxMuted] = useState<boolean>(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
   const videoRefCallback = useCallback((node: HTMLVideoElement | null) => {
@@ -412,6 +422,34 @@ const Editor = () => {
   const [lockedTracks, setLockedTracks] = useState<number[]>([]);
   const [effects, setEffects] = useState<TimelineEffect[]>([]);
   const [audioClips, setAudioClips] = useState<TimelineAudioClip[]>([]);
+
+  const selectedAudioClip = useMemo(
+    () => audioClips.find((c) => c.id === selectedCaptionId) || null,
+    [audioClips, selectedCaptionId]
+  );
+
+  const { liveAudioLevel } = useAudioPreviewEngine({
+    isPlaying,
+    currentTime,
+    audioClips,
+    vocalVolume,
+    vocalMuted,
+    audioSfxVolume,
+    audioSfxMuted,
+    selectedClipId: selectedAudioClip?.id,
+  });
+
+  const handleUpdateAudioClip = useCallback((id: string, patch: Partial<TimelineAudioClip>) => {
+    setAudioClips((prev) =>
+      prev.map((c) => (c.id === id ? { ...c, ...patch } : c))
+    );
+  }, []);
+
+  const handleDeleteAudioClip = useCallback((id: string) => {
+    setAudioClips((prev) => prev.filter((c) => c.id !== id));
+    setSelectedCaptionId((cur) => (cur === id ? null : cur));
+    toast.info("Removed audio clip");
+  }, []);
 
   const [timelineZoom, setTimelineZoom] = useState<number>(35);
   const { canUndo, canRedo, handleUndo, handleRedo, resetHistory } = useEditorHistory(captions, setCaptions);
@@ -1467,7 +1505,8 @@ const Editor = () => {
     if (!file || exporting) return;
     setExporting(true);
     setExportProgress(0);
-    setExportStage("render");
+    setExportStage("prepare");
+    setExportStageMessage("Freezing project snapshot...");
     exportAbortRef.current = new AbortController();
 
     const outputQuality = quality;
@@ -1475,41 +1514,108 @@ const Editor = () => {
     const expectedDuration = videoRef.current?.duration || meta?.duration || 0;
     let renderedWebmBlob: Blob | null = null;
 
+    // Single export timeline source of truth snapshot
+    const snapshot = {
+      duration: expectedDuration,
+      captions: JSON.parse(JSON.stringify(captions)),
+      style: JSON.parse(JSON.stringify(style)),
+      effects: [...effects],
+      audioClips: [...audioClips],
+      vocalVolume,
+      vocalMuted,
+      audioSfxVolume,
+      audioSfxMuted,
+      outputQuality,
+      exportFps,
+      file,
+      videoUrl,
+      frame,
+    };
+
     try {
+      // 1. RENDER VIDEO FRAMES & CAPTIONS
+      setExportStage("render");
+      setExportProgress(0);
+      setExportStageMessage("Rendering video frames & captions...");
+
       const webmBlob = await burnCaptions({
-        videoFile: file,
-        captions,
-        style,
-        fps: exportFps,
-        onProgress: ({ progress }) => setExportProgress(progress),
+        videoFile: snapshot.file,
+        captions: snapshot.captions,
+        style: snapshot.style,
+        fps: snapshot.exportFps,
+        onProgress: ({ progress, message }) => {
+          setExportProgress(progress);
+          if (message) setExportStageMessage(message);
+        },
         onLog: (msg) => console.log(msg),
         signal: exportAbortRef.current.signal,
-        output: frame || undefined,
-        quality: outputQuality,
+        output: snapshot.frame || undefined,
+        quality: snapshot.outputQuality,
       });
 
       renderedWebmBlob = webmBlob;
 
+      // 2. MIX MULTI-TRACK AUDIO (Original audio + vocal volume/mute + added audio/SFX clips)
+      setExportStage("audio");
+      setExportProgress(0);
+      setExportStageMessage("Mixing audio tracks & SFX...");
+
+      const mixResult = await mixProjectAudio({
+        duration: snapshot.duration,
+        originalVideoFile: snapshot.file,
+        originalVideoUrl: snapshot.videoUrl || undefined,
+        vocalVolume: snapshot.vocalVolume,
+        vocalMuted: snapshot.vocalMuted,
+        audioClips: snapshot.audioClips,
+        audioSfxVolume: snapshot.audioSfxVolume,
+        audioSfxMuted: snapshot.audioSfxMuted,
+        sampleRate: 48000,
+        onProgress: (p, msg) => {
+          setExportProgress(p);
+          if (msg) setExportStageMessage(msg);
+        },
+        onLog: (msg) => console.log(msg),
+        signal: exportAbortRef.current.signal,
+      });
+
+      // 3. TRANSCODE & MULTIPLEX TO MP4 (H.264 + AAC 48kHz, CFR setpts, +faststart)
       setExportStage("transcode");
       setExportProgress(0);
+      setExportStageMessage("Encoding HD MP4 (H.264 + AAC)...");
 
       const mp4Blob = await transcodeWebmToMp4({
         webmBlob: new File([webmBlob], "rendered.webm", { type: "video/webm" }),
-        originalFile: file && file.size > 0 ? file : undefined,
-        duration: expectedDuration > 0 ? expectedDuration : undefined,
-        quality: outputQuality,
-        fps: exportFps,
+        mixedAudioBlob: mixResult.audioBlob,
+        originalFile: snapshot.file && snapshot.file.size > 0 ? snapshot.file : undefined,
+        duration: snapshot.duration > 0 ? snapshot.duration : undefined,
+        quality: snapshot.outputQuality,
+        fps: snapshot.exportFps,
         onProgress: (progress) => setExportProgress(progress),
         onLog: (msg) => console.log(msg),
         signal: exportAbortRef.current.signal,
       });
 
-      if (expectedDuration > 0) {
-        const durationCheck = await validateExportDuration(mp4Blob, expectedDuration);
-        if (!durationCheck.valid && durationCheck.error) {
-          console.warn("[Export] Duration check warning:", durationCheck.error);
+      // 4. VALIDATE MP4 EXPORT
+      setExportStage("validate");
+      setExportProgress(0.5);
+      setExportStageMessage("Validating MP4 container and streams...");
+
+      const validation = await validateMp4Export(
+        mp4Blob,
+        snapshot.duration,
+        snapshot.exportFps,
+        mixResult.hasAudio
+      );
+      if (!validation.valid) {
+        console.warn("[Export] Validation warning:", validation.error, validation.diagnostics);
+        if (validation.diagnostics.status === "invalid") {
+          throw new Error(validation.error || "Exported MP4 failed validation.");
         }
       }
+
+      setExportProgress(1);
+      setExportStage("complete");
+      setExportStageMessage("Export complete!");
 
       const blobUrl = URL.createObjectURL(mp4Blob);
       const link = document.createElement("a");
@@ -1562,7 +1668,7 @@ const Editor = () => {
       setExportProgress(0);
       exportAbortRef.current = null;
     }
-  }, [file, exporting, quality, captions, style, frame, title, projectId, user, meta?.duration]);
+  }, [file, exporting, quality, captions, style, frame, title, projectId, user, meta?.duration, effects, audioClips, vocalVolume, vocalMuted, audioSfxVolume, audioSfxMuted, videoUrl]);
 
   const cancelExport = () => {
     if (exportAbortRef.current) {
@@ -2189,6 +2295,14 @@ const Editor = () => {
             onEffectsChange={setEffects}
             audioClips={audioClips}
             onAudioClipsChange={setAudioClips}
+            vocalVolume={vocalVolume}
+            onVocalVolumeChange={setVocalVolume}
+            vocalMuted={vocalMuted}
+            onToggleVocalMute={() => setVocalMuted((prev) => !prev)}
+            audioSfxVolume={audioSfxVolume}
+            onAudioSfxVolumeChange={setAudioSfxVolume}
+            audioSfxMuted={audioSfxMuted}
+            onToggleAudioSfxMute={() => setAudioSfxMuted((prev) => !prev)}
             onOpenMemeStudio={() => handleOpenMemeStudio({ tab: "gifs" })}
             zoomPct={timelineZoom}
             onZoomChange={setTimelineZoom}
@@ -2313,7 +2427,21 @@ const Editor = () => {
                   {/* Top Workspace — Panels + Preview row */}
                   <div className="flex-1 min-h-0 overflow-hidden px-4 py-3 z-10 flex gap-3">
 
-                    {/* PANEL A: Captions List */}
+                    {/* CONTEXTUAL AUDIO CONTROLS PANEL — When an audio/SFX clip is selected */}
+                    {selectedAudioClip ? (
+                      <div className="flex-shrink-0 w-[320px] rounded-2xl border border-border bg-card overflow-hidden shadow-2xl flex flex-col animate-in slide-in-from-left-2 duration-200">
+                        <AudioControlsPanel
+                          clip={selectedAudioClip}
+                          onUpdateClip={(patch) => handleUpdateAudioClip(selectedAudioClip.id, patch)}
+                          onDeleteClip={handleDeleteAudioClip}
+                          onClose={() => setSelectedCaptionId(null)}
+                          liveAudioLevel={liveAudioLevel}
+                          isPlaying={isPlaying}
+                        />
+                      </div>
+                    ) : (
+                      <>
+                        {/* PANEL A: Captions List */}
                     {activeLeftTool === "captions" && (
                       <div className="flex-shrink-0 w-[280px] rounded-2xl border border-border bg-card overflow-hidden shadow-2xl flex flex-col animate-in slide-in-from-left-2 duration-200">
                         {/* Panel header with close button */}
@@ -2483,6 +2611,8 @@ const Editor = () => {
                         )}
                       </>
                     )}
+                  </>
+                )}
 
                     {/* VIDEO PREVIEW — Takes remaining space */}
                     <div className="flex-1 min-w-0 bg-transparent overflow-hidden">
@@ -2770,7 +2900,19 @@ const Editor = () => {
                   </div>
 
                   {/* 5. Active Editing Controls Tab Panel */}
-                  <div className="flex-shrink-0 bg-card flex flex-col">
+                  {selectedAudioClip ? (
+                    <div className="flex-1 overflow-hidden bg-[#0e1015] border-b border-border min-h-[300px]">
+                      <AudioControlsPanel
+                        clip={selectedAudioClip}
+                        onUpdateClip={(patch) => handleUpdateAudioClip(selectedAudioClip.id, patch)}
+                        onDeleteClip={handleDeleteAudioClip}
+                        onClose={() => setSelectedCaptionId(null)}
+                        liveAudioLevel={liveAudioLevel}
+                        isPlaying={isPlaying}
+                      />
+                    </div>
+                  ) : (
+                    <div className="flex-shrink-0 bg-card flex flex-col">
                     {activeMobileTab === "captions" ? (
                       <div className="flex flex-col overflow-hidden">
                         {/* Mobile Caption Language Bar */}
@@ -2899,7 +3041,8 @@ const Editor = () => {
                       </div>
                     )}
                   </div>
-                </div>
+                )}
+              </div>
 
                 {/* 6. Fixed Bottom Navigation Tab Bar (Mobile) */}
                 <div className="absolute bottom-0 left-0 right-0 z-50 h-16 bg-card border-t border-border flex items-center justify-around px-2 pb-safe shadow-lg select-none">
@@ -2952,6 +3095,7 @@ const Editor = () => {
         stage={exportStage}
         progress={exportProgress}
         format="mp4"
+        stageMessage={exportStageMessage}
         onCancel={cancelExport}
       />
 

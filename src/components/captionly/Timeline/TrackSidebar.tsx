@@ -60,6 +60,7 @@ interface TrackSidebarProps {
   onQuickAdd: (trackId: TimelineTrackId) => void;
   isMobile?: boolean;
   sidebarScrollRef?: React.RefObject<HTMLDivElement>;
+  onWheel?: (e: React.WheelEvent) => void;
 }
 
 export const TrackSidebar: React.FC<TrackSidebarProps> = ({
@@ -80,18 +81,22 @@ export const TrackSidebar: React.FC<TrackSidebarProps> = ({
   onQuickAdd,
   isMobile = false,
   sidebarScrollRef,
+  onWheel,
 }) => {
   return (
-    <div className="flex flex-col bg-card border-r border-border select-none z-20 flex-shrink-0">
+    <div
+      onWheel={onWheel}
+      className="w-[235px] min-w-[235px] max-w-[235px] h-full flex flex-col bg-card border-r border-border select-none z-20 flex-shrink-0 overflow-hidden"
+    >
       {/* Top Header matching the Time Ruler height */}
-      <div className="h-6 px-2.5 flex items-center justify-between border-b border-border bg-secondary/80 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+      <div className="h-6 min-h-[24px] max-h-[24px] px-2.5 flex items-center justify-between border-b border-border bg-secondary/80 text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex-shrink-0">
         <span>Tracks</span>
       </div>
 
       {/* Track Rows — scrolls in sync with the right track lane area */}
       <div
         ref={sidebarScrollRef}
-        className="flex flex-col overflow-y-hidden"
+        className="flex-1 min-h-0 overflow-y-hidden overflow-x-hidden flex flex-col"
       >
         {TRACK_CONFIGS.map((track) => {
           const isCollapsed = trackCollapsed[track.id] ?? false;
@@ -105,8 +110,11 @@ export const TrackSidebar: React.FC<TrackSidebarProps> = ({
           return (
             <div
               key={track.id}
-              style={{ height }}
-              className={`flex items-center justify-between px-2 sm:px-2.5 border-b border-border/80 transition-all duration-150 ${
+              style={{
+                height,
+                display: isVisible ? "flex" : "none",
+              }}
+              className={`flex items-center justify-between px-2 sm:px-2.5 border-b border-border/80 transition-all duration-150 flex-shrink-0 box-border ${
                 isLocked ? "bg-muted/40" : isCollapsed ? "bg-secondary/40" : "bg-card"
               }`}
             >

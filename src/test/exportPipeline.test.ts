@@ -327,4 +327,127 @@ describe("Video Export Pipeline Hardening Tests", () => {
       }
     });
   });
+
+  describe("Multi-Track Audio Mixer & WAV Conversion (audioBufferToWav)", () => {
+    it("converts AudioBuffer into standard 16-bit PCM stereo WAV Blob with RIFF header", async () => {
+      const sampleRate = 48000;
+      const length = 4800; // 0.1s
+      const leftChannel = new Float32Array(length);
+      const rightChannel = new Float32Array(length);
+
+      // Fill with test sine wave
+      for (let i = 0; i < length; i++) {
+        leftChannel[i] = Math.sin((i / sampleRate) * 440 * 2 * Math.PI) * 0.5;
+        rightChannel[i] = Math.sin((i / sampleRate) * 880 * 2 * Math.PI) * 0.5;
+      }
+
+      const mockBuffer = {
+        numberOfChannels: 2,
+        sampleRate,
+        length,
+        duration: 0.1,
+        getChannelData: (ch: number) => (ch === 0 ? leftChannel : rightChannel),
+      } as unknown as AudioBuffer;
+
+      const { audioBufferToWav } = await import("@/lib/captions/audioMixer");
+      const wavBlob = audioBufferToWav(mockBuffer);
+
+      expect(wavBlob).toBeDefined();
+      expect(wavBlob.type).toBe("audio/wav");
+
+      // Expected size: 44 bytes header + length (4800) * 2 channels * 2 bytes per sample = 19244 bytes
+      const expectedSize = 44 + length * 2 * 2;
+      expect(wavBlob.size).toBe(expectedSize);
+
+      // Verify RIFF header bytes
+      let arrayBuffer: ArrayBuffer;
+      if (typeof wavBlob.arrayBuffer === "function") {
+        arrayBuffer = await wavBlob.arrayBuffer();
+      } else {
+        arrayBuffer = await new Promise<ArrayBuffer>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as ArrayBuffer);
+          reader.onerror = reject;
+          reader.readAsArrayBuffer(wavBlob);
+        });
+      }
+      const view = new DataView(arrayBuffer);
+      const headerStr = String.fromCharCode(
+        view.getUint8(0),
+        view.getUint8(1),
+        view.getUint8(2),
+        view.getUint8(3)
+      );
+      expect(headerStr).toBe("RIFF");
+
+      const waveStr = String.fromCharCode(
+        view.getUint8(8),
+        view.getUint8(9),
+        view.getUint8(10),
+        view.getUint8(11)
+      );
+      expect(waveStr).toBe("WAVE");
+
+      // Verify sample rate in fmt header
+      expect(view.getUint32(24, true)).toBe(48000);
+      // Verify channels = 2
+      expect(view.getUint16(22, true)).toBe(2);
+      // Verify bit depth = 16
+      expect(view.getUint16(34, true)).toBe(16);
+    });
+  });
+
+  describe("MP4 Export Validation & Diagnostics (validateMp4Export)", () => {
+    it("flags empty / zero-byte MP4 exports as invalid", async () => {
+      const { validateMp4Export } = await import("@/lib/captions/transcode");
+      const emptyBlob = new Blob([], { type: "video/mp4" });
+      const result = await validateMp4Export(emptyBlob, 10.0, 30, true);
+
+      expect(result.valid).toBe(false);
+      expect(result.diagnostics.status).toBe("invalid");
+      expect(result.error).toContain("empty");
+    });
+
+    it("generates complete diagnostics for valid MP4 exports", async () => {
+      const origCreate = URL.createObjectURL;
+      const origRevoke = URL.revokeObjectURL;
+      const origCreateElement = document.createElement.bind(document);
+
+      try {
+        URL.createObjectURL = vi.fn(() => "blob:mock-mp4");
+        URL.revokeObjectURL = vi.fn();
+
+        vi.spyOn(document, "createElement").mockImplementation((tag: string) => {
+          if (tag === "video") {
+            const el = origCreateElement("video");
+            Object.defineProperty(el, "duration", { value: 10.01, configurable: true });
+            Object.defineProperty(el, "videoWidth", { value: 1280, configurable: true });
+            Object.defineProperty(el, "videoHeight", { value: 720, configurable: true });
+            setTimeout(() => {
+              if (el.onloadedmetadata) (el.onloadedmetadata as unknown as () => void)();
+            }, 5);
+            return el;
+          }
+          return origCreateElement(tag);
+        });
+
+        const { validateMp4Export } = await import("@/lib/captions/transcode");
+        const mockBlob = new Blob(["mock-mp4-data"], { type: "video/mp4" });
+        const result = await validateMp4Export(mockBlob, 10.0, 30, true);
+
+        expect(result.valid).toBe(true);
+        expect(result.diagnostics.videoStream).toBe(true);
+        expect(result.diagnostics.audioStream).toBe(true);
+        expect(result.diagnostics.videoCodec).toBe("h264");
+        expect(result.diagnostics.audioCodec).toBe("aac");
+        expect(result.diagnostics.status).toBe("valid");
+        expect(result.diagnostics.fileSizeBytes).toBe(mockBlob.size);
+      } finally {
+        URL.createObjectURL = origCreate;
+        URL.revokeObjectURL = origRevoke;
+        vi.restoreAllMocks();
+      }
+    });
+  });
 });
+

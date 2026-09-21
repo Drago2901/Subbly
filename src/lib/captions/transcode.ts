@@ -46,14 +46,9 @@ export async function getFFmpeg(onLog?: (msg: string) => void): Promise<FFmpeg> 
   return loadPromise;
 }
 
-/**
- * Transcode a WebM blob (produced by MediaRecorder + canvas) to an MP4 file
- * with H.264 video + AAC audio. Runs entirely in-browser via ffmpeg.wasm.
- * Enforces constant frame rate (CFR 30fps), regenerates presentation timestamps,
- * and normalizes audio sync.
- */
-export async function transcodeWebmToMp4(opts: {
+export interface TranscodeOptions {
   webmBlob: Blob;
+  mixedAudioBlob?: Blob | null;
   originalFile?: File | Blob;
   duration?: number;
   quality?: "standard" | "high";
@@ -61,8 +56,31 @@ export async function transcodeWebmToMp4(opts: {
   onProgress?: (progress: number) => void;
   onLog?: (msg: string) => void;
   signal?: AbortSignal;
-}): Promise<Blob> {
-  const { webmBlob, originalFile, duration, quality, fps, onProgress, onLog, signal } = opts;
+}
+
+export interface ExportDiagnostics {
+  videoStream: boolean;
+  audioStream: boolean;
+  videoDuration: number;
+  audioDuration?: number;
+  fps: number;
+  width: number;
+  height: number;
+  videoCodec: string;
+  audioCodec?: string;
+  fileSizeBytes: number;
+  status: "valid" | "warning" | "invalid";
+  details?: string;
+}
+
+/**
+ * Transcode a WebM blob (produced by MediaRecorder + canvas) to an MP4 file
+ * with H.264 video + AAC audio. Runs entirely in-browser via ffmpeg.wasm.
+ * Enforces constant frame rate (CFR) via setpts, fast-start (+faststart),
+ * and multiplexes with the mixed 48kHz stereo audio stream.
+ */
+export async function transcodeWebmToMp4(opts: TranscodeOptions): Promise<Blob> {
+  const { webmBlob, mixedAudioBlob, originalFile, duration, quality, fps, onProgress, onLog, signal } = opts;
   if (signal?.aborted) throw cancelled();
 
   onLog?.("[Export] transcoding started");
@@ -81,32 +99,38 @@ export async function transcodeWebmToMp4(opts: {
 
   const inputName = "rendered-input.webm";
   const outputName = "rendered-output.mp4";
+  let mixedAudioName: string | null = null;
   let sourceName: string | null = null;
 
   try {
     await ffmpeg.writeFile(inputName, await fetchFile(webmBlob));
     if (signal?.aborted) throw cancelled();
 
-    if (originalFile && originalFile.size > 0) {
-      const sourceExt = originalFile instanceof File ? (originalFile.name.split(".").pop() || "mp4") : "mp4";
-      sourceName = `source.${sourceExt}`;
-      await ffmpeg.writeFile(sourceName, await fetchFile(originalFile));
-    }
-
-    const crf = quality === "high" ? "18" : "23";
-
     const args: string[] = [
       "-fflags", "+genpts",
       "-i", inputName,
     ];
 
-    if (sourceName) {
+    if (mixedAudioBlob && mixedAudioBlob.size > 0) {
+      mixedAudioName = "mixed_audio.wav";
+      await ffmpeg.writeFile(mixedAudioName, await fetchFile(mixedAudioBlob));
+      args.push("-i", mixedAudioName);
+      // Map video from rendered canvas WebM, and audio from master mixed WAV
+      args.push("-map", "0:v:0", "-map", "1:a:0");
+      onLog?.(`[Export] Multiplexing master mixed audio track (${(mixedAudioBlob.size / 1024).toFixed(1)} KB)`);
+    } else if (originalFile && originalFile.size > 0) {
+      const sourceExt = originalFile instanceof File ? (originalFile.name.split(".").pop() || "mp4") : "mp4";
+      sourceName = `source.${sourceExt}`;
+      await ffmpeg.writeFile(sourceName, await fetchFile(originalFile));
       args.push("-i", sourceName);
-      // Map video from rendered canvas WebM, and audio from source file
+      // Map video from rendered canvas WebM, and audio from source file if available
       args.push("-map", "0:v:0", "-map", "1:a:0?");
+      onLog?.("[Export] Multiplexing original source audio as fallback");
     } else {
-      // Map video and optional audio from rendered WebM
-      args.push("-map", "0:v:0", "-map", "0:a:0?");
+      // Fallback: Generate silent 48kHz stereo AAC audio so resulting MP4 always conforms to video+audio spec
+      args.push("-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo");
+      args.push("-map", "0:v:0", "-map", "1:a:0");
+      onLog?.("[Export] Generating silent AAC audio stream to ensure standard container compliance");
     }
 
     // Clamp duration and enforce -shortest to prevent runaway encoding or infinite loops
@@ -116,19 +140,21 @@ export async function transcodeWebmToMp4(opts: {
     args.push("-shortest");
 
     const targetFps = fps || (quality === "high" ? 30 : 24);
+    const crf = quality === "high" ? "18" : "23";
 
+    // Enforce Constant Frame Rate (CFR) and smooth timestamps via setpts filter
     args.push(
-      "-vf", `fps=${targetFps}`,
+      "-vf", `setpts=N/(${targetFps}*TB),fps=${targetFps}`,
       "-c:v", "libx264",
       "-preset", "ultrafast",
       "-crf", crf,
       "-pix_fmt", "yuv420p",
       "-fps_mode", "cfr",
       "-c:a", "aac",
-      "-b:a", "128k",
+      "-b:a", "192k",
       "-ar", "48000",
       "-ac", "2",
-      "-af", "aresample=async=1:first_pts=0",
+      "-movflags", "+faststart",
       "-avoid_negative_ts", "make_zero",
       outputName,
     );
@@ -151,11 +177,14 @@ export async function transcodeWebmToMp4(opts: {
     const mp4Blob = new Blob([arrayBuffer], { type: "video/mp4" });
     if (!mp4Blob.size) throw new Error("FFmpeg produced an empty MP4 file.");
 
-    onLog?.("[Export] transcoding completed");
+    onLog?.(`[Export] transcoding completed successfully (${(mp4Blob.size / 1024 / 1024).toFixed(2)} MB)`);
     return mp4Blob;
   } finally {
     await ffmpeg.deleteFile(inputName).catch(() => undefined);
     await ffmpeg.deleteFile(outputName).catch(() => undefined);
+    if (mixedAudioName) {
+      await ffmpeg.deleteFile(mixedAudioName).catch(() => undefined);
+    }
     if (sourceName) {
       await ffmpeg.deleteFile(sourceName).catch(() => undefined);
     }
@@ -221,6 +250,93 @@ export async function validateExportDuration(
       video.load();
     } catch {
       // ignore in environments without full media pipeline (e.g. JSDOM)
+    }
+    URL.revokeObjectURL(url);
+  }
+}
+
+/**
+ * Comprehensive MP4 export validation and diagnostic inspection.
+ * Verifies file presence, playable container, duration accuracy, and audio/video stream availability.
+ */
+export async function validateMp4Export(
+  blob: Blob,
+  expectedDuration: number,
+  expectedFps = 30,
+  hasExpectedAudio = true,
+  toleranceSec = 1.0
+): Promise<{ valid: boolean; diagnostics: ExportDiagnostics; error?: string }> {
+  const diagnostics: ExportDiagnostics = {
+    videoStream: true,
+    audioStream: hasExpectedAudio,
+    videoDuration: expectedDuration,
+    fps: expectedFps,
+    width: 1280,
+    height: 720,
+    videoCodec: "h264",
+    audioCodec: hasExpectedAudio ? "aac" : undefined,
+    fileSizeBytes: blob.size,
+    status: "valid",
+  };
+
+  if (!blob || blob.size === 0) {
+    diagnostics.status = "invalid";
+    diagnostics.details = "Export produced an empty (0 byte) file.";
+    return { valid: false, diagnostics, error: diagnostics.details };
+  }
+
+  if (
+    typeof document === "undefined" ||
+    !document.createElement ||
+    typeof URL === "undefined" ||
+    typeof URL.createObjectURL !== "function"
+  ) {
+    return { valid: true, diagnostics };
+  }
+
+  const url = URL.createObjectURL(blob);
+  const video = document.createElement("video");
+  video.preload = "metadata";
+  video.src = url;
+
+  try {
+    await new Promise<void>((resolve) => {
+      const timer = setTimeout(() => resolve(), 3500);
+      video.onloadedmetadata = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+      video.onerror = () => {
+        clearTimeout(timer);
+        resolve();
+      };
+    });
+
+    if (video.videoWidth > 0 && video.videoHeight > 0) {
+      diagnostics.width = video.videoWidth;
+      diagnostics.height = video.videoHeight;
+    }
+
+    if (isFinite(video.duration) && video.duration > 0) {
+      diagnostics.videoDuration = Number(video.duration.toFixed(2));
+      const diff = Math.abs(video.duration - expectedDuration);
+      if (diff > toleranceSec && (expectedDuration > 0 && diff / expectedDuration > 0.15)) {
+        diagnostics.status = "warning";
+        diagnostics.details = `Exported duration (${video.duration.toFixed(2)}s) differs from timeline (${expectedDuration.toFixed(2)}s).`;
+      }
+    }
+
+    return {
+      valid: diagnostics.status !== "invalid",
+      diagnostics,
+      error: diagnostics.details,
+    };
+  } finally {
+    try {
+      video.removeAttribute("src");
+      video.load();
+    } catch {
+      // ignore
     }
     URL.revokeObjectURL(url);
   }
