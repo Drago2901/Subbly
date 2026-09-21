@@ -41,7 +41,7 @@ export default function Contact() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f5f3ee] text-[#1a1a1a] transition-colors duration-300" style={{ fontFamily: "'Outfit', sans-serif" }}>
+    <div className="min-h-screen bg-[#f5f3ee] dark:bg-zinc-950 text-[#1a1a1a] dark:text-zinc-100 transition-colors duration-300" style={{ fontFamily: "'Outfit', sans-serif" }}>
       <Seo
         title="Contact Us — Subbly"
         description="Get in touch with the Subbly support team at Subbly.info@gmail.com."
@@ -54,7 +54,7 @@ export default function Contact() {
       <main className="mx-auto w-full max-w-[900px] px-6 py-12 md:py-20">
         <Link
           to="/"
-          className="mb-8 inline-flex items-center gap-1.5 text-sm font-medium text-[#666] transition hover:text-[#1a1a1a]"
+          className="mb-8 inline-flex items-center gap-1.5 text-sm font-medium text-[#666] dark:text-zinc-400 transition hover:text-[#1a1a1a] dark:hover:text-zinc-100"
         >
           <ArrowLeft className="h-4 w-4" /> Back to Home
         </Link>
@@ -62,16 +62,16 @@ export default function Contact() {
         <div className="grid gap-10 md:grid-cols-5 md:gap-16">
           {/* Main Form */}
           <div className="md:col-span-3">
-            <h1 className="font-serif text-[42px] font-normal leading-tight tracking-[-1.5px] mb-3">
+            <h1 className="font-serif text-[42px] font-normal leading-tight tracking-[-1.5px] mb-3 text-[#1a1a1a] dark:text-zinc-50">
               Get in touch
             </h1>
-            <p className="text-[14.5px] leading-relaxed text-[#666] mb-8">
+            <p className="text-[14.5px] leading-relaxed text-[#666] dark:text-zinc-400 mb-8">
               Have a question about Subbly? Need help with your captioning subscription, or want to suggest a new style template? Send us a message and we'll help you out.
             </p>
 
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <label htmlFor="name" className="block text-xs font-semibold uppercase tracking-wider text-[#666] mb-1.5">
+                <label htmlFor="name" className="block text-xs font-semibold uppercase tracking-wider text-[#666] dark:text-zinc-400 mb-1.5">
                   Your Name
                 </label>
                 <input
@@ -79,14 +79,14 @@ export default function Contact() {
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="w-full rounded-[9px] border border-[#e8e4de] bg-white px-4 py-2.5 text-sm text-[#1a1a1a] focus:border-[#ff5c3a] focus:outline-none transition-colors"
+                  className="w-full rounded-[9px] border border-[#e8e4de] dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-2.5 text-sm text-[#1a1a1a] dark:text-zinc-100 focus:border-[#ff5c3a] dark:focus:border-[#ff5c3a] focus:outline-none transition-colors"
                   placeholder="Vishal Gupta"
                   required
                 />
               </div>
 
               <div>
-                <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-wider text-[#666] mb-1.5">
+                <label htmlFor="email" className="block text-xs font-semibold uppercase tracking-wider text-[#666] dark:text-zinc-400 mb-1.5">
                   Email Address
                 </label>
                 <input
@@ -94,14 +94,14 @@ export default function Contact() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full rounded-[9px] border border-[#e8e4de] bg-white px-4 py-2.5 text-sm text-[#1a1a1a] focus:border-[#ff5c3a] focus:outline-none transition-colors"
+                  className="w-full rounded-[9px] border border-[#e8e4de] dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-2.5 text-sm text-[#1a1a1a] dark:text-zinc-100 focus:border-[#ff5c3a] dark:focus:border-[#ff5c3a] focus:outline-none transition-colors"
                   placeholder="you@example.com"
                   required
                 />
               </div>
 
               <div>
-                <label htmlFor="subject" className="block text-xs font-semibold uppercase tracking-wider text-[#666] mb-1.5">
+                <label htmlFor="subject" className="block text-xs font-semibold uppercase tracking-wider text-[#666] dark:text-zinc-400 mb-1.5">
                   Subject
                 </label>
                 <input
@@ -109,14 +109,14 @@ export default function Contact() {
                   type="text"
                   value={subject}
                   onChange={(e) => setSubject(e.target.value)}
-                  className="w-full rounded-[9px] border border-[#e8e4de] bg-white px-4 py-2.5 text-sm text-[#1a1a1a] focus:border-[#ff5c3a] focus:outline-none transition-colors"
+                  className="w-full rounded-[9px] border border-[#e8e4de] dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-2.5 text-sm text-[#1a1a1a] dark:text-zinc-100 focus:border-[#ff5c3a] dark:focus:border-[#ff5c3a] focus:outline-none transition-colors"
                   placeholder="How can we help?"
                   required
                 />
               </div>
 
               <div>
-                <label htmlFor="message" className="block text-xs font-semibold uppercase tracking-wider text-[#666] mb-1.5">
+                <label htmlFor="message" className="block text-xs font-semibold uppercase tracking-wider text-[#666] dark:text-zinc-400 mb-1.5">
                   Message
                 </label>
                 <textarea
@@ -124,7 +124,7 @@ export default function Contact() {
                   value={message}
                   onChange={(e) => setMessage(e.target.value)}
                   rows={5}
-                  className="w-full rounded-[9px] border border-[#e8e4de] bg-white px-4 py-2.5 text-sm text-[#1a1a1a] focus:border-[#ff5c3a] focus:outline-none transition-colors resize-none"
+                  className="w-full rounded-[9px] border border-[#e8e4de] dark:border-zinc-800 bg-white dark:bg-zinc-900 px-4 py-2.5 text-sm text-[#1a1a1a] dark:text-zinc-100 focus:border-[#ff5c3a] dark:focus:border-[#ff5c3a] focus:outline-none transition-colors resize-none"
                   placeholder="Type your message details here..."
                   required
                 />
@@ -142,21 +142,21 @@ export default function Contact() {
 
           {/* Sidebar / Info */}
           <div className="md:col-span-2 space-y-6">
-            <div className="rounded-[16px] border border-[#e8e4de] bg-white p-6 shadow-sm">
+            <div className="rounded-[16px] border border-[#e8e4de] dark:border-zinc-800 bg-white dark:bg-zinc-900 p-6 shadow-sm">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-[#ff5c3a] mb-4">Direct Contact</h3>
               
               <ul className="space-y-5">
                 <li className="flex items-start gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#fff5f3] text-[#ff5c3a]">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#fff5f3] dark:bg-orange-950/40 text-[#ff5c3a] dark:text-orange-400">
                     <Mail className="h-4 w-4" />
                   </span>
                   <div>
-                    <h4 className="text-[11px] font-semibold uppercase tracking-widest text-[#b0aba4]">Email Us</h4>
+                    <h4 className="text-[11px] font-semibold uppercase tracking-widest text-[#b0aba4] dark:text-zinc-500">Email Us</h4>
                     <a
                       href="https://mail.google.com/mail/?view=cm&fs=1&to=subbly.info@gmail.com"
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="mt-0.5 block text-sm font-medium text-[#1a1a1a] hover:text-[#ff5c3a] transition-colors"
+                      className="mt-0.5 block text-sm font-medium text-[#1a1a1a] dark:text-zinc-200 hover:text-[#ff5c3a] transition-colors"
                     >
                       Subbly.info@gmail.com
                     </a>
@@ -164,24 +164,24 @@ export default function Contact() {
                 </li>
 
                 <li className="flex items-start gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#fff5f3] text-[#ff5c3a]">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#fff5f3] dark:bg-orange-950/40 text-[#ff5c3a] dark:text-orange-400">
                     <Clock className="h-4 w-4" />
                   </span>
                   <div>
-                    <h4 className="text-[11px] font-semibold uppercase tracking-widest text-[#b0aba4]">Response Time</h4>
-                    <p className="mt-0.5 text-sm text-[#1a1a1a] font-medium">
+                    <h4 className="text-[11px] font-semibold uppercase tracking-widest text-[#b0aba4] dark:text-zinc-500">Response Time</h4>
+                    <p className="mt-0.5 text-sm text-[#1a1a1a] dark:text-zinc-200 font-medium">
                       Typically within 24 hours
                     </p>
                   </div>
                 </li>
 
                 <li className="flex items-start gap-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#fff5f3] text-[#ff5c3a]">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[#fff5f3] dark:bg-orange-950/40 text-[#ff5c3a] dark:text-orange-400">
                     <MessageSquare className="h-4 w-4" />
                   </span>
                   <div>
-                    <h4 className="text-[11px] font-semibold uppercase tracking-widest text-[#b0aba4]">Feedback & Bugs</h4>
-                    <p className="mt-0.5 text-sm text-[#666] leading-relaxed">
+                    <h4 className="text-[11px] font-semibold uppercase tracking-widest text-[#b0aba4] dark:text-zinc-500">Feedback & Bugs</h4>
+                    <p className="mt-0.5 text-sm text-[#666] dark:text-zinc-400 leading-relaxed">
                       We're actively adding features. Feel free to report any bug or request styles!
                     </p>
                   </div>

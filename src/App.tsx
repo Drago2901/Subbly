@@ -44,15 +44,15 @@ const App = () => (
   <ErrorBoundary>
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <PwaUpdateToast />
         <BrowserRouter>
-        <ThemeProvider>
-          <RainBackgroundWrapper />
-          <CookieConsent />
-          <AuthProvider>
-          <AvatarProvider>
+          <ThemeProvider>
+            <Toaster />
+            <Sonner />
+            <PwaUpdateToast />
+            <RainBackgroundWrapper />
+            <CookieConsent />
+            <AuthProvider>
+            <AvatarProvider>
             <Routes>
               <Route path="/" element={<Index />} />
               <Route path="/auth" element={<Auth />} />

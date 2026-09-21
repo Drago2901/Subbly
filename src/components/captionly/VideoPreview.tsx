@@ -30,6 +30,7 @@ type Props = {
   src: string;
   captions: Caption[];
   style: CaptionStyle;
+  track2Style?: CaptionStyle;
   selectedCaptionId?: string | null;
   onSelect?: (id: string | null) => void;
   onTimeUpdate?: (t: number) => void;
@@ -50,6 +51,7 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
     src,
     captions,
     style,
+    track2Style,
     selectedCaptionId,
     onSelect,
     onTimeUpdate,
@@ -677,7 +679,8 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
 
         {activeCaptions.map((activeItem) => {
           const isEditing = editingCaptionId === activeItem.id;
-          const itemStyle = activeItem.style ? { ...style, ...activeItem.style } : style;
+          const baseTrackStyle = activeItem.track === 2 ? (track2Style || { ...style, position: "top", posY: 0.18 }) : style;
+          const itemStyle = activeItem.style ? { ...baseTrackStyle, ...activeItem.style } : baseTrackStyle;
           
           const posX = activeItem.x ?? (itemStyle.position === "top" ? 0.5 : itemStyle.position === "middle" ? 0.5 : itemStyle.posX);
           let posY = activeItem.y ?? (itemStyle.position === "top" ? 0.12 : itemStyle.position === "middle" ? 0.5 : itemStyle.posY);

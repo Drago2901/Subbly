@@ -160,6 +160,7 @@ export function Timeline({
   // Dragging & Snapping
   const [activeDrag, setActiveDrag] = useState<ActiveDragInfo | null>(null);
   const [snapGuideTime, setSnapGuideTime] = useState<number | null>(null);
+  const [dragHoverTrackId, setDragHoverTrackId] = useState<TimelineTrackId | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const sidebarScrollRef = useRef<HTMLDivElement>(null);
@@ -322,6 +323,40 @@ export function Timeline({
       const dt = dx / pxPerSec;
 
       if (activeDrag.trackId === "caption1" || activeDrag.trackId === "caption2" || activeDrag.trackId === "memes") {
+        const isCaptionTrack = activeDrag.trackId === "caption1" || activeDrag.trackId === "caption2";
+        let targetTrackNum: number | undefined = undefined;
+        let hoveredLane: TimelineTrackId | null = null;
+
+        if (isCaptionTrack && activeDrag.kind === "move" && containerRef.current) {
+          const cap1El = containerRef.current.querySelector<HTMLElement>('[data-track-lane="caption1"]');
+          const cap2El = containerRef.current.querySelector<HTMLElement>('[data-track-lane="caption2"]');
+
+          if (cap1El && cap2El) {
+            const r1 = cap1El.getBoundingClientRect();
+            const r2 = cap2El.getBoundingClientRect();
+            const boundaryY = (r1.bottom + r2.top) / 2;
+
+            if (e.clientY >= boundaryY) {
+              hoveredLane = "caption2";
+              if (!trackLocks.caption2 && trackVisibility.caption2) {
+                targetTrackNum = 2;
+                if (trackCollapsed.caption2) {
+                  setTrackCollapsed((prev) => ({ ...prev, caption2: false }));
+                }
+              }
+            } else {
+              hoveredLane = "caption1";
+              if (!trackLocks.caption1 && trackVisibility.caption1) {
+                targetTrackNum = 1;
+                if (trackCollapsed.caption1) {
+                  setTrackCollapsed((prev) => ({ ...prev, caption1: false }));
+                }
+              }
+            }
+          }
+        }
+        setDragHoverTrackId(hoveredLane);
+
         onChange(
           captions.map((c) => {
             if (c.id !== activeDrag.id) return c;
@@ -339,7 +374,8 @@ export function Timeline({
                 start: w.start + offset,
                 end: w.end + offset,
               }));
-              return { ...c, start: nextStart, end: nextStart + len, words };
+              const nextTrack = targetTrackNum !== undefined ? targetTrackNum : (c.track || 1);
+              return { ...c, start: nextStart, end: nextStart + len, words, track: nextTrack };
             }
 
             if (activeDrag.kind === "resize-l") {
@@ -404,6 +440,7 @@ export function Timeline({
     const onPointerUp = () => {
       setActiveDrag(null);
       setSnapGuideTime(null);
+      setDragHoverTrackId(null);
     };
 
     window.addEventListener("pointermove", onPointerMove);
@@ -412,7 +449,7 @@ export function Timeline({
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
     };
-  }, [activeDrag, captions, currentAudioClips, currentEffects, duration, findSnapTime, onChange, pxPerSec, setAudioClips, setEffects]);
+  }, [activeDrag, captions, currentAudioClips, currentEffects, duration, findSnapTime, onChange, pxPerSec, setAudioClips, setEffects, trackLocks, trackVisibility, trackCollapsed]);
 
   // Actions: Split clip at playhead
   const handleSplit = useCallback(() => {
@@ -603,6 +640,81 @@ export function Timeline({
     [captions, onChange]
   );
 
+  // Move caption between tracks (e.g. Cap 1 <-> Cap 2)
+  const handleMoveCaptionTrack = useCallback(
+    (captionId: string, targetTrack: number) => {
+      onChange(
+        captions.map((c) => {
+          if (c.id !== captionId) return c;
+          return { ...c, track: targetTrack };
+        })
+      );
+      const targetKey: TimelineTrackId = targetTrack === 1 ? "caption1" : "caption2";
+      setTrackCollapsed((prev) => ({ ...prev, [targetKey]: false }));
+    },
+    [captions, onChange]
+  );
+
+  // Duplicate caption to other track
+  const handleDuplicateCaptionTrack = useCallback(
+    (captionId: string, targetTrack: number) => {
+      const source = captions.find((c) => c.id === captionId);
+      if (!source) return;
+      const dup: Caption = {
+        ...source,
+        id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 9),
+        track: targetTrack,
+      };
+      onChange([...captions, dup].sort((a, b) => a.start - b.start));
+      setSelected(dup.id);
+      const targetKey: TimelineTrackId = targetTrack === 1 ? "caption1" : "caption2";
+      setTrackCollapsed((prev) => ({ ...prev, [targetKey]: false }));
+    },
+    [captions, onChange, setSelected]
+  );
+
+  // Split a specific caption (playhead or midpoint)
+  const handleSplitCaption = useCallback(
+    (captionId: string) => {
+      const target = captions.find((c) => c.id === captionId);
+      if (!target) return;
+      const splitTime = (currentTime > target.start + 0.08 && currentTime < target.end - 0.08)
+        ? currentTime
+        : (target.start + target.end) / 2;
+      const words = target.text.trim().split(/\s+/);
+      const mid = Math.max(1, Math.floor(words.length / 2));
+      const leftText = words.slice(0, mid).join(" ");
+      const rightText = words.slice(mid).join(" ") || "...";
+
+      const left: Caption = { ...target, end: splitTime, text: leftText, words: undefined };
+      const right: Caption = {
+        ...target,
+        id: crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 9),
+        start: splitTime,
+        text: rightText,
+        words: undefined,
+      };
+
+      const idx = captions.findIndex((c) => c.id === target.id);
+      if (idx >= 0) {
+        const next = [...captions];
+        next.splice(idx, 1, left, right);
+        onChange(next);
+        setSelected(right.id);
+      }
+    },
+    [captions, currentTime, onChange, setSelected]
+  );
+
+  // Delete a specific caption
+  const handleDeleteCaption = useCallback(
+    (captionId: string) => {
+      onChange(captions.filter((c) => c.id !== captionId));
+      if (selected === captionId) setSelected(null);
+    },
+    [captions, onChange, selected, setSelected]
+  );
+
   return (
     <div
       ref={containerRef}
@@ -716,6 +828,11 @@ export function Timeline({
                 onQuickAdd={handleQuickAdd}
                 onAddAfter={handleAddAfter}
                 onUpdateText={handleUpdateText}
+                dragHoverTrackId={dragHoverTrackId}
+                onMoveTrack={handleMoveCaptionTrack}
+                onDuplicateTrack={handleDuplicateCaptionTrack}
+                onSplitCaption={handleSplitCaption}
+                onDeleteCaption={handleDeleteCaption}
               />
 
               {/* SINGLE GLOBAL PLAYHEAD PASSING DOWN EVERY TRACK */}

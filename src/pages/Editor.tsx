@@ -378,6 +378,7 @@ const Editor = () => {
   const captionsRef = useRef<Caption[]>(captions);
   captionsRef.current = captions;
   const [style, setStyle] = useState<CaptionStyle>(DEFAULT_STYLE);
+  const [track2Style, setTrack2Style] = useState<CaptionStyle>(() => ({ ...DEFAULT_STYLE, position: "top", posY: 0.18 }));
   const [title, setTitle] = useState("Untitled project");
   const [transcribing, setTranscribing] = useState(false);
   const [transcribeStage, setTranscribeStage] = useState("");
@@ -608,7 +609,7 @@ const Editor = () => {
 
     const last = captions[captions.length - 1];
     const start = last ? last.end : 0;
-    const refCap = captions.find((c) => c.x !== undefined);
+    const refCap = captions.find((c) => (c.track || 1) === targetTrack && c.x !== undefined);
     const newCap: Caption = {
       id: typeof crypto !== "undefined" && crypto.randomUUID ? crypto.randomUUID() : Math.random().toString(36).substring(2, 15),
       start,
@@ -627,46 +628,76 @@ const Editor = () => {
 
   const handleCaptionStyleChange = useCallback((id: string, styleUpdate: Partial<CaptionStyle>) => {
     setCaptions((cur) =>
-      cur.map((c) =>
-        c.id === id
-          ? { ...c, style: { ...c.style, ...styleUpdate } }
-          : c
-      )
+      cur.map((c) => {
+        if (c.id !== id) return c;
+        const baseTrack = (c.track || 1) === 2 ? track2Style : style;
+        return {
+          ...c,
+          style: { ...(c.style || baseTrack), ...styleUpdate },
+        };
+      })
     );
-  }, []);
+  }, [track2Style, style]);
 
   const handleCaptionPositionChange = useCallback((id: string, patch: Partial<Caption>) => {
     setCaptions((cur) => {
       const target = cur.find((c) => c.id === id);
       const targetTrack = target ? (target.track || 1) : 1;
+      const baseTrack = targetTrack === 2 ? track2Style : style;
       return cur.map((c) => {
         const cTrack = c.track || 1;
         if (cTrack === targetTrack) {
           return {
             ...c,
             ...patch,
-            style: patch.style ? { ...c.style, ...patch.style } : c.style
+            style: patch.style ? { ...(c.style || baseTrack), ...patch.style } : c.style
           };
         }
         return c;
       });
     });
-  }, []);
+  }, [track2Style, style]);
 
   const handleStyleChange = useCallback((nextStyle: CaptionStyle) => {
-    setStyle(nextStyle);
-    setCaptions((cur) =>
-      cur.map((c) => {
-        if (!c.style) {
-          if (selectedCaptionId && c.id === selectedCaptionId) {
+    setCaptions((cur) => {
+      const selected = cur.find((c) => c.id === selectedCaptionId);
+      const targetTrack = selected ? (selected.track || 1) : 1;
+      const baseTrack = targetTrack === 2 ? track2Style : style;
+
+      if (targetTrack === 2) {
+        setTrack2Style(nextStyle);
+      } else {
+        setStyle(nextStyle);
+      }
+
+      return cur.map((c) => {
+        const cTrack = c.track || 1;
+        // Never touch captions from another track!
+        if (cTrack !== targetTrack) {
+          return c;
+        }
+
+        // When a specific caption is selected, only update that caption
+        if (selectedCaptionId) {
+          if (c.id === selectedCaptionId) {
+            const existing = c.style || baseTrack;
+            const updatedStyle = { ...nextStyle };
+            if (existing.position !== undefined) updatedStyle.position = existing.position;
+            if (existing.posX !== undefined) updatedStyle.posX = existing.posX;
+            if (existing.posY !== undefined) updatedStyle.posY = existing.posY;
+            if (existing.boxWidth !== undefined) updatedStyle.boxWidth = existing.boxWidth;
+            if (existing.boxHeight !== undefined) updatedStyle.boxHeight = existing.boxHeight;
+
             return {
               ...c,
-              style: nextStyle,
+              style: updatedStyle,
             };
           }
           return c;
         }
 
+        // When no specific caption is selected, update styled captions on this track
+        if (!c.style) return c;
         const updatedStyle = { ...nextStyle };
         if (c.style.position !== undefined) updatedStyle.position = c.style.position;
         if (c.style.posX !== undefined) updatedStyle.posX = c.style.posX;
@@ -678,9 +709,41 @@ const Editor = () => {
           ...c,
           style: updatedStyle,
         };
-      })
-    );
-  }, [selectedCaptionId]);
+      });
+    });
+  }, [selectedCaptionId, track2Style, style]);
+
+  const handleApplyToAllTrack = useCallback((nextStyle: CaptionStyle) => {
+    setCaptions((cur) => {
+      const selected = cur.find((c) => c.id === selectedCaptionId);
+      const targetTrack = selected ? (selected.track || 1) : 1;
+      const baseTrack = targetTrack === 2 ? track2Style : style;
+
+      if (targetTrack === 2) {
+        setTrack2Style(nextStyle);
+      } else {
+        setStyle(nextStyle);
+      }
+
+      return cur.map((c) => {
+        const cTrack = c.track || 1;
+        if (cTrack !== targetTrack) return c;
+
+        const existing = c.style || baseTrack;
+        const updatedStyle = { ...nextStyle };
+        if (existing.position !== undefined) updatedStyle.position = existing.position;
+        if (existing.posX !== undefined) updatedStyle.posX = existing.posX;
+        if (existing.posY !== undefined) updatedStyle.posY = existing.posY;
+        if (existing.boxWidth !== undefined) updatedStyle.boxWidth = existing.boxWidth;
+        if (existing.boxHeight !== undefined) updatedStyle.boxHeight = existing.boxHeight;
+
+        return {
+          ...c,
+          style: updatedStyle,
+        };
+      });
+    });
+  }, [selectedCaptionId, track2Style, style]);
 
   // Synchronize play/pause state from video element
   useEffect(() => {
@@ -911,7 +974,13 @@ const Editor = () => {
             translationCacheRef.current = {};
             setCaptions(loaded);
           }
-          if (data.style) setStyle(data.style as CaptionStyle);
+          if (data.style) {
+            const loadedStyle = data.style as any;
+            setStyle(loadedStyle);
+            if (loadedStyle.track2Style) {
+              setTrack2Style(loadedStyle.track2Style);
+            }
+          }
           setStoredSourcePath(data.source_video_path);
           setStoredSourceMime(data.source_video_mime);
           setStoredSourceName(data.source_video_name);
@@ -1013,6 +1082,7 @@ const Editor = () => {
       const currentSnapshot = JSON.stringify({
         captions,
         style,
+        track2Style,
         title,
       });
 
@@ -1026,7 +1096,7 @@ const Editor = () => {
           .update({
             title,
             captions: JSON.parse(JSON.stringify(captions)),
-            style: JSON.parse(JSON.stringify(style)),
+            style: JSON.parse(JSON.stringify({ ...style, track2Style })),
             updated_at: new Date().toISOString(),
           })
           .eq("id", projectId);
@@ -1520,6 +1590,7 @@ const Editor = () => {
       duration: expectedDuration,
       captions: JSON.parse(JSON.stringify(captions)),
       style: JSON.parse(JSON.stringify(style)),
+      track2Style: JSON.parse(JSON.stringify(track2Style)),
       effects: [...effects],
       audioClips: [...audioClips],
       vocalVolume,
@@ -1543,6 +1614,7 @@ const Editor = () => {
         videoFile: snapshot.file,
         captions: snapshot.captions,
         style: snapshot.style,
+        track2Style: snapshot.track2Style,
         fps: snapshot.exportFps,
         onProgress: ({ progress, message }) => {
           setExportProgress(progress);
@@ -1914,6 +1986,16 @@ const Editor = () => {
 
             {headerRight}
 
+            {/* Header Theme Toggle */}
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="flex h-8.5 w-8.5 items-center justify-center rounded-lg border border-border bg-secondary text-muted-foreground hover:text-foreground hover:bg-muted hover:scale-105 active:scale-95 transition cursor-pointer"
+              title={theme === "dark" ? "Switch to Light Mode" : "Switch to Dark Mode"}
+            >
+              {theme === "dark" ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
+            </button>
+
             {user ? (
               <AvatarDropdown />
             ) : (
@@ -2009,6 +2091,7 @@ const Editor = () => {
                   src={videoUrl}
                   captions={captions}
                   style={style}
+                  track2Style={track2Style}
                   selectedCaptionId={selectedCaptionId}
                   onSelect={setSelectedCaptionId}
                   onTimeUpdate={setCurrentTime}
@@ -2033,27 +2116,27 @@ const Editor = () => {
         );
 
         const selectedCaption = captions.find(c => c.id === selectedCaptionId) || null;
+        const targetTrack = selectedCaption ? (selectedCaption.track || 1) : 1;
+        const activeTrackStyle = targetTrack === 2 ? track2Style : style;
 
         const commonStylePanelProps = {
-          style: selectedCaption?.style ? { ...style, ...selectedCaption.style } : style,
+          style: selectedCaption?.style ? { ...activeTrackStyle, ...selectedCaption.style } : activeTrackStyle,
           onChange: handleStyleChange,
           selectedCaption: selectedCaption,
           onCaptionChange: (id: string, patch: Partial<typeof captions[0]>) => {
-            setCaptions((cur) => {
-              const target = cur.find((c) => c.id === id);
-              const targetTrack = target ? (target.track || 1) : 1;
-              return cur.map((c) => {
-                const cTrack = c.track || 1;
-                if (cTrack === targetTrack) {
+            setCaptions((cur) =>
+              cur.map((c) => {
+                if (c.id === id) {
+                  const baseTrack = (c.track || 1) === 2 ? track2Style : style;
                   return {
                     ...c,
                     ...patch,
-                    style: patch.style ? { ...c.style, ...patch.style } : c.style
+                    style: patch.style ? { ...(c.style || baseTrack), ...patch.style } : c.style,
                   };
                 }
                 return c;
-              });
-            });
+              })
+            );
           },
           isLocked: selectedCaption ? lockedTracks.includes(selectedCaption.track || 1) : false,
           showTabsHeader: false as const,
@@ -2584,12 +2667,12 @@ const Editor = () => {
                                       <div className="w-full h-full flex gap-2 overflow-hidden">
                                         {/* Text Styles Panel — collapsed shows expand button only */}
                                         {textStylesCollapsed ? (
-                                          <div className="flex-shrink-0 w-8 flex flex-col items-center py-2 border border-border/40 bg-[#13151c]/80 rounded-2xl">
+                                          <div className="flex-shrink-0 w-8 flex flex-col items-center py-2 border border-border bg-card/80 rounded-2xl shadow-sm">
                                             <button
                                               type="button"
                                               onClick={() => setTextStylesCollapsed(false)}
                                               title="Expand Text Styles"
-                                              className="h-7 w-7 flex items-center justify-center rounded-md text-white/30 hover:text-white hover:bg-white/8 transition cursor-pointer"
+                                              className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
                                             >
                                               <ChevronRight className="h-3.5 w-3.5" />
                                             </button>
@@ -2607,12 +2690,12 @@ const Editor = () => {
 
                                         {/* Customize Text Panel */}
                                         {customizeTextCollapsed ? (
-                                          <div className="flex-shrink-0 w-8 flex flex-col items-center py-2 border border-border/40 bg-[#13151c]/80 rounded-2xl">
+                                          <div className="flex-shrink-0 w-8 flex flex-col items-center py-2 border border-border bg-card/80 rounded-2xl shadow-sm">
                                             <button
                                               type="button"
                                               onClick={() => setCustomizeTextCollapsed(false)}
                                               title="Expand Customize Text"
-                                              className="h-7 w-7 flex items-center justify-center rounded-md text-white/30 hover:text-white hover:bg-white/8 transition cursor-pointer"
+                                              className="h-7 w-7 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
                                             >
                                               <ChevronRight className="h-3.5 w-3.5" />
                                             </button>
@@ -2624,7 +2707,7 @@ const Editor = () => {
                                               onChange={commonStylePanelProps.onChange}
                                               selectedCaption={selectedCaption}
                                               onCaptionChange={commonStylePanelProps.onCaptionChange}
-                                              onApplyToAll={handleStyleChange}
+                                              onApplyToAll={handleApplyToAllTrack}
                                               onCollapse={() => setCustomizeTextCollapsed(true)}
                                             />
                                           </div>
@@ -2835,6 +2918,7 @@ const Editor = () => {
                         src={videoUrl}
                         captions={captions}
                         style={style}
+                        track2Style={track2Style}
                         selectedCaptionId={selectedCaptionId}
                         onSelect={setSelectedCaptionId}
                         onTimeUpdate={setCurrentTime}
@@ -3055,25 +3139,23 @@ const Editor = () => {
                       /* Renders the style panels corresponding to Style, Anim, Templates, and Brand settings tabs */
                       <div>
                         <StylePanel
-                          style={selectedCaption?.style ? { ...style, ...selectedCaption.style } : style}
+                          style={selectedCaption?.style ? { ...activeTrackStyle, ...selectedCaption.style } : activeTrackStyle}
                           onChange={handleStyleChange}
                           selectedCaption={selectedCaption}
                           onCaptionChange={(id, patch) => {
-                            setCaptions((cur) => {
-                              const target = cur.find((c) => c.id === id);
-                              const targetTrack = target ? (target.track || 1) : 1;
-                              return cur.map((c) => {
-                                const cTrack = c.track || 1;
-                                if (cTrack === targetTrack) {
+                            setCaptions((cur) =>
+                              cur.map((c) => {
+                                if (c.id === id) {
+                                  const baseTrack = (c.track || 1) === 2 ? track2Style : style;
                                   return {
                                     ...c,
                                     ...patch,
-                                    style: patch.style ? { ...c.style, ...patch.style } : c.style
+                                    style: patch.style ? { ...(c.style || baseTrack), ...patch.style } : c.style,
                                   };
                                 }
                                 return c;
-                              });
-                            });
+                              })
+                            );
                           }}
                           isLocked={selectedCaption ? lockedTracks.includes(selectedCaption.track || 1) : false}
                           activeTab={activeMobileTab === "tmpl" ? "tmpl" : activeMobileTab === "brand" ? "brand" : activeMobileTab === "anim" ? "anim" : "style"}

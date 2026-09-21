@@ -215,9 +215,9 @@ export const AudioControlsPanel: React.FC<AudioControlsPanelProps> = ({
   const barMultipliers = [0.35, 0.55, 0.85, 1.0, 0.9, 0.6, 0.45, 0.75, 0.95, 0.7, 0.4];
 
   return (
-    <div className="flex flex-col h-full select-none bg-[#0e1015] text-white">
+    <div className="flex flex-col h-full select-none bg-card text-foreground">
       {/* Top Section Header */}
-      <div className="flex flex-col border-b border-white/10 px-4 pt-3 pb-2.5 bg-black/40">
+      <div className="flex flex-col border-b border-border px-4 pt-3 pb-2.5 bg-muted/30">
         <span className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground/80">
           PROPERTIES
         </span>
@@ -235,7 +235,7 @@ export const AudioControlsPanel: React.FC<AudioControlsPanelProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-white/10 transition cursor-pointer"
+              className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
               title="Close panel"
               aria-label="Close Audio Controls"
             >
@@ -252,7 +252,7 @@ export const AudioControlsPanel: React.FC<AudioControlsPanelProps> = ({
           <span className="text-[11px] font-semibold text-muted-foreground">
             Selected Audio:
           </span>
-          <div className="flex items-center gap-3 p-3 rounded-xl border border-white/10 bg-[#16181f] hover:border-white/20 transition group">
+          <div className="flex items-center gap-3 p-3 rounded-xl border border-border bg-muted/40 hover:border-foreground/20 transition group">
             <div className="h-9 w-9 rounded-lg bg-[#FF6B2C]/15 border border-[#FF6B2C]/30 flex items-center justify-center text-[#FF6B2C] flex-shrink-0 shadow-sm">
               {audioCategory === "MUSIC" ? (
                 <Music className="h-4.5 w-4.5" />
@@ -275,7 +275,7 @@ export const AudioControlsPanel: React.FC<AudioControlsPanelProps> = ({
         </div>
 
         {/* Divider */}
-        <div className="h-px bg-white/10" />
+        <div className="h-px bg-border" />
 
         {/* 2. Volume Section */}
         <div className="space-y-3">
@@ -297,7 +297,7 @@ export const AudioControlsPanel: React.FC<AudioControlsPanelProps> = ({
                     onBlur={commitVolumeInput}
                     onKeyDown={handleVolumeKeyDown}
                     autoFocus
-                    className="w-12 h-6 px-1 text-right text-[12px] font-mono font-bold bg-[#1a1c24] border border-[#FF6B2C] rounded text-foreground outline-none"
+                    className="w-12 h-6 px-1 text-right text-[12px] font-mono font-bold bg-background border border-[#FF6B2C] rounded text-foreground outline-none"
                   />
                   <span className="text-[11px] font-mono text-muted-foreground ml-0.5">%</span>
                 </div>
@@ -305,7 +305,7 @@ export const AudioControlsPanel: React.FC<AudioControlsPanelProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsEditingVolume(true)}
-                  className={`text-[12px] font-mono font-bold px-1.5 py-0.5 rounded hover:bg-white/10 transition cursor-pointer ${
+                  className={`text-[12px] font-mono font-bold px-1.5 py-0.5 rounded hover:bg-muted transition cursor-pointer ${
                     clip.muted ? "text-muted-foreground line-through" : "text-foreground"
                   }`}
                   title="Click to type exact percentage or use Up/Down arrows"
@@ -341,13 +341,13 @@ export const AudioControlsPanel: React.FC<AudioControlsPanelProps> = ({
                   value={clip.muted ? 0 : volumePct}
                   onChange={(e) => handleVolumeChange(Number(e.target.value))}
                   onKeyDown={handleVolumeKeyDown}
-                  className="w-full h-1.5 rounded-full bg-white/20 accent-[#FF6B2C] cursor-pointer"
+                  className="w-full h-1.5 rounded-full bg-muted accent-[#FF6B2C] cursor-pointer"
                   style={{
                     background: `linear-gradient(to right, #FF6B2C 0%, #FF6B2C ${
                       clip.muted ? 0 : (volumePct / 200) * 100
-                    }%, rgba(255,255,255,0.15) ${
+                    }%, hsl(var(--muted)) ${
                       clip.muted ? 0 : (volumePct / 200) * 100
-                    }%, rgba(255,255,255,0.15) 100%)`,
+                    }%, hsl(var(--muted)) 100%)`,
                   }}
                 />
               </div>
@@ -373,7 +373,7 @@ export const AudioControlsPanel: React.FC<AudioControlsPanelProps> = ({
                   className={`py-1 rounded-md text-[10px] font-bold transition cursor-pointer border ${
                     isActive
                       ? "bg-[#FF6B2C] border-[#FF6B2C] text-black font-extrabold shadow-sm"
-                      : "bg-[#181a22] border-white/5 text-muted-foreground hover:text-foreground hover:bg-white/10"
+                      : "bg-muted/40 border-border text-muted-foreground hover:text-foreground hover:bg-muted"
                   }`}
                 >
                   {p}%
@@ -389,7 +389,7 @@ export const AudioControlsPanel: React.FC<AudioControlsPanelProps> = ({
             className={`w-full flex items-center justify-center gap-2 py-2 rounded-xl text-[11.5px] font-bold border transition cursor-pointer ${
               clip.muted
                 ? "bg-[#FF6B2C]/20 border-[#FF6B2C] text-[#FF6B2C] shadow-sm"
-                : "bg-[#181a22] border-white/10 text-foreground hover:bg-white/10"
+                : "bg-muted/40 border-border text-foreground hover:bg-muted"
             }`}
           >
             {clip.muted ? (
@@ -407,7 +407,7 @@ export const AudioControlsPanel: React.FC<AudioControlsPanelProps> = ({
         </div>
 
         {/* Divider */}
-        <div className="h-px bg-white/10" />
+        <div className="h-px bg-border" />
 
         {/* 3. Fade In & Fade Out Section */}
         <div className="space-y-4">
@@ -429,7 +429,7 @@ export const AudioControlsPanel: React.FC<AudioControlsPanelProps> = ({
                     onBlur={commitFadeInInput}
                     onKeyDown={handleFadeInKeyDown}
                     autoFocus
-                    className="w-14 h-6 px-1 text-right text-[12px] font-mono font-bold bg-[#1a1c24] border border-[#FF6B2C] rounded text-foreground outline-none"
+                    className="w-14 h-6 px-1 text-right text-[12px] font-mono font-bold bg-background border border-[#FF6B2C] rounded text-foreground outline-none"
                   />
                   <span className="text-[11px] font-mono text-muted-foreground ml-0.5">s</span>
                 </div>
@@ -437,7 +437,7 @@ export const AudioControlsPanel: React.FC<AudioControlsPanelProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsEditingFadeIn(true)}
-                  className="text-[12px] font-mono font-bold text-foreground px-1.5 py-0.5 rounded hover:bg-white/10 transition cursor-pointer"
+                  className="text-[12px] font-mono font-bold text-foreground px-1.5 py-0.5 rounded hover:bg-muted transition cursor-pointer"
                   title="Click to type exact duration (max clip duration)"
                 >
                   {fadeInVal.toFixed(1)}s
@@ -452,11 +452,11 @@ export const AudioControlsPanel: React.FC<AudioControlsPanelProps> = ({
               value={fadeInVal}
               onChange={(e) => handleFadeInChange(Number(e.target.value))}
               onKeyDown={handleFadeInKeyDown}
-              className="w-full h-1.5 rounded-full bg-white/20 accent-[#FF6B2C] cursor-pointer"
+              className="w-full h-1.5 rounded-full bg-muted accent-[#FF6B2C] cursor-pointer"
               style={{
                 background: `linear-gradient(to right, #FF6B2C 0%, #FF6B2C ${
                   (fadeInVal / maxFade) * 100
-                }%, rgba(255,255,255,0.15) ${(fadeInVal / maxFade) * 100}%, rgba(255,255,255,0.15) 100%)`,
+                }%, hsl(var(--muted)) ${(fadeInVal / maxFade) * 100}%, hsl(var(--muted)) 100%)`,
               }}
             />
           </div>
@@ -479,7 +479,7 @@ export const AudioControlsPanel: React.FC<AudioControlsPanelProps> = ({
                     onBlur={commitFadeOutInput}
                     onKeyDown={handleFadeOutKeyDown}
                     autoFocus
-                    className="w-14 h-6 px-1 text-right text-[12px] font-mono font-bold bg-[#1a1c24] border border-[#FF6B2C] rounded text-foreground outline-none"
+                    className="w-14 h-6 px-1 text-right text-[12px] font-mono font-bold bg-background border border-[#FF6B2C] rounded text-foreground outline-none"
                   />
                   <span className="text-[11px] font-mono text-muted-foreground ml-0.5">s</span>
                 </div>
@@ -487,7 +487,7 @@ export const AudioControlsPanel: React.FC<AudioControlsPanelProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsEditingFadeOut(true)}
-                  className="text-[12px] font-mono font-bold text-foreground px-1.5 py-0.5 rounded hover:bg-white/10 transition cursor-pointer"
+                  className="text-[12px] font-mono font-bold text-foreground px-1.5 py-0.5 rounded hover:bg-muted transition cursor-pointer"
                   title="Click to type exact duration (max clip duration)"
                 >
                   {fadeOutVal.toFixed(1)}s
@@ -502,18 +502,18 @@ export const AudioControlsPanel: React.FC<AudioControlsPanelProps> = ({
               value={fadeOutVal}
               onChange={(e) => handleFadeOutChange(Number(e.target.value))}
               onKeyDown={handleFadeOutKeyDown}
-              className="w-full h-1.5 rounded-full bg-white/20 accent-[#FF6B2C] cursor-pointer"
+              className="w-full h-1.5 rounded-full bg-muted accent-[#FF6B2C] cursor-pointer"
               style={{
                 background: `linear-gradient(to right, #FF6B2C 0%, #FF6B2C ${
                   (fadeOutVal / maxFade) * 100
-                }%, rgba(255,255,255,0.15) ${(fadeOutVal / maxFade) * 100}%, rgba(255,255,255,0.15) 100%)`,
+                }%, hsl(var(--muted)) ${(fadeOutVal / maxFade) * 100}%, hsl(var(--muted)) 100%)`,
               }}
             />
           </div>
         </div>
 
         {/* Divider */}
-        <div className="h-px bg-white/10" />
+        <div className="h-px bg-border" />
 
         {/* 4. Live Audio Level Meter */}
         <div className="space-y-2">
@@ -528,7 +528,7 @@ export const AudioControlsPanel: React.FC<AudioControlsPanelProps> = ({
           </div>
 
           {/* Equalizer Visualizer (11 bars) */}
-          <div className="h-10 rounded-xl bg-[#14161f] border border-white/5 px-3 flex items-end justify-between gap-1 py-2">
+          <div className="h-10 rounded-xl bg-muted/40 border border-border px-3 flex items-end justify-between gap-1 py-2">
             {barMultipliers.map((m, idx) => {
               const activeHeight = isPlaying && !clip.muted
                 ? Math.min(100, Math.max(12, liveAudioLevel * m * 100))
@@ -536,7 +536,7 @@ export const AudioControlsPanel: React.FC<AudioControlsPanelProps> = ({
               return (
                 <div
                   key={idx}
-                  className="flex-1 bg-white/10 rounded-full overflow-hidden h-full flex items-end"
+                  className="flex-1 bg-muted rounded-full overflow-hidden h-full flex items-end"
                 >
                   <div
                     className="w-full rounded-full transition-all duration-75"

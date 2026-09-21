@@ -115,8 +115,8 @@ function PresetCard({
       title={template.name}
       className={`relative w-full rounded-lg overflow-hidden cursor-pointer transition-all duration-200 group select-none ${
         isActive
-          ? "ring-2 ring-blue-500 ring-offset-1 ring-offset-[#13151c]"
-          : "hover:ring-1 hover:ring-white/20"
+          ? "ring-2 ring-primary ring-offset-1 ring-offset-card"
+          : "hover:ring-1 hover:ring-foreground/20"
       }`}
       style={{ aspectRatio: "4/3" }}
     >
@@ -163,8 +163,8 @@ function PresetCard({
 
       {/* Active check */}
       {isActive && (
-        <div className="absolute top-1 right-1 h-4 w-4 bg-blue-500 rounded-full flex items-center justify-center">
-          <Check className="h-2.5 w-2.5 text-white" strokeWidth={3} />
+        <div className="absolute top-1 right-1 h-4 w-4 bg-primary rounded-full flex items-center justify-center">
+          <Check className="h-2.5 w-2.5 text-primary-foreground" strokeWidth={3} />
         </div>
       )}
     </button>
@@ -189,8 +189,8 @@ function AnimEffectCard({
       title={anim.description}
       className={`relative flex flex-col items-center justify-center gap-1 rounded-lg px-1 py-2.5 cursor-pointer transition-all duration-200 select-none border ${
         isActive
-          ? "border-blue-500 bg-blue-500/10 text-blue-400"
-          : "border-white/8 bg-white/4 text-white/60 hover:border-white/20 hover:text-white/90"
+          ? "border-primary bg-primary/10 text-primary"
+          : "border-border bg-muted/30 text-muted-foreground hover:border-foreground/30 hover:text-foreground"
       }`}
     >
       <span className="text-[16px] leading-none">{anim.iconText?.length === 1 ? anim.iconText : "✨"}</span>
@@ -348,19 +348,19 @@ export function TextStylesPanel({
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#13151c] border-r border-white/8 overflow-hidden select-none">
+    <div className="flex flex-col h-full bg-card border-r border-border text-foreground overflow-hidden select-none">
       {/* ── Panel Header ── */}
-      <div className="flex items-center justify-between px-3 h-10 flex-shrink-0 border-b border-white/8">
+      <div className="flex items-center justify-between px-3 h-10 flex-shrink-0 border-b border-border">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-3.5 w-3.5 text-blue-400" />
-          <span className="text-[11px] font-bold text-white/90 tracking-widest uppercase">
+          <Sparkles className="h-3.5 w-3.5 text-primary" />
+          <span className="text-[11px] font-bold text-foreground tracking-widest uppercase">
             Text Styles
           </span>
         </div>
         <button
           type="button"
           onClick={onCollapse}
-          className="h-6 w-6 flex items-center justify-center rounded-md text-white/40 hover:text-white hover:bg-white/8 transition cursor-pointer"
+          className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition cursor-pointer"
           title="Collapse panel"
         >
           <ChevronLeft className="h-3.5 w-3.5" />
@@ -368,24 +368,24 @@ export function TextStylesPanel({
       </div>
 
       {/* ── Scrollable Content ── */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 scrollbar-thin scrollbar-thumb-white/10 scrollbar-track-transparent">
+      <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 scrollbar-thin scrollbar-thumb-border scrollbar-track-transparent">
 
         {/* Search */}
         <div className="px-3 pt-2.5 pb-2">
           <div className="relative">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-white/30" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3 w-3 text-muted-foreground" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search text styles…"
-              className="w-full bg-white/6 border border-white/8 rounded-md pl-7 pr-7 py-1.5 text-[11px] text-white/80 placeholder-white/25 outline-none focus:border-blue-500/50 focus:bg-white/8 transition"
+              className="w-full bg-muted/40 border border-border rounded-md pl-7 pr-7 py-1.5 text-[11px] text-foreground placeholder:text-muted-foreground/60 outline-none focus:border-primary/50 focus:bg-background transition"
             />
             {search && (
               <button
                 type="button"
                 onClick={() => setSearch("")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/60 cursor-pointer"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground cursor-pointer"
               >
                 <X className="h-3 w-3" />
               </button>
@@ -398,7 +398,7 @@ export function TextStylesPanel({
           <button
             type="button"
             onClick={() => scrollCategories("left")}
-            className="flex-shrink-0 h-5 w-4 flex items-center justify-center text-white/25 hover:text-white/60 cursor-pointer"
+            className="flex-shrink-0 h-5 w-4 flex items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer"
           >
             <ChevronLeft className="h-3 w-3" />
           </button>
@@ -414,8 +414,8 @@ export function TextStylesPanel({
                 onClick={() => setActiveCategory(cat)}
                 className={`flex-shrink-0 px-2 py-0.5 rounded-full text-[9.5px] font-bold transition cursor-pointer border ${
                   activeCategory === cat
-                    ? "bg-blue-500 border-blue-500 text-white"
-                    : "border-white/10 text-white/40 hover:text-white/70 hover:border-white/20"
+                    ? "bg-primary border-primary text-primary-foreground"
+                    : "border-border bg-muted/30 text-muted-foreground hover:text-foreground hover:border-foreground/30"
                 }`}
               >
                 {cat}
@@ -425,7 +425,7 @@ export function TextStylesPanel({
           <button
             type="button"
             onClick={() => scrollCategories("right")}
-            className="flex-shrink-0 h-5 w-4 flex items-center justify-center text-white/25 hover:text-white/60 cursor-pointer"
+            className="flex-shrink-0 h-5 w-4 flex items-center justify-center text-muted-foreground hover:text-foreground cursor-pointer"
           >
             <ChevronRight className="h-3 w-3" />
           </button>
@@ -433,8 +433,8 @@ export function TextStylesPanel({
 
         {/* No caption selected notice */}
         {!selectedCaptionId && (
-          <div className="mx-3 mb-3 px-2 py-2 bg-blue-500/8 border border-blue-500/20 rounded-lg">
-            <p className="text-[9.5px] text-blue-300/70 text-center leading-relaxed">
+          <div className="mx-3 mb-3 px-2 py-2 bg-primary/10 border border-primary/20 rounded-lg">
+            <p className="text-[9.5px] text-primary text-center leading-relaxed">
               Select a caption in the preview or timeline to apply styles
             </p>
           </div>
@@ -442,11 +442,11 @@ export function TextStylesPanel({
 
         {/* ── PRESET GRID ── */}
         <div className="px-3 pb-1">
-          <div className="text-[9px] font-bold uppercase tracking-[0.12em] text-white/25 mb-2">
+          <div className="text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground/70 mb-2">
             PRESETS {filteredTemplates.length > 0 && `(${filteredTemplates.length})`}
           </div>
           {filteredTemplates.length === 0 ? (
-            <div className="text-center py-6 text-white/25 text-[10px]">
+            <div className="text-center py-6 text-muted-foreground/60 text-[10px]">
               No styles found
             </div>
           ) : (
@@ -464,20 +464,20 @@ export function TextStylesPanel({
         </div>
 
         {/* ── ANIMATED TEXT EFFECTS (collapsed by default) ── */}
-        <div className="mt-2 border-t border-white/6">
+        <div className="mt-2 border-t border-border">
           <button
             type="button"
             onClick={() => setAnimEffectsOpen((v) => !v)}
-            className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-white/4 transition cursor-pointer"
+            className="w-full flex items-center justify-between px-3 py-2.5 text-left hover:bg-muted/40 transition cursor-pointer"
           >
             <div className="flex items-center gap-2">
               <span className="text-[10px]">✨</span>
-              <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-white/50">
+              <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
                 Animated Text Effects
               </span>
             </div>
             <ChevronDown
-              className={`h-3 w-3 text-white/30 transition-transform duration-200 ${
+              className={`h-3 w-3 text-muted-foreground transition-transform duration-200 ${
                 animEffectsOpen ? "rotate-180" : ""
               }`}
             />
@@ -501,10 +501,10 @@ export function TextStylesPanel({
 
         {/* ── RECENT STYLES ── */}
         {recentTemplates.length > 0 && (
-          <div className="border-t border-white/6">
+          <div className="border-t border-border">
             <div className="px-3 pt-2.5 pb-1 flex items-center gap-1.5">
-              <Clock className="h-3 w-3 text-white/25" />
-              <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-white/25">
+              <Clock className="h-3 w-3 text-muted-foreground/70" />
+              <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground/70">
                 Recent
               </span>
             </div>
@@ -515,7 +515,7 @@ export function TextStylesPanel({
                   type="button"
                   onClick={() => applyTemplate(tpl)}
                   title={tpl.name}
-                  className="relative rounded overflow-hidden cursor-pointer hover:ring-1 hover:ring-white/20 transition"
+                  className="relative rounded overflow-hidden cursor-pointer hover:ring-1 hover:ring-foreground/20 transition"
                   style={{ aspectRatio: "1" }}
                 >
                   <div
@@ -536,7 +536,7 @@ export function TextStylesPanel({
                     </span>
                   </div>
                   <div className="absolute bottom-0 left-0 right-0 bg-black/70 py-0.5 px-0.5">
-                    <span className="text-[7px] text-white/60 truncate block">{tpl.name}</span>
+                    <span className="text-[7px] text-white/80 truncate block">{tpl.name}</span>
                   </div>
                 </button>
               ))}
@@ -545,23 +545,23 @@ export function TextStylesPanel({
         )}
 
         {/* ── MY PRESETS ── */}
-        <div className="border-t border-white/6">
+        <div className="border-t border-border">
           <button
             type="button"
             onClick={() => setMyPresetsOpen((v) => !v)}
-            className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-white/4 transition cursor-pointer"
+            className="w-full flex items-center justify-between px-3 py-2.5 hover:bg-muted/40 transition cursor-pointer"
           >
             <div className="flex items-center gap-1.5">
-              <Star className="h-3 w-3 text-white/30" />
-              <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-white/40">
+              <Star className="h-3 w-3 text-muted-foreground" />
+              <span className="text-[9px] font-bold uppercase tracking-[0.12em] text-muted-foreground">
                 My Presets
               </span>
               {savedPresets.length > 0 && (
-                <span className="text-[8px] text-white/25 ml-0.5">({savedPresets.length})</span>
+                <span className="text-[8px] text-muted-foreground/60 ml-0.5">({savedPresets.length})</span>
               )}
             </div>
             <ChevronDown
-              className={`h-3 w-3 text-white/30 transition-transform duration-200 ${
+              className={`h-3 w-3 text-muted-foreground transition-transform duration-200 ${
                 myPresetsOpen ? "rotate-180" : ""
               }`}
             />
@@ -570,7 +570,7 @@ export function TextStylesPanel({
           {myPresetsOpen && (
             <div className="px-3 pb-3 space-y-1.5">
               {savedPresets.length === 0 && !showSaveInput && (
-                <p className="text-[10px] text-white/25 text-center py-2">
+                <p className="text-[10px] text-muted-foreground/60 text-center py-2">
                   No saved presets yet
                 </p>
               )}
@@ -578,19 +578,19 @@ export function TextStylesPanel({
               {savedPresets.map((preset) => (
                 <div
                   key={preset.id}
-                  className="flex items-center gap-2 group rounded-md px-2 py-1.5 bg-white/4 border border-white/6 hover:border-white/12 transition"
+                  className="flex items-center gap-2 group rounded-md px-2 py-1.5 bg-muted/30 border border-border hover:border-foreground/20 transition"
                 >
                   <button
                     type="button"
                     onClick={() => applyPreset(preset)}
-                    className="flex-1 text-left text-[10px] font-semibold text-white/70 hover:text-white transition truncate cursor-pointer"
+                    className="flex-1 text-left text-[10px] font-semibold text-foreground hover:text-primary transition truncate cursor-pointer"
                   >
                     {preset.name}
                   </button>
                   <button
                     type="button"
                     onClick={() => deletePreset(preset.id)}
-                    className="h-5 w-5 flex items-center justify-center rounded text-white/20 hover:text-red-400 hover:bg-red-400/10 opacity-0 group-hover:opacity-100 transition cursor-pointer"
+                    className="h-5 w-5 flex items-center justify-center rounded text-muted-foreground/40 hover:text-red-400 hover:bg-red-400/10 opacity-0 group-hover:opacity-100 transition cursor-pointer"
                     title="Delete preset"
                   >
                     <Trash2 className="h-3 w-3" />
@@ -611,20 +611,20 @@ export function TextStylesPanel({
                     }}
                     placeholder="Preset name…"
                     autoFocus
-                    className="flex-1 bg-white/6 border border-blue-500/40 rounded px-2 py-1 text-[10px] text-white/80 outline-none placeholder-white/25"
+                    className="flex-1 bg-muted/40 border border-primary/40 rounded px-2 py-1 text-[10px] text-foreground outline-none placeholder:text-muted-foreground/60"
                   />
                   <button
                     type="button"
                     onClick={savePreset}
                     disabled={savingPreset}
-                    className="px-2 py-1 bg-blue-500 text-white text-[10px] font-bold rounded hover:bg-blue-600 transition cursor-pointer disabled:opacity-50"
+                    className="px-2 py-1 bg-primary text-primary-foreground text-[10px] font-bold rounded hover:bg-primary/90 transition cursor-pointer disabled:opacity-50"
                   >
                     Save
                   </button>
                   <button
                     type="button"
                     onClick={() => { setShowSaveInput(false); setPresetNameInput(""); }}
-                    className="h-6 w-6 flex items-center justify-center rounded text-white/30 hover:text-white hover:bg-white/8 cursor-pointer"
+                    className="h-6 w-6 flex items-center justify-center rounded text-muted-foreground hover:text-foreground hover:bg-muted cursor-pointer"
                   >
                     <X className="h-3 w-3" />
                   </button>
@@ -633,7 +633,7 @@ export function TextStylesPanel({
                 <button
                   type="button"
                   onClick={() => setShowSaveInput(true)}
-                  className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-dashed border-white/15 text-[9.5px] font-semibold text-white/35 hover:text-white/60 hover:border-white/25 transition cursor-pointer mt-1"
+                  className="w-full flex items-center justify-center gap-1.5 py-1.5 rounded-md border border-dashed border-border text-[9.5px] font-semibold text-muted-foreground hover:text-foreground hover:border-foreground/30 transition cursor-pointer mt-1"
                 >
                   <Plus className="h-3 w-3" />
                   Save Current Style as Preset

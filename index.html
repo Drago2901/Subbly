@@ -9,7 +9,37 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Outfit:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;500;600;700;800&family=Poppins:wght@400;600;700;800&family=Bebas+Neue&family=Montserrat:wght@500;700;800&family=Anton&family=Roboto:wght@400;700;900&family=Oswald:wght@500;700&family=Raleway:wght@500;700;800&family=Playfair+Display:wght@500;700;900&family=Lobster&family=Pacifico&family=Permanent+Marker&family=Caveat:wght@500;700&family=Dancing+Script:wght@400;700&family=Satisfy&family=Kalam:wght@300;400;700&family=Archivo+Black&family=Bangers&family=Righteous&family=Fjalla+One&family=Teko:wght@500;700&family=Russo+One&family=Press+Start+2P&family=Shrikhand&family=Abril+Fatface&display=swap" rel="stylesheet" />
-    <style>html,body{font-family:'Outfit','Inter',system-ui,sans-serif;background:#f5f3ee;-webkit-font-smoothing:antialiased;}.font-serif-display{font-family:'Instrument Serif',serif;}.font-mono-jb{font-family:'JetBrains Mono',monospace;}</style>
+    <script>
+      (function() {
+        try {
+          var stored = localStorage.getItem('subbly-theme');
+          var isDark = stored === 'dark' || (!stored && window.matchMedia('(prefers-color-scheme: dark)').matches);
+          if (isDark) {
+            document.documentElement.classList.add('dark');
+            document.documentElement.classList.remove('light');
+            document.documentElement.style.colorScheme = 'dark';
+          } else {
+            document.documentElement.classList.add('light');
+            document.documentElement.classList.remove('dark');
+            document.documentElement.style.colorScheme = 'light';
+          }
+        } catch(e) {}
+      })();
+    </script>
+    <style>
+      html, body {
+        font-family: 'Outfit', 'Inter', system-ui, sans-serif;
+        background: #f5f3ee;
+        color: #18181b;
+        -webkit-font-smoothing: antialiased;
+      }
+      html.dark, html.dark body {
+        background: #09090b;
+        color: #ffffff;
+      }
+      .font-serif-display { font-family: 'Instrument Serif', serif; }
+      .font-mono-jb { font-family: 'JetBrains Mono', monospace; }
+    </style>
 
     
     

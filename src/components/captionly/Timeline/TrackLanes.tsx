@@ -2,7 +2,15 @@ import React, { useRef, useEffect, useMemo, useState } from "react";
 import type { Caption, TimelineEffect, TimelineAudioClip, TimelineTrackId } from "@/lib/captions/types";
 import type { VideoThumbnail } from "@/lib/captions/thumbnails";
 import { COLLAPSED_TRACK_HEIGHT, TRACK_CONFIGS } from "./TrackSidebar";
-import { Smile, Sparkles, Volume2, Plus, Film } from "lucide-react";
+import { Smile, Sparkles, Volume2, Plus, Film, ArrowUp, ArrowDown, Copy, Scissors, Trash2 } from "lucide-react";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuLabel,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
 
 export type DragKind =
   | "move"
@@ -14,9 +22,11 @@ export interface ActiveDragInfo {
   id: string;
   trackId: TimelineTrackId;
   startX: number;
+  startY?: number;
   origStart: number;
   origEnd: number;
   origWords?: Caption["words"];
+  origTrack?: number;
 }
 
 interface TrackLanesProps {
@@ -39,6 +49,11 @@ interface TrackLanesProps {
   onQuickAdd: (trackId: TimelineTrackId) => void;
   onAddAfter?: (captionId: string) => void;
   onUpdateText?: (captionId: string, text: string) => void;
+  dragHoverTrackId?: TimelineTrackId | null;
+  onMoveTrack?: (captionId: string, targetTrack: number) => void;
+  onDuplicateTrack?: (captionId: string, targetTrack: number) => void;
+  onSplitCaption?: (captionId: string) => void;
+  onDeleteCaption?: (captionId: string) => void;
 }
 
 export const TrackLanes: React.FC<TrackLanesProps> = ({
@@ -61,6 +76,11 @@ export const TrackLanes: React.FC<TrackLanesProps> = ({
   onQuickAdd,
   onAddAfter,
   onUpdateText,
+  dragHoverTrackId,
+  onMoveTrack,
+  onDuplicateTrack,
+  onSplitCaption,
+  onDeleteCaption,
 }) => {
   const vocalCanvasRef = useRef<HTMLCanvasElement>(null);
   const audioSfxCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -204,6 +224,7 @@ export const TrackLanes: React.FC<TrackLanesProps> = ({
 
       {/* 1. 🎬 VIDEO TRACK */}
       <div
+        data-track-lane="video"
         style={{
           height: trackCollapsed.video ? COLLAPSED_TRACK_HEIGHT : TRACK_CONFIGS[0].defaultHeight,
           display: trackVisibility.video ? "flex" : "none",
@@ -242,11 +263,16 @@ export const TrackLanes: React.FC<TrackLanesProps> = ({
 
       {/* 2. 💬 CAPTION 1 TRACK (PRIMARY AI SPEECH) */}
       <div
+        data-track-lane="caption1"
         style={{
           height: trackCollapsed.caption1 ? COLLAPSED_TRACK_HEIGHT : TRACK_CONFIGS[1].defaultHeight,
           display: trackVisibility.caption1 ? "flex" : "none",
         }}
-        className="relative border-b border-border/80 bg-background/40 items-center flex-shrink-0 box-border"
+        className={`relative border-b border-border/80 items-center flex-shrink-0 box-border transition-colors duration-150 ${
+          dragHoverTrackId === "caption1"
+            ? "bg-primary/15 ring-1 ring-inset ring-primary/50"
+            : "bg-background/40"
+        }`}
       >
         {caption1Items.map((c) => {
           const left = c.start * pxPerSec;
@@ -257,101 +283,179 @@ export const TrackLanes: React.FC<TrackLanesProps> = ({
 
           return (
             <React.Fragment key={c.id}>
-              <div
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelect(c.id);
-                }}
-                style={{
-                  left: `${left}px`,
-                  width: `${width}px`,
-                }}
-                className={`absolute top-1 bottom-1 rounded-lg border flex items-center px-2 cursor-pointer transition-shadow select-none group overflow-hidden ${
-                  isSelected
-                    ? "bg-primary/25 border-primary shadow-glow text-foreground font-bold z-20"
-                    : isCurrent
-                    ? "bg-primary/15 border-primary/60 text-foreground z-10"
-                    : "bg-secondary/90 hover:bg-secondary border-border/80 text-foreground/90 hover:border-primary/40"
-                }`}
-              >
-                {/* Left Trim Handle */}
-                {!isLocked && (
+              <ContextMenu>
+                <ContextMenuTrigger asChild>
                   <div
-                    onPointerDown={(e) => {
+                    onClick={(e) => {
                       e.stopPropagation();
+                      onSelect(c.id);
+                    }}
+                    onPointerDown={(e) => {
+                      if (isLocked || e.button !== 0) return;
+                      e.stopPropagation();
+                      onSelect(c.id);
                       onStartDrag({
-                        kind: "resize-l",
+                        kind: "move",
                         id: c.id,
                         trackId: "caption1",
                         startX: e.clientX,
+                        startY: e.clientY,
                         origStart: c.start,
                         origEnd: c.end,
+                        origWords: c.words,
+                        origTrack: c.track || 1,
                       });
                     }}
-                    className="absolute left-0 top-0 bottom-0 w-2.5 cursor-ew-resize opacity-0 group-hover:opacity-100 hover:bg-primary/40 flex items-center justify-center transition-opacity"
+                    style={{
+                      left: `${left}px`,
+                      width: `${width}px`,
+                    }}
+                    className={`absolute top-1 bottom-1 rounded-lg border flex items-center px-2 cursor-grab active:cursor-grabbing transition-shadow select-none group overflow-hidden ${
+                      isSelected
+                        ? "bg-primary/25 border-primary shadow-glow text-foreground font-bold z-20"
+                        : isCurrent
+                        ? "bg-primary/15 border-primary/60 text-foreground z-10"
+                        : "bg-secondary/90 hover:bg-secondary border-border/80 text-foreground/90 hover:border-primary/40"
+                    }`}
                   >
-                    <div className="w-0.5 h-3 bg-muted-foreground rounded-full" />
-                  </div>
-                )}
+                    {/* Left Trim Handle */}
+                    {!isLocked && (
+                      <div
+                        onPointerDown={(e) => {
+                          e.stopPropagation();
+                          onStartDrag({
+                            kind: "resize-l",
+                            id: c.id,
+                            trackId: "caption1",
+                            startX: e.clientX,
+                            startY: e.clientY,
+                            origStart: c.start,
+                            origEnd: c.end,
+                          });
+                        }}
+                        className="absolute left-0 top-0 bottom-0 w-2.5 cursor-ew-resize opacity-0 group-hover:opacity-100 hover:bg-primary/40 flex items-center justify-center transition-opacity z-10"
+                      >
+                        <div className="w-0.5 h-3 bg-muted-foreground rounded-full pointer-events-none" />
+                      </div>
+                    )}
 
-                {/* Clip Text Preview */}
+                    {/* Clip Text Preview */}
+                    <div className="flex-1 min-w-0 h-full flex items-center truncate text-[11px] select-none pointer-events-none px-1">
+                      <span className="truncate">{c.text}</span>
+                    </div>
+
+                    {/* Right Trim Handle */}
+                    {!isLocked && (
+                      <div
+                        onPointerDown={(e) => {
+                          e.stopPropagation();
+                          onStartDrag({
+                            kind: "resize-r",
+                            id: c.id,
+                            trackId: "caption1",
+                            startX: e.clientX,
+                            startY: e.clientY,
+                            origStart: c.start,
+                            origEnd: c.end,
+                          });
+                        }}
+                        className="absolute right-0 top-0 bottom-0 w-2.5 cursor-ew-resize opacity-0 group-hover:opacity-100 hover:bg-primary/40 flex items-center justify-center transition-opacity z-10"
+                      >
+                        <div className="w-0.5 h-3 bg-muted-foreground rounded-full pointer-events-none" />
+                      </div>
+                    )}
+                  </div>
+                </ContextMenuTrigger>
+
+                <ContextMenuContent className="w-52 bg-popover border border-border text-popover-foreground shadow-xl">
+                  <ContextMenuLabel className="text-[11px] text-muted-foreground font-mono">
+                    Caption 1 (Primary)
+                  </ContextMenuLabel>
+                  <ContextMenuSeparator />
+                  {onMoveTrack && (
+                    <ContextMenuItem
+                      onClick={() => onMoveTrack(c.id, 2)}
+                      disabled={trackLocks.caption2}
+                      className="text-xs font-medium cursor-pointer"
+                    >
+                      <ArrowDown className="h-3.5 w-3.5 mr-2 text-purple-400" />
+                      Move to Caption 2
+                    </ContextMenuItem>
+                  )}
+                  {onDuplicateTrack && (
+                    <ContextMenuItem
+                      onClick={() => onDuplicateTrack(c.id, 2)}
+                      disabled={trackLocks.caption2}
+                      className="text-xs font-medium cursor-pointer"
+                    >
+                      <Copy className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                      Duplicate to Caption 2
+                    </ContextMenuItem>
+                  )}
+                  {onSplitCaption && (
+                    <>
+                      <ContextMenuSeparator />
+                      <ContextMenuItem
+                        onClick={() => onSplitCaption(c.id)}
+                        className="text-xs font-medium cursor-pointer"
+                      >
+                        <Scissors className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                        Split Clip
+                      </ContextMenuItem>
+                    </>
+                  )}
+                  {onDeleteCaption && (
+                    <>
+                      <ContextMenuSeparator />
+                      <ContextMenuItem
+                        onClick={() => onDeleteCaption(c.id)}
+                        className="text-xs font-medium text-destructive focus:text-destructive cursor-pointer"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 mr-2" />
+                        Delete Clip
+                      </ContextMenuItem>
+                    </>
+                  )}
+                </ContextMenuContent>
+              </ContextMenu>
+
+              {/* Floating quick actions when selected */}
+              {!isLocked && isSelected && (
                 <div
-                  onPointerDown={(e) => {
-                    if (isLocked) return;
-                    e.stopPropagation();
-                    onSelect(c.id);
-                    onStartDrag({
-                      kind: "move",
-                      id: c.id,
-                      trackId: "caption1",
-                      startX: e.clientX,
-                      origStart: c.start,
-                      origEnd: c.end,
-                      origWords: c.words,
-                    });
-                  }}
-                  className="flex-1 min-w-0 truncate text-[11px] select-none cursor-grab active:cursor-grabbing px-1"
-                >
-                  <span>{c.text}</span>
-                </div>
-
-                {/* Right Trim Handle */}
-                {!isLocked && (
-                  <div
-                    onPointerDown={(e) => {
-                      e.stopPropagation();
-                      onStartDrag({
-                        kind: "resize-r",
-                        id: c.id,
-                        trackId: "caption1",
-                        startX: e.clientX,
-                        origStart: c.start,
-                        origEnd: c.end,
-                      });
-                    }}
-                    className="absolute right-0 top-0 bottom-0 w-2.5 cursor-ew-resize opacity-0 group-hover:opacity-100 hover:bg-primary/40 flex items-center justify-center transition-opacity"
-                  >
-                    <div className="w-0.5 h-3 bg-muted-foreground rounded-full" />
-                  </div>
-                )}
-              </div>
-
-              {/* ➕ Add More button — floats to the right of the clip */}
-              {!isLocked && onAddAfter && isSelected && (
-                <button
-                  type="button"
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onAddAfter(c.id);
-                  }}
                   style={{ left: `${left + width + 4}px` }}
-                  className="absolute top-1/2 -translate-y-1/2 z-30 flex items-center gap-0.5 px-2 py-0.5 rounded-md bg-primary text-primary-foreground text-[10px] font-bold shadow-glow hover:opacity-90 transition cursor-pointer whitespace-nowrap select-none"
-                  title="Add new clip after this one"
+                  className="absolute top-1/2 -translate-y-1/2 z-30 flex items-center gap-1 whitespace-nowrap select-none"
                 >
-                  <Plus className="h-2.5 w-2.5" />
-                  Add more
-                </button>
+                  {onAddAfter && (
+                    <button
+                      type="button"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAddAfter(c.id);
+                      }}
+                      className="flex items-center gap-0.5 px-2 py-0.5 rounded-md bg-primary text-primary-foreground text-[10px] font-bold shadow-glow hover:opacity-90 transition cursor-pointer"
+                      title="Add new clip after this one"
+                    >
+                      <Plus className="h-2.5 w-2.5" />
+                      Add more
+                    </button>
+                  )}
+                  {onMoveTrack && !trackLocks.caption2 && (
+                    <button
+                      type="button"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onMoveTrack(c.id, 2);
+                      }}
+                      className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-purple-600/90 text-white text-[10px] font-semibold hover:bg-purple-500 transition cursor-pointer shadow-sm"
+                      title="Move clip down to Caption 2 track"
+                    >
+                      <ArrowDown className="h-2.5 w-2.5" />
+                      To Cap 2
+                    </button>
+                  )}
+                </div>
               )}
             </React.Fragment>
           );
@@ -360,11 +464,16 @@ export const TrackLanes: React.FC<TrackLanesProps> = ({
 
       {/* 3. ✨ CAPTION 2 TRACK (SECONDARY / TRANSLATION) */}
       <div
+        data-track-lane="caption2"
         style={{
           height: trackCollapsed.caption2 ? COLLAPSED_TRACK_HEIGHT : TRACK_CONFIGS[2].defaultHeight,
           display: trackVisibility.caption2 ? "flex" : "none",
         }}
-        className="relative border-b border-border/80 bg-background/30 items-center flex-shrink-0 box-border"
+        className={`relative border-b border-border/80 items-center flex-shrink-0 box-border transition-colors duration-150 ${
+          dragHoverTrackId === "caption2"
+            ? "bg-purple-500/15 ring-1 ring-inset ring-purple-500/50"
+            : "bg-background/30"
+        }`}
       >
         {caption2Items.length === 0 && !trackCollapsed.caption2 && (
           <button
@@ -385,60 +494,15 @@ export const TrackLanes: React.FC<TrackLanesProps> = ({
 
           return (
             <React.Fragment key={c.id}>
-              <div
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelect(c.id);
-                }}
-                style={{
-                  left: `${left}px`,
-                  width: `${width}px`,
-                }}
-                className={`absolute top-1 bottom-1 rounded-lg border flex items-center px-2 cursor-pointer transition-shadow select-none group overflow-hidden ${
-                  isSelected
-                    ? "bg-purple-500/25 border-purple-400 shadow-[0_0_12px_rgba(192,132,252,0.4)] text-foreground font-bold z-20"
-                    : "bg-purple-950/40 hover:bg-purple-900/40 border-purple-500/40 text-purple-200"
-                }`}
-              >
-                {!isLocked && (
+              <ContextMenu>
+                <ContextMenuTrigger asChild>
                   <div
-                    onPointerDown={(e) => {
+                    onClick={(e) => {
                       e.stopPropagation();
-                      onStartDrag({
-                        kind: "resize-l",
-                        id: c.id,
-                        trackId: "caption2",
-                        startX: e.clientX,
-                        origStart: c.start,
-                        origEnd: c.end,
-                      });
+                      onSelect(c.id);
                     }}
-                    className="absolute left-0 top-0 bottom-0 w-2.5 cursor-ew-resize opacity-0 group-hover:opacity-100 hover:bg-purple-500/40 flex items-center justify-center transition-opacity"
-                  >
-                    <div className="w-0.5 h-3 bg-purple-300 rounded-full" />
-                  </div>
-                )}
-
-                {/* Inline editable text OR static text */}
-                {editingId === c.id ? (
-                  <input
-                    ref={editInputRef}
-                    value={editText}
-                    onChange={(e) => setEditText(e.target.value)}
-                    onBlur={commitEdit}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") commitEdit();
-                      if (e.key === "Escape") { setEditingId(null); setEditText(""); }
-                      e.stopPropagation();
-                    }}
-                    onPointerDown={(e) => e.stopPropagation()}
-                    className="flex-1 min-w-0 bg-transparent border-none outline-none text-[11px] text-purple-100 font-bold placeholder-purple-300/50 cursor-text px-1"
-                    placeholder="Type text…"
-                  />
-                ) : (
-                  <div
                     onPointerDown={(e) => {
-                      if (isLocked) return;
+                      if (isLocked || editingId === c.id || e.button !== 0) return;
                       e.stopPropagation();
                       onSelect(c.id);
                       onStartDrag({
@@ -446,9 +510,11 @@ export const TrackLanes: React.FC<TrackLanesProps> = ({
                         id: c.id,
                         trackId: "caption2",
                         startX: e.clientX,
+                        startY: e.clientY,
                         origStart: c.start,
                         origEnd: c.end,
                         origWords: c.words,
+                        origTrack: c.track || 2,
                       });
                     }}
                     onDoubleClick={(e) => {
@@ -456,49 +522,172 @@ export const TrackLanes: React.FC<TrackLanesProps> = ({
                       e.stopPropagation();
                       startEdit(c);
                     }}
-                    className="flex-1 min-w-0 truncate text-[11px] select-none cursor-grab active:cursor-grabbing px-1"
-                    title="Double-click to edit text"
-                  >
-                    <span>{c.text || <span className="opacity-40 italic">Double-click to type…</span>}</span>
-                  </div>
-                )}
-
-                {!isLocked && (
-                  <div
-                    onPointerDown={(e) => {
-                      e.stopPropagation();
-                      onStartDrag({
-                        kind: "resize-r",
-                        id: c.id,
-                        trackId: "caption2",
-                        startX: e.clientX,
-                        origStart: c.start,
-                        origEnd: c.end,
-                      });
+                    style={{
+                      left: `${left}px`,
+                      width: `${width}px`,
                     }}
-                    className="absolute right-0 top-0 bottom-0 w-2.5 cursor-ew-resize opacity-0 group-hover:opacity-100 hover:bg-purple-500/40 flex items-center justify-center transition-opacity"
+                    className={`absolute top-1 bottom-1 rounded-lg border flex items-center px-2 cursor-grab active:cursor-grabbing transition-shadow select-none group overflow-hidden ${
+                      isSelected
+                        ? "bg-purple-500/25 border-purple-400 shadow-[0_0_12px_rgba(192,132,252,0.4)] text-foreground font-bold z-20"
+                        : "bg-purple-950/40 hover:bg-purple-900/40 border-purple-500/40 text-purple-200"
+                    }`}
                   >
-                    <div className="w-0.5 h-3 bg-purple-300 rounded-full" />
-                  </div>
-                )}
-              </div>
+                    {!isLocked && (
+                      <div
+                        onPointerDown={(e) => {
+                          e.stopPropagation();
+                          onStartDrag({
+                            kind: "resize-l",
+                            id: c.id,
+                            trackId: "caption2",
+                            startX: e.clientX,
+                            startY: e.clientY,
+                            origStart: c.start,
+                            origEnd: c.end,
+                          });
+                        }}
+                        className="absolute left-0 top-0 bottom-0 w-2.5 cursor-ew-resize opacity-0 group-hover:opacity-100 hover:bg-purple-500/40 flex items-center justify-center transition-opacity z-10"
+                      >
+                        <div className="w-0.5 h-3 bg-purple-300 rounded-full pointer-events-none" />
+                      </div>
+                    )}
 
-              {/* ➕ Add more button — appears to the right when selected */}
-              {!isLocked && onAddAfter && isSelected && (
-                <button
-                  type="button"
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onAddAfter(c.id);
-                  }}
+                    {/* Inline editable text OR static text */}
+                    {editingId === c.id ? (
+                      <input
+                        ref={editInputRef}
+                        value={editText}
+                        onChange={(e) => setEditText(e.target.value)}
+                        onBlur={commitEdit}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") commitEdit();
+                          if (e.key === "Escape") { setEditingId(null); setEditText(""); }
+                          e.stopPropagation();
+                        }}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        className="flex-1 min-w-0 bg-transparent border-none outline-none text-[11px] text-purple-100 font-bold placeholder-purple-300/50 cursor-text px-1"
+                        placeholder="Type text…"
+                      />
+                    ) : (
+                      <div
+                        className="flex-1 min-w-0 h-full flex items-center truncate text-[11px] select-none pointer-events-none px-1"
+                        title="Double-click to edit text"
+                      >
+                        <span className="truncate">{c.text || <span className="opacity-40 italic">Double-click to type…</span>}</span>
+                      </div>
+                    )}
+
+                    {!isLocked && (
+                      <div
+                        onPointerDown={(e) => {
+                          e.stopPropagation();
+                          onStartDrag({
+                            kind: "resize-r",
+                            id: c.id,
+                            trackId: "caption2",
+                            startX: e.clientX,
+                            startY: e.clientY,
+                            origStart: c.start,
+                            origEnd: c.end,
+                          });
+                        }}
+                        className="absolute right-0 top-0 bottom-0 w-2.5 cursor-ew-resize opacity-0 group-hover:opacity-100 hover:bg-purple-500/40 flex items-center justify-center transition-opacity z-10"
+                      >
+                        <div className="w-0.5 h-3 bg-purple-300 rounded-full pointer-events-none" />
+                      </div>
+                    )}
+                  </div>
+                </ContextMenuTrigger>
+
+                <ContextMenuContent className="w-52 bg-popover border border-border text-popover-foreground shadow-xl">
+                  <ContextMenuLabel className="text-[11px] text-muted-foreground font-mono">
+                    Caption 2 (Secondary)
+                  </ContextMenuLabel>
+                  <ContextMenuSeparator />
+                  {onMoveTrack && (
+                    <ContextMenuItem
+                      onClick={() => onMoveTrack(c.id, 1)}
+                      disabled={trackLocks.caption1}
+                      className="text-xs font-medium cursor-pointer"
+                    >
+                      <ArrowUp className="h-3.5 w-3.5 mr-2 text-primary" />
+                      Move to Caption 1
+                    </ContextMenuItem>
+                  )}
+                  {onDuplicateTrack && (
+                    <ContextMenuItem
+                      onClick={() => onDuplicateTrack(c.id, 1)}
+                      disabled={trackLocks.caption1}
+                      className="text-xs font-medium cursor-pointer"
+                    >
+                      <Copy className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                      Duplicate to Caption 1
+                    </ContextMenuItem>
+                  )}
+                  {onSplitCaption && (
+                    <>
+                      <ContextMenuSeparator />
+                      <ContextMenuItem
+                        onClick={() => onSplitCaption(c.id)}
+                        className="text-xs font-medium cursor-pointer"
+                      >
+                        <Scissors className="h-3.5 w-3.5 mr-2 text-muted-foreground" />
+                        Split Clip
+                      </ContextMenuItem>
+                    </>
+                  )}
+                  {onDeleteCaption && (
+                    <>
+                      <ContextMenuSeparator />
+                      <ContextMenuItem
+                        onClick={() => onDeleteCaption(c.id)}
+                        className="text-xs font-medium text-destructive focus:text-destructive cursor-pointer"
+                      >
+                        <Trash2 className="h-3.5 w-3.5 mr-2" />
+                        Delete Clip
+                      </ContextMenuItem>
+                    </>
+                  )}
+                </ContextMenuContent>
+              </ContextMenu>
+
+              {/* Floating quick actions when selected */}
+              {!isLocked && isSelected && (
+                <div
                   style={{ left: `${left + width + 4}px` }}
-                  className="absolute top-1/2 -translate-y-1/2 z-30 flex items-center gap-0.5 px-2 py-0.5 rounded-md bg-purple-500 text-white text-[10px] font-bold shadow-[0_0_10px_rgba(168,85,247,0.5)] hover:bg-purple-400 transition cursor-pointer whitespace-nowrap select-none"
-                  title="Add new clip after this one"
+                  className="absolute top-1/2 -translate-y-1/2 z-30 flex items-center gap-1 whitespace-nowrap select-none"
                 >
-                  <Plus className="h-2.5 w-2.5" />
-                  Add more
-                </button>
+                  {onAddAfter && (
+                    <button
+                      type="button"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onAddAfter(c.id);
+                      }}
+                      className="flex items-center gap-0.5 px-2 py-0.5 rounded-md bg-purple-500 text-white text-[10px] font-bold shadow-[0_0_10px_rgba(168,85,247,0.5)] hover:bg-purple-400 transition cursor-pointer"
+                      title="Add new clip after this one"
+                    >
+                      <Plus className="h-2.5 w-2.5" />
+                      Add more
+                    </button>
+                  )}
+                  {onMoveTrack && !trackLocks.caption1 && (
+                    <button
+                      type="button"
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onMoveTrack(c.id, 1);
+                      }}
+                      className="flex items-center gap-0.5 px-1.5 py-0.5 rounded-md bg-primary/90 text-primary-foreground text-[10px] font-semibold hover:bg-primary transition cursor-pointer shadow-sm"
+                      title="Move clip up to Caption 1 track"
+                    >
+                      <ArrowUp className="h-2.5 w-2.5" />
+                      To Cap 1
+                    </button>
+                  )}
+                </div>
               )}
             </React.Fragment>
           );
@@ -507,6 +696,7 @@ export const TrackLanes: React.FC<TrackLanesProps> = ({
 
       {/* 4. 😂 MEMES / GIFS TRACK */}
       <div
+        data-track-lane="memes"
         style={{
           height: trackCollapsed.memes ? COLLAPSED_TRACK_HEIGHT : TRACK_CONFIGS[3].defaultHeight,
           display: trackVisibility.memes ? "flex" : "none",
@@ -619,6 +809,7 @@ export const TrackLanes: React.FC<TrackLanesProps> = ({
 
       {/* 5. ✨ EFFECTS TRACK */}
       <div
+        data-track-lane="effects"
         style={{
           height: trackCollapsed.effects ? COLLAPSED_TRACK_HEIGHT : TRACK_CONFIGS[4].defaultHeight,
           display: trackVisibility.effects ? "flex" : "none",
@@ -723,6 +914,7 @@ export const TrackLanes: React.FC<TrackLanesProps> = ({
 
       {/* 6. 🎙️ VOCAL / ORIGINAL AUDIO TRACK (REAL RMS WAVEFORM) */}
       <div
+        data-track-lane="vocal"
         style={{
           height: trackCollapsed.vocal ? COLLAPSED_TRACK_HEIGHT : TRACK_CONFIGS[5].defaultHeight,
           display: trackVisibility.vocal ? "flex" : "none",
@@ -743,6 +935,7 @@ export const TrackLanes: React.FC<TrackLanesProps> = ({
 
       {/* 7. 🔊 AUDIO / SFX TRACK */}
       <div
+        data-track-lane="audioSfx"
         style={{
           height: trackCollapsed.audioSfx ? COLLAPSED_TRACK_HEIGHT : TRACK_CONFIGS[6].defaultHeight,
           display: trackVisibility.audioSfx ? "flex" : "none",

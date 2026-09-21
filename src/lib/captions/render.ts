@@ -152,6 +152,7 @@ export async function burnCaptions(opts: {
   videoFile: File;
   captions: Caption[];
   style: CaptionStyle;
+  track2Style?: CaptionStyle;
   output?: ExportOutput;
   quality?: "standard" | "high";
   fps?: number;
@@ -159,7 +160,7 @@ export async function burnCaptions(opts: {
   onLog?: (msg: string) => void;
   signal?: AbortSignal;
 }): Promise<Blob> {
-  const { videoFile, captions, style, output, quality, fps, onProgress, onLog, signal } = opts;
+  const { videoFile, captions, style, track2Style, output, quality, fps, onProgress, onLog, signal } = opts;
 
   if (signal?.aborted) throw new ExportCancelledError();
 
@@ -257,6 +258,7 @@ export async function burnCaptions(opts: {
         await (document as Document & { fonts: FontFaceSet }).fonts.ready;
         const fontFamilies = new Set<string>();
         if (style.fontFamily) fontFamilies.add(style.fontFamily);
+        if (track2Style?.fontFamily) fontFamilies.add(track2Style.fontFamily);
         captions.forEach((c) => {
           if (c.style?.fontFamily) fontFamilies.add(c.style.fontFamily);
         });
@@ -397,7 +399,7 @@ export async function burnCaptions(opts: {
       ctx.fillStyle = bg;
       ctx.fillRect(0, 0, width, height);
       ctx.drawImage(video, drawRect.x, drawRect.y, drawRect.w, drawRect.h);
-      drawCaptionOverlay(ctx, captions, style, width, height, currentTime, mediaImageMap);
+      drawCaptionOverlay(ctx, captions, style, width, height, currentTime, mediaImageMap, track2Style);
     };
 
     let lastProgressEmit = 0;
@@ -577,6 +579,7 @@ function drawCaptionOverlay(
   height: number,
   time: number,
   mediaImageMap?: Map<string, HTMLImageElement>,
+  track2Style?: CaptionStyle,
 ) {
   const activeCaptions = captions.filter((caption) => time >= caption.start && time <= caption.end);
   if (activeCaptions.length === 0) return;
@@ -590,7 +593,8 @@ function drawCaptionOverlay(
       return;
     }
 
-    const activeStyle = active.style ? { ...style, ...active.style } : style;
+    const baseTrackStyle = active.track === 2 ? (track2Style || { ...style, position: "top", posY: 0.18 }) : style;
+    const activeStyle = active.style ? { ...baseTrackStyle, ...active.style } : baseTrackStyle;
     const isCinematicStacked = Boolean(activeStyle.isCinematicStacked);
     if (isCinematicStacked) {
       drawCinematicStacked(ctx, active, activeStyle, width, height, time);

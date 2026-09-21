@@ -26,17 +26,19 @@ import {
 import { getCustomFonts, loadGoogleFont } from "@/lib/captions/fontLoader";
 import { ANIM_STYLES } from "./StylePanel/stylePanelConstants";
 
-// ─── Design tokens — always explicit dark, never opacity-based ────────────────
+// ─── Design tokens — dynamic CSS variables supporting light and dark mode ─────
 const tk = {
-  panelBg:   "#13151c",
-  surfaceBg: "#1e2030",
-  border:    "#2a2d40",
-  textPri:   "#e2e8f0",
-  textMuted: "#8891a4",
-  textFaint: "#4b5268",
-  accent:    "#3b82f6",
-  accentDim: "#1a2a42",
-  accentBrd: "#1e3a5f",
+  panelBg:   "var(--tk-panel-bg)",
+  surfaceBg: "var(--tk-surface-bg)",
+  hoverBg:   "var(--tk-hover-bg)",
+  border:    "var(--tk-border)",
+  textPri:   "var(--tk-text-pri)",
+  textMuted: "var(--tk-text-muted)",
+  textFaint: "var(--tk-text-faint)",
+  accent:    "var(--tk-accent)",
+  accentDim: "var(--tk-accent-dim)",
+  accentBrd: "var(--tk-accent-brd)",
+  accentText:"var(--tk-accent-text)",
 };
 
 // ─── Font Picker ──────────────────────────────────────────────────────────────
@@ -102,8 +104,8 @@ function FontPicker({ value, onChange }: { value: string; onChange: (f: string) 
       {open && (
         <div style={{
           position: "absolute", top: "calc(100% + 4px)", left: 0, right: 0, zIndex: 999,
-          background: "#1a1d2b", border: `1px solid ${tk.border}`, borderRadius: "8px",
-          boxShadow: "0 8px 32px rgba(0,0,0,0.5)", overflow: "hidden",
+          background: tk.panelBg, border: `1px solid ${tk.border}`, borderRadius: "8px",
+          boxShadow: "0 8px 32px rgba(0,0,0,0.25)", overflow: "hidden",
         }}>
           {/* Search */}
           <div style={{ padding: "8px", borderBottom: `1px solid ${tk.border}` }}>
@@ -115,7 +117,7 @@ function FontPicker({ value, onChange }: { value: string; onChange: (f: string) 
               placeholder="Search fonts…"
               style={{
                 width: "100%", borderRadius: "5px", border: `1px solid ${tk.border}`,
-                background: tk.panelBg, padding: "4px 8px", fontSize: "11px",
+                background: tk.surfaceBg, padding: "4px 8px", fontSize: "11px",
                 color: tk.textPri, outline: "none", boxSizing: "border-box",
               }}
             />
@@ -140,10 +142,10 @@ function FontPicker({ value, onChange }: { value: string; onChange: (f: string) 
                     background: active ? tk.accentDim : "transparent",
                     borderLeft: active ? `2px solid ${tk.accent}` : "2px solid transparent",
                   }}
-                  onMouseEnter={(e) => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = "#252840"; }}
+                  onMouseEnter={(e) => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = tk.hoverBg; }}
                   onMouseLeave={(e) => { if (!active) (e.currentTarget as HTMLButtonElement).style.background = "transparent"; }}
                 >
-                  <span style={{ fontFamily: `"${font}", sans-serif`, fontSize: "15px", color: active ? "#93c5fd" : tk.textPri, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <span style={{ fontFamily: `"${font}", sans-serif`, fontSize: "15px", color: active ? tk.accentText : tk.textPri, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                     {font}
                   </span>
                   {active && <Check style={{ width: "12px", height: "12px", color: tk.accent, flexShrink: 0 }} />}
@@ -173,11 +175,11 @@ interface CustomizeTextPanelProps {
 const inputStyle: React.CSSProperties = {
   width: "100%",
   borderRadius: "6px",
-  border: `1px solid #2a2d40`,
-  background: "#1e2030",
+  border: `1px solid var(--tk-border)`,
+  background: "var(--tk-surface-bg)",
   padding: "5px 8px",
   fontSize: "11px",
-  color: "#e2e8f0",
+  color: "var(--tk-text-pri)",
   outline: "none",
   boxSizing: "border-box",
   cursor: "pointer",
@@ -513,8 +515,8 @@ function PositionTab({ style, onChange, selectedCaption, onCaptionChange }: {
                   style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: "4px",
                     padding: "6px", borderRadius: "6px", border: `1px solid ${active ? tk.accent : tk.border}`,
                     background: active ? tk.accentDim : tk.surfaceBg, cursor: "pointer" }}>
-                  <Icon style={{ width: "12px", height: "12px", color: active ? "#93c5fd" : tk.textMuted }} />
-                  <span style={{ fontSize: "9.5px", fontWeight: 600, color: active ? "#93c5fd" : tk.textMuted }}>{label}</span>
+                  <Icon style={{ width: "12px", height: "12px", color: active ? tk.accentText : tk.textMuted }} />
+                  <span style={{ fontSize: "9.5px", fontWeight: 600, color: active ? tk.accentText : tk.textMuted }}>{label}</span>
                 </button>
               );
             })}
@@ -620,7 +622,7 @@ export function CustomizeTextPanel({ style, onChange, selectedCaption, onCaption
       {/* Header */}
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "0 12px", height: "40px", flexShrink: 0, borderBottom: `1px solid ${tk.border}` }}>
         <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-          <Layers style={{ width: "14px", height: "14px", color: "#60a5fa" }} />
+          <Layers style={{ width: "14px", height: "14px", color: tk.accent }} />
           <span style={{ fontSize: "11px", fontWeight: 700, color: tk.textPri, textTransform: "uppercase", letterSpacing: "0.1em" }}>
             Customize Text
           </span>
@@ -640,7 +642,7 @@ export function CustomizeTextPanel({ style, onChange, selectedCaption, onCaption
               style={{ display: "flex", alignItems: "center", gap: "4px", padding: "4px 8px 6px", fontSize: "10px",
                 fontWeight: 700, cursor: "pointer", background: "none", border: "none",
                 borderBottom: `2px solid ${active ? tk.accent : "transparent"}`,
-                color: active ? "#60a5fa" : tk.textFaint, transition: "color 0.15s", marginBottom: "-1px" }}>
+                color: active ? tk.accentText : tk.textFaint, transition: "color 0.15s", marginBottom: "-1px" }}>
               <Icon style={{ width: "12px", height: "12px" }} />
               {label}
             </button>
@@ -682,7 +684,7 @@ export function CustomizeTextPanel({ style, onChange, selectedCaption, onCaption
             <button type="button" onClick={handleApplyToAll}
               style={{ flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "6px",
                 padding: "8px", borderRadius: "6px", border: `1px solid ${tk.accentBrd}`, background: tk.accentDim,
-                fontSize: "10.5px", fontWeight: 700, color: "#93c5fd", cursor: "pointer" }}>
+                fontSize: "10.5px", fontWeight: 700, color: tk.accentText, cursor: "pointer" }}>
               <Layers style={{ width: "12px", height: "12px" }} />
               Apply to All
             </button>

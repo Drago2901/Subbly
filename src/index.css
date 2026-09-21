@@ -56,6 +56,19 @@
     --sidebar-accent-foreground: 240 10% 10%;
     --sidebar-border: 40 15% 88%;
     --sidebar-ring: 18 100% 55%;
+
+    /* Customize Text Panel tokens (Light Mode) */
+    --tk-panel-bg: #ffffff;
+    --tk-surface-bg: #f5f3ee;
+    --tk-hover-bg: #ede9e3;
+    --tk-border: #e8e4de;
+    --tk-text-pri: #18181b;
+    --tk-text-muted: #52525b;
+    --tk-text-faint: #71717a;
+    --tk-accent: #ff5c3a;
+    --tk-accent-dim: #fff5f3;
+    --tk-accent-brd: #ffd5cc;
+    --tk-accent-text: #ff5c3a;
   }
 
   .dark {
@@ -107,6 +120,19 @@
     --sidebar-accent-foreground: 0 0% 100%;
     --sidebar-border: 240 5% 12%;
     --sidebar-ring: 18 100% 55%;
+
+    /* Customize Text Panel tokens (Dark Mode) */
+    --tk-panel-bg: #13151c;
+    --tk-surface-bg: #1e2030;
+    --tk-hover-bg: #252840;
+    --tk-border: #2a2d40;
+    --tk-text-pri: #e2e8f0;
+    --tk-text-muted: #8891a4;
+    --tk-text-faint: #4b5268;
+    --tk-accent: #3b82f6;
+    --tk-accent-dim: #1a2a42;
+    --tk-accent-brd: #1e3a5f;
+    --tk-accent-text: #93c5fd;
   }
 }
 
@@ -185,7 +211,6 @@
    The landing/projects/editor light UI uses hard-coded hex colors.
    Under .dark we remap them via attribute selectors so a single
    class toggle on <html> flips the whole site to dark. */
-.dark .bg-white { background-color: #000000 !important; }
 .dark .bg-\[\#f5f3ee\] { background-color: #0a0a0a !important; }
 .dark .bg-\[\#faf9f7\] { background-color: #0a0a0a !important; }
 .dark .bg-\[\#fff5f3\] { background-color: #121212 !important; }
