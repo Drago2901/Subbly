@@ -92,30 +92,17 @@ export function seekVideoToTime(
 
     // If targetTime is already matching current time and readyState is usable
     if (Math.abs(video.currentTime - targetTime) < 0.0005 && video.readyState >= 2) {
-      if ("requestVideoFrameCallback" in video) {
-        const id = (video as unknown as { requestVideoFrameCallback: (cb: () => void) => number }).requestVideoFrameCallback(() => resolve());
-        setTimeout(() => resolve(), 30);
-        return;
-      }
       resolve();
       return;
     }
 
     let settled = false;
-    let rvfcId: number | null = null;
     let timer: number | null = null;
 
     const cleanup = () => {
       if (timer !== null) window.clearTimeout(timer);
       video.removeEventListener("seeked", onSeeked);
       video.removeEventListener("error", onError);
-      if (rvfcId !== null && "cancelVideoFrameCallback" in video) {
-        try {
-          (video as unknown as { cancelVideoFrameCallback: (id: number) => void }).cancelVideoFrameCallback(rvfcId);
-        } catch {
-          // ignore
-        }
-      }
     };
 
     const done = () => {
@@ -133,14 +120,7 @@ export function seekVideoToTime(
     };
 
     const onSeeked = () => {
-      if ("requestVideoFrameCallback" in video) {
-        rvfcId = (video as unknown as { requestVideoFrameCallback: (cb: () => void) => number }).requestVideoFrameCallback(() => {
-          done();
-        });
-        setTimeout(done, 50);
-      } else {
-        done();
-      }
+      done();
     };
 
     timer = window.setTimeout(() => {
@@ -174,11 +154,12 @@ export async function burnCaptions(opts: {
   style: CaptionStyle;
   output?: ExportOutput;
   quality?: "standard" | "high";
+  fps?: number;
   onProgress?: RenderProgress;
   onLog?: (msg: string) => void;
   signal?: AbortSignal;
 }): Promise<Blob> {
-  const { videoFile, captions, style, output, quality, onProgress, onLog, signal } = opts;
+  const { videoFile, captions, style, output, quality, fps, onProgress, onLog, signal } = opts;
 
   if (signal?.aborted) throw new ExportCancelledError();
 
@@ -186,7 +167,7 @@ export async function burnCaptions(opts: {
     throw new Error("This browser does not support video export.");
   }
 
-  const FPS = 30;
+  const FPS = fps ?? (quality === "high" ? 30 : 24);
   const FRAME_STALL_TIMEOUT_MS = 25000;
 
   const videoUrl = URL.createObjectURL(videoFile);
@@ -457,6 +438,9 @@ export async function burnCaptions(opts: {
       drawCaptionOverlay(ctx, captions, style, width, height, currentTime, mediaImageMap);
     };
 
+    let lastProgressEmit = 0;
+    const progressThrottleMs = 120; // emit React progress at most ~8 times/sec to prevent main-thread lag
+
     // Deterministic frame capture loop
     for (let frameIndex = 0; frameIndex < totalFrames; frameIndex++) {
       if (signal?.aborted) throw new ExportCancelledError();
@@ -472,22 +456,29 @@ export async function burnCaptions(opts: {
 
       lastRenderedFrame = frameIndex;
       lastRenderedTimestamp = targetTime;
-      lastProgressTime = performance.now();
+      const now = performance.now();
+      lastProgressTime = now;
 
-      const progress = clamp((frameIndex + 1) / totalFrames, 0, 1);
-      onProgress?.({
-        progress,
-        message: `Rendering frame ${frameIndex + 1}/${totalFrames}`,
-      });
+      const isFirstOrLast = frameIndex === 0 || frameIndex === totalFrames - 1;
+      if (isFirstOrLast || (now - lastProgressEmit >= progressThrottleMs)) {
+        lastProgressEmit = now;
+        const progress = clamp((frameIndex + 1) / totalFrames, 0, 1);
+        onProgress?.({
+          progress,
+          message: `Rendering frame ${frameIndex + 1}/${totalFrames}`,
+        });
+      }
 
       if (frameIndex === 0 || frameIndex === totalFrames - 1 || frameIndex % Math.max(1, Math.floor(totalFrames / 10)) === 0) {
+        const progress = clamp((frameIndex + 1) / totalFrames, 0, 1);
         onLog?.(`[Export] progress: ${Math.round(progress * 100)}% (frame ${frameIndex + 1}/${totalFrames})`);
       }
 
       if (!supportsDeterministicTrack) {
         await new Promise((r) => setTimeout(r, Math.max(16, 1000 / FPS)));
-      } else {
-        await new Promise((r) => setTimeout(r, 2));
+      } else if (frameIndex % 15 === 0) {
+        // Yield periodically so the browser UI stays responsive without sleeping on every single frame
+        await new Promise((r) => setTimeout(r, 0));
       }
     }
 

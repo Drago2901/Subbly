@@ -57,11 +57,12 @@ export async function transcodeWebmToMp4(opts: {
   originalFile?: File | Blob;
   duration?: number;
   quality?: "standard" | "high";
+  fps?: number;
   onProgress?: (progress: number) => void;
   onLog?: (msg: string) => void;
   signal?: AbortSignal;
 }): Promise<Blob> {
-  const { webmBlob, originalFile, duration, quality, onProgress, onLog, signal } = opts;
+  const { webmBlob, originalFile, duration, quality, fps, onProgress, onLog, signal } = opts;
   if (signal?.aborted) throw cancelled();
 
   onLog?.("[Export] transcoding started");
@@ -114,8 +115,10 @@ export async function transcodeWebmToMp4(opts: {
     }
     args.push("-shortest");
 
+    const targetFps = fps || (quality === "high" ? 30 : 24);
+
     args.push(
-      "-vf", "fps=30",
+      "-vf", `fps=${targetFps}`,
       "-c:v", "libx264",
       "-preset", "ultrafast",
       "-crf", crf,

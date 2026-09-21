@@ -6,6 +6,7 @@ import {
   ArrowLeft,
   Check,
   ChevronDown,
+  ChevronRight,
   Cloud,
   Download,
   Globe,
@@ -32,11 +33,17 @@ import {
   Music,
   Play,
   Pause,
+  Volume2,
+  VolumeX,
+  Maximize,
+  Minimize,
   Smile,
   Monitor,
   X,
 } from "lucide-react";
 import { MediaAddDropdown } from "@/components/captionly/MemeStudio/MediaAddDropdown";
+import { TextStylesPanel } from "@/components/captionly/TextStylesPanel";
+import { CustomizeTextPanel } from "@/components/captionly/CustomizeTextPanel";
 import { MemeStudioPanel } from "@/components/captionly/MemeStudio/MemeStudioPanel";
 import { useEditorHistory } from "@/components/captionly/Editor/useEditorHistory";
 import { useEditorKeyboard } from "@/components/captionly/Editor/useEditorKeyboard";
@@ -330,7 +337,7 @@ const CondensedTimeline = ({
 };
 
 // Left panel tool IDs for the desktop dynamic panel system
-type LeftTool = "captions" | "style" | "templates" | "brand" | "media" | null;
+type LeftTool = "captions" | "style" | "text" | "templates" | "brand" | "media" | null;
 
 const Editor = () => {
   const { user, session, signOut, isAdmin } = useAuth();
@@ -346,9 +353,17 @@ const Editor = () => {
     setActiveLeftTool((prev) => (prev === tool ? null : tool));
   };
   const [timelineExpanded, setTimelineExpanded] = useState(false);
+  // Text workspace dual-panel collapse state
+  const [textStylesCollapsed, setTextStylesCollapsed] = useState(false);
+  const [customizeTextCollapsed, setCustomizeTextCollapsed] = useState(false);
   const [searchParams, setSearchParams] = useSearchParams();
   const projectId = searchParams.get("project");
   const [isPlaying, setIsPlaying] = useState(false);
+  const [playerVolume, setPlayerVolume] = useState(1);
+  const [isPlayerMuted, setIsPlayerMuted] = useState(false);
+  const [isPlayerFullscreen, setIsPlayerFullscreen] = useState(false);
+  const scrubberRef = useRef<HTMLDivElement>(null);
+  const [isScrubbing, setIsScrubbing] = useState(false);
 
   const [file, setFile] = useState<File | null>(null);
   const [videoUrl, setVideoUrl] = useState<string | null>(null);
@@ -646,6 +661,103 @@ const Editor = () => {
       video.removeEventListener("pause", onPause);
     };
   }, [videoElement, videoUrl, transcribing]);
+
+  // Synchronize player volume & mute state from video element
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const onVol = () => {
+      setPlayerVolume(video.volume);
+      setIsPlayerMuted(video.muted);
+    };
+
+    video.addEventListener("volumechange", onVol);
+    setPlayerVolume(video.volume);
+    setIsPlayerMuted(video.muted);
+
+    return () => {
+      video.removeEventListener("volumechange", onVol);
+    };
+  }, [videoElement, videoUrl]);
+
+  // Track fullscreen state for inline player
+  useEffect(() => {
+    const onFsChange = () => {
+      setIsPlayerFullscreen(Boolean(document.fullscreenElement));
+    };
+    document.addEventListener("fullscreenchange", onFsChange);
+    document.addEventListener("webkitfullscreenchange", onFsChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", onFsChange);
+      document.removeEventListener("webkitfullscreenchange", onFsChange);
+    };
+  }, []);
+
+  const togglePlayerFullscreen = useCallback(async () => {
+    try {
+      if (document.fullscreenElement) {
+        if (document.exitFullscreen) await document.exitFullscreen();
+      } else {
+        const v = videoRef.current;
+        if (!v) return;
+        if ((v as any).toggleFullscreen) {
+          (v as any).toggleFullscreen();
+        } else {
+          const container = v.closest(".group\\/preview") || v;
+          if (container.requestFullscreen) await container.requestFullscreen();
+        }
+      }
+    } catch (err) {
+      console.warn("Fullscreen toggle failed:", err);
+    }
+  }, []);
+
+  const handlePlayerVolumeChange = useCallback((v: number) => {
+    const video = videoRef.current;
+    if (!video) return;
+    video.volume = v;
+    video.muted = v === 0;
+    setPlayerVolume(v);
+    setIsPlayerMuted(v === 0);
+  }, []);
+
+  const handleTogglePlayerMute = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+    const nextMuted = !video.muted;
+    video.muted = nextMuted;
+    setIsPlayerMuted(nextMuted);
+  }, []);
+
+  const seek = useCallback((timeVal: number) => {
+    setCurrentTime(timeVal);
+    if (videoRef.current) videoRef.current.currentTime = timeVal;
+  }, []);
+
+  const handleScrubberSeek = useCallback((clientX: number) => {
+    const el = scrubberRef.current;
+    const duration = meta?.duration || 0;
+    if (!el || duration === 0) return;
+    const rect = el.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    const newTime = pct * duration;
+    seek(newTime);
+  }, [meta?.duration, seek]);
+
+  useEffect(() => {
+    if (!isScrubbing) return;
+    const onMove = (e: PointerEvent) => {
+      handleScrubberSeek(e.clientX);
+    };
+    const onUp = () => setIsScrubbing(false);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+  }, [isScrubbing, handleScrubberSeek]);
 
   // Global Keyboard Shortcuts (Undo, Redo, Play/Pause, Zoom In/Out, Save)
   useEditorKeyboard({
@@ -1359,6 +1471,7 @@ const Editor = () => {
     exportAbortRef.current = new AbortController();
 
     const outputQuality = quality;
+    const exportFps = outputQuality === "high" ? 30 : 24;
     const expectedDuration = videoRef.current?.duration || meta?.duration || 0;
     let renderedWebmBlob: Blob | null = null;
 
@@ -1367,6 +1480,7 @@ const Editor = () => {
         videoFile: file,
         captions,
         style,
+        fps: exportFps,
         onProgress: ({ progress }) => setExportProgress(progress),
         onLog: (msg) => console.log(msg),
         signal: exportAbortRef.current.signal,
@@ -1384,6 +1498,7 @@ const Editor = () => {
         originalFile: file && file.size > 0 ? file : undefined,
         duration: expectedDuration > 0 ? expectedDuration : undefined,
         quality: outputQuality,
+        fps: exportFps,
         onProgress: (progress) => setExportProgress(progress),
         onLog: (msg) => console.log(msg),
         signal: exportAbortRef.current.signal,
@@ -1499,10 +1614,6 @@ const Editor = () => {
     toast.success("Subtitle SRT file exported successfully!");
   }, [captions, title]);
 
-  const seek = (timeVal: number) => {
-    setCurrentTime(timeVal);
-    if (videoRef.current) videoRef.current.currentTime = timeVal;
-  };
 
   const headerRight = useMemo(
     () => (
@@ -1864,66 +1975,166 @@ const Editor = () => {
           />
         );
 
+        const duration = meta?.duration || 0;
+        const progressPct = duration > 0 ? Math.min(100, Math.max(0, (currentTime / duration) * 100)) : 0;
+        const computedResolution = (() => {
+          if (!meta) return "";
+          if (framePreset.id === "original") {
+            return `${meta.width}×${meta.height}`;
+          }
+          const targetShortDim = quality === "high" ? 1080 : 720;
+          const targetAR = framePreset.width / framePreset.height;
+          let w: number;
+          let h: number;
+          if (targetAR >= 1) {
+            h = targetShortDim;
+            w = Math.round(targetShortDim * targetAR);
+          } else {
+            w = targetShortDim;
+            h = Math.round(targetShortDim / targetAR);
+          }
+          if (w % 2 !== 0) w += 1;
+          if (h % 2 !== 0) h += 1;
+          return `${w}×${h}`;
+        })();
+
         const combinedToolbar = (
-          <div className="flex flex-shrink-0 flex-wrap items-center justify-between gap-3 border-b border-border bg-card px-4 py-2.5">
+          <div className="flex flex-shrink-0 items-center justify-between gap-3 border-b border-border bg-card px-3 sm:px-4 py-2 select-none min-h-[44px]">
             {/* Left: Language selector */}
-            <div className="flex items-center gap-3">
-              {(meta || captions.length > 0 || file) && (
-                <div className="flex items-center gap-2.5">
-                  <Globe className="h-4 w-4 text-muted-foreground" strokeWidth={2} />
-                  <span className="text-[11.5px] font-bold text-muted-foreground">Caption Language</span>
-                  <Select value={translatingLang || language} onValueChange={handleLanguageChange} disabled={translating}>
-                    <SelectTrigger className="h-7.5 w-[130px] rounded-lg border border-border bg-secondary px-2.5 text-[11.5px] font-bold text-foreground focus:ring-0 focus:ring-offset-0 transition hover:bg-muted cursor-pointer">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[280px] overflow-y-auto bg-popover border border-border text-popover-foreground shadow-xl">
-                      {LANGUAGES.map((l) => (
-                        <SelectItem key={l.code} value={l.code} className="text-[12px] font-semibold cursor-pointer hover:bg-accent focus:bg-accent transition-colors">
-                          {l.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {translating && (
-                    <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground">
-                      <Loader2 className="h-3 w-3 animate-spin text-primary" />
-                      Translating…
-                    </span>
-                  )}
-                </div>
+            <div className="flex items-center gap-2 sm:gap-2.5 flex-shrink-0">
+              <Globe className="h-4 w-4 text-muted-foreground flex-shrink-0" strokeWidth={2} />
+              <span className="text-[11.5px] font-bold text-muted-foreground whitespace-nowrap hidden sm:inline">Caption Language</span>
+              <Select value={translatingLang || language} onValueChange={handleLanguageChange} disabled={translating}>
+                <SelectTrigger className="h-7.5 w-[115px] sm:w-[130px] rounded-lg border border-border bg-secondary px-2 sm:px-2.5 text-[11.5px] font-bold text-foreground focus:ring-0 focus:ring-offset-0 transition hover:bg-muted cursor-pointer flex-shrink-0">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent className="max-h-[280px] overflow-y-auto bg-popover border border-border text-popover-foreground shadow-xl">
+                  {LANGUAGES.map((l) => (
+                    <SelectItem key={l.code} value={l.code} className="text-[12px] font-semibold cursor-pointer hover:bg-accent focus:bg-accent transition-colors">
+                      {l.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {translating && (
+                <span className="inline-flex items-center gap-1 text-[11px] text-muted-foreground whitespace-nowrap">
+                  <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                  Translating…
+                </span>
               )}
             </div>
 
-            {/* Right: Metadata + Auto-Transcribe Button */}
-            <div className="flex items-center gap-4">
+            {/* Center: Inline Video Playback Controls */}
+            <div className="flex items-center gap-2 sm:gap-3 flex-1 justify-center max-w-[560px] min-w-0 px-1 sm:px-2">
+              {/* Subtle divider before player */}
+              <div className="h-4 w-px bg-border/60 flex-shrink-0 hidden md:block" />
+
+              {/* Play / Pause button */}
+              <button
+                type="button"
+                onClick={() => {
+                  const v = videoRef.current;
+                  if (!v) return;
+                  if (v.paused) v.play().catch(() => {});
+                  else v.pause();
+                }}
+                className="hover:scale-110 active:scale-95 text-[#FF6B2C] hover:text-[#FF874D] transition p-1 rounded-md cursor-pointer flex-shrink-0"
+                aria-label={isPlaying ? "Pause" : "Play"}
+                title={isPlaying ? "Pause (Space)" : "Play (Space)"}
+              >
+                {isPlaying ? (
+                  <Pause className="h-4.5 w-4.5 fill-current" />
+                ) : (
+                  <Play className="h-4.5 w-4.5 fill-current translate-x-[0.5px]" />
+                )}
+              </button>
+
+              {/* Current time / Duration */}
+              <span className="font-mono text-[11px] text-muted-foreground font-semibold flex-shrink-0 select-none whitespace-nowrap">
+                {formatTime(currentTime)} <span className="opacity-40">/</span> {formatTime(duration)}
+              </span>
+
+              {/* Compact scrubber progress bar */}
+              <div
+                ref={scrubberRef}
+                onPointerDown={(e) => {
+                  e.stopPropagation();
+                  setIsScrubbing(true);
+                  handleScrubberSeek(e.clientX);
+                }}
+                className="group/scrub relative flex items-center h-4 cursor-pointer flex-1 min-w-[90px] sm:min-w-[120px] max-w-[280px]"
+                title="Seek video"
+              >
+                <div className="w-full h-1.5 bg-white/15 rounded-full group-hover/scrub:h-2 transition-all relative overflow-hidden">
+                  <div
+                    className="absolute left-0 top-0 bottom-0 bg-[#FF6B2C] rounded-full transition-all duration-75"
+                    style={{ width: `${progressPct}%` }}
+                  />
+                </div>
+                <div
+                  className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 rounded-full bg-white border-2 border-[#FF6B2C] shadow-md scale-0 group-hover/scrub:scale-100 transition-transform pointer-events-none"
+                  style={{ left: `${progressPct}%` }}
+                />
+              </div>
+
+              {/* Volume */}
+              <div className="flex items-center gap-1 group/volume flex-shrink-0">
+                <button
+                  type="button"
+                  onClick={handleTogglePlayerMute}
+                  className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors cursor-pointer"
+                  aria-label={isPlayerMuted || playerVolume === 0 ? "Unmute" : "Mute"}
+                  title={isPlayerMuted || playerVolume === 0 ? "Unmute" : "Mute"}
+                >
+                  {isPlayerMuted || playerVolume === 0 ? (
+                    <VolumeX className="h-4 w-4 text-red-400" />
+                  ) : (
+                    <Volume2 className="h-4 w-4" />
+                  )}
+                </button>
+                <input
+                  type="range"
+                  aria-label="Volume"
+                  min={0}
+                  max={1}
+                  step={0.05}
+                  value={isPlayerMuted ? 0 : playerVolume}
+                  onChange={(e) => {
+                    e.stopPropagation();
+                    handlePlayerVolumeChange(Number(e.target.value));
+                  }}
+                  className="w-0 group-hover/volume:w-14 sm:group-hover/volume:w-16 h-1 rounded-full bg-white/20 accent-[#FF6B2C] cursor-pointer transition-all duration-200 opacity-0 group-hover/volume:opacity-100"
+                />
+              </div>
+
+              {/* Fullscreen */}
+              <button
+                type="button"
+                onClick={togglePlayerFullscreen}
+                className="h-7 w-7 flex items-center justify-center rounded-lg text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors cursor-pointer flex-shrink-0"
+                aria-label={isPlayerFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+                title={isPlayerFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
+              >
+                {isPlayerFullscreen ? (
+                  <Minimize className="h-4 w-4" />
+                ) : (
+                  <Maximize className="h-4 w-4" />
+                )}
+              </button>
+            </div>
+
+            {/* Right: Metadata + Add + Auto-Transcribe Button */}
+            <div className="flex items-center gap-2.5 sm:gap-3 flex-shrink-0">
               {meta && (
-                <div className="text-[11px] font-bold text-muted-foreground font-mono">
-                  {(() => {
-                    if (framePreset.id === "original") {
-                      return `${meta.width}×${meta.height}`;
-                    }
-                    const targetShortDim = quality === "high" ? 1080 : 720;
-                    const targetAR = framePreset.width / framePreset.height;
-                    let w: number;
-                    let h: number;
-                    if (targetAR >= 1) {
-                      h = targetShortDim;
-                      w = Math.round(targetShortDim * targetAR);
-                    } else {
-                      w = targetShortDim;
-                      h = Math.round(targetShortDim / targetAR);
-                    }
-                    if (w % 2 !== 0) w += 1;
-                    if (h % 2 !== 0) h += 1;
-                    return `${w}×${h}`;
-                  })()} · {meta.duration.toFixed(1)}s
+                <div className="text-[11px] font-bold text-muted-foreground font-mono whitespace-nowrap hidden lg:block">
+                  {computedResolution} · {meta.duration.toFixed(1)}s
                 </div>
               )}
               <MediaAddDropdown onOpenMemeStudio={handleOpenMemeStudio} />
               <button
                 onClick={transcribe}
                 disabled={transcribing}
-                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3.5 text-[11.5px] font-bold text-primary hover:bg-gradient-primary hover:text-primary-foreground transition disabled:opacity-60 cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98]"
+                className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 sm:px-3.5 text-[11.5px] font-bold text-primary hover:bg-gradient-primary hover:text-primary-foreground transition disabled:opacity-60 cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98] whitespace-nowrap flex-shrink-0"
               >
                 {transcribing ? (
                   <>
@@ -2000,12 +2211,12 @@ const Editor = () => {
                       active={activeLeftTool === "captions"}
                       onClick={() => toggleLeftTool("captions")}
                     />
-                    {/* Caption Style Panel Toggle */}
+                    {/* Text Workspace (dual-panel: Text Styles + Customize Text) */}
                     <SidebarIcon
-                      title="Caption Style"
+                      title="Text"
                       icon={Sparkles}
-                      active={activeLeftTool === "style"}
-                      onClick={() => toggleLeftTool("style")}
+                      active={activeLeftTool === "text"}
+                      onClick={() => toggleLeftTool("text")}
                     />
                     {/* Templates Panel Toggle */}
                     <SidebarIcon
@@ -2220,6 +2431,58 @@ const Editor = () => {
                       </div>
                     )}
 
+                    {/* PANEL E: Text Workspace — dual panel (Text Styles + Customize Text) */}
+                    {activeLeftTool === "text" && (
+                      <>
+                        {/* Text Styles Panel — collapsed shows expand button only */}
+                        {textStylesCollapsed ? (
+                          <div className="flex-shrink-0 w-8 flex flex-col items-center py-2 border-r border-border/40 bg-[#13151c]/80">
+                            <button
+                              type="button"
+                              onClick={() => setTextStylesCollapsed(false)}
+                              title="Expand Text Styles"
+                              className="h-7 w-7 flex items-center justify-center rounded-md text-white/30 hover:text-white hover:bg-white/8 transition cursor-pointer"
+                            >
+                              <ChevronRight className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex-shrink-0 w-[300px] rounded-2xl overflow-hidden shadow-2xl flex flex-col animate-in slide-in-from-left-2 duration-200 border border-border/40">
+                            <TextStylesPanel
+                              style={commonStylePanelProps.style}
+                              onChange={commonStylePanelProps.onChange}
+                              selectedCaptionId={selectedCaptionId}
+                              onCollapse={() => setTextStylesCollapsed(true)}
+                            />
+                          </div>
+                        )}
+
+                        {/* Customize Text Panel */}
+                        {customizeTextCollapsed ? (
+                          <div className="flex-shrink-0 w-8 flex flex-col items-center py-2 border-r border-border/40 bg-[#13151c]/80">
+                            <button
+                              type="button"
+                              onClick={() => setCustomizeTextCollapsed(false)}
+                              title="Expand Customize Text"
+                              className="h-7 w-7 flex items-center justify-center rounded-md text-white/30 hover:text-white hover:bg-white/8 transition cursor-pointer"
+                            >
+                              <ChevronRight className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="flex-shrink-0 w-[360px] rounded-2xl overflow-hidden shadow-2xl flex flex-col animate-in slide-in-from-left-2 duration-200 border border-border/40">
+                            <CustomizeTextPanel
+                              style={commonStylePanelProps.style}
+                              onChange={commonStylePanelProps.onChange}
+                              selectedCaption={selectedCaption}
+                              onCaptionChange={commonStylePanelProps.onCaptionChange}
+                              onApplyToAll={handleStyleChange}
+                              onCollapse={() => setCustomizeTextCollapsed(true)}
+                            />
+                          </div>
+                        )}
+                      </>
+                    )}
 
                     {/* VIDEO PREVIEW — Takes remaining space */}
                     <div className="flex-1 min-w-0 bg-transparent overflow-hidden">

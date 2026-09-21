@@ -1,5 +1,5 @@
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from "react";
-import { Pencil, Play, Pause, Volume2, VolumeX, Maximize, Minimize, Trash2, RefreshCw } from "lucide-react";
+import { Pencil, Trash2, RefreshCw } from "lucide-react";
 import type { Caption, CaptionStyle, CaptionAnimation, TimelineEffect } from "@/lib/captions/types";
 
 interface ExtendedDocument extends Document {
@@ -231,73 +231,7 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
     return () => observer.disconnect();
   }, [src, isFullscreen]);
 
-  // Controls visibility and auto-hide timer
-  const [showControls, setShowControls] = useState(true);
-  const controlsTimeoutRef = useRef<number | null>(null);
-  const controlsBarRef = useRef<HTMLDivElement>(null);
 
-  const triggerControlsShow = () => {
-    setShowControls(true);
-    if (controlsTimeoutRef.current) {
-      window.clearTimeout(controlsTimeoutRef.current);
-    }
-    controlsTimeoutRef.current = window.setTimeout(() => {
-      const v = innerRef.current;
-      if (v && !v.paused) {
-        setShowControls(false);
-      }
-    }, 2500);
-  };
-
-  useEffect(() => {
-    const handleDocumentClick = (e: MouseEvent) => {
-      if (!showControls) return;
-      if (controlsBarRef.current?.contains(e.target as Node)) {
-        return;
-      }
-      const canvasEl = canvasRef.current;
-      if (canvasEl && (canvasEl.contains(e.target as Node) || e.target === innerRef.current)) {
-        return;
-      }
-      setShowControls(false);
-    };
-
-    document.addEventListener("mousedown", handleDocumentClick);
-    return () => {
-      document.removeEventListener("mousedown", handleDocumentClick);
-      if (controlsTimeoutRef.current) window.clearTimeout(controlsTimeoutRef.current);
-    };
-  }, [showControls]);
-
-  // Custom progress bar seeking scrubbing logic
-  const scrubberRef = useRef<HTMLDivElement>(null);
-  const [scrubbing, setScrubbing] = useState(false);
-
-  const handleScrub = useCallback((clientX: number) => {
-    const el = scrubberRef.current;
-    if (!el || duration === 0) return;
-    const rect = el.getBoundingClientRect();
-    const pct = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
-    const newTime = pct * duration;
-    setTime(newTime);
-    if (innerRef.current) {
-      innerRef.current.currentTime = newTime;
-    }
-  }, [duration, setTime]);
-
-  useEffect(() => {
-    if (!scrubbing) return;
-    const onMove = (e: PointerEvent) => {
-      handleScrub(e.clientX);
-    };
-    const onUp = () => setScrubbing(false);
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-    return () => {
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-    };
-  }, [scrubbing, handleScrub]);
 
   const toggleFullscreen = async () => {
     const el = containerRef.current;
@@ -336,6 +270,12 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
       console.warn("Fullscreen toggle failed:", err);
     }
   };
+
+  useEffect(() => {
+    if (innerRef.current) {
+      (innerRef.current as any).toggleFullscreen = toggleFullscreen;
+    }
+  });
 
   // Free position drag handlers
   useEffect(() => {
@@ -668,7 +608,6 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
   return (
     <div
       ref={containerRef}
-      onPointerMove={triggerControlsShow}
       className={`group/preview relative mx-auto overflow-hidden bg-[#0F1117] flex items-center justify-center select-none w-full h-full ${
         isFullscreen 
           ? "p-0 rounded-none border-none" 
@@ -699,7 +638,10 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
         }}
         onClick={(e) => {
           if (e.target === e.currentTarget || (e.target as HTMLElement).tagName === "VIDEO") {
-            setShowControls((prev) => !prev);
+            const v = innerRef.current;
+            if (!v) return;
+            if (v.paused) v.play().catch(() => {});
+            else v.pause();
           }
         }}
       >
@@ -732,121 +674,6 @@ export const VideoPreview = forwardRef<HTMLVideoElement, Props>(function VideoPr
             });
           }}
         />
-
-        {/* Floating Custom player controls bar */}
-        <div
-          ref={controlsBarRef}
-          className={`absolute bottom-4 left-4 right-4 p-3.5 bg-black/85 backdrop-blur-md rounded-xl border border-[#2C313C] flex flex-col gap-2 z-50 transition-opacity duration-300 pointer-events-auto shadow-2xl ${
-            showControls ? "opacity-100" : "opacity-0 pointer-events-none"
-          }`}
-        >
-          {/* Timeline Progress Scrubber */}
-          <div
-            ref={scrubberRef}
-            onPointerDown={(e) => {
-              e.stopPropagation();
-              setScrubbing(true);
-              handleScrub(e.clientX);
-            }}
-            className="group/scrub relative w-full h-3 flex items-center cursor-pointer"
-          >
-            <div className="w-full h-1 bg-white/20 rounded-full group-hover/scrub:h-1.5 transition-all" />
-            <div
-              className="absolute left-0 h-1 bg-[#FF6B2C] rounded-full group-hover/scrub:h-1.5 transition-all pointer-events-none"
-              style={{ width: `${duration > 0 ? (time / duration) * 100 : 0}%` }}
-            />
-            <div
-              className="absolute top-1/2 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 rounded-full bg-white border-2 border-[#FF6B2C] shadow-md scale-0 group-hover/scrub:scale-100 transition-transform pointer-events-none"
-              style={{ left: `${duration > 0 ? (time / duration) * 100 : 0}%` }}
-            />
-          </div>
-
-          {/* Playback Actions Row */}
-          <div className="flex items-center justify-between text-white text-[12.5px] select-none">
-            <div className="flex items-center gap-3.5">
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (innerRef.current) {
-                    if (isPlaying) innerRef.current.pause();
-                    else innerRef.current.play();
-                  }
-                }}
-                className="hover:scale-110 active:scale-95 text-[#FF6B2C] hover:text-[#FF874D] transition p-0.5 cursor-pointer"
-                aria-label={isPlaying ? "Pause" : "Play"}
-              >
-                {isPlaying ? (
-                  <Pause className="h-5 w-5 fill-current" />
-                ) : (
-                  <Play className="h-5 w-5 fill-current" />
-                )}
-              </button>
-
-              <span className="font-mono text-[11px] text-[#A1A8B5] font-semibold">
-                {formatTime(time)} <span className="opacity-45">/</span> {formatTime(duration)}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-3">
-              {/* Mute/Volume controls */}
-              <div className="flex items-center gap-1.5 group/volume">
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (innerRef.current) {
-                      innerRef.current.muted = !isMuted;
-                    }
-                  }}
-                  className="hover:text-[#FF6B2C] text-[#A1A8B5] transition p-0.5 cursor-pointer"
-                  aria-label={isMuted ? "Unmute" : "Mute"}
-                >
-                  {isMuted ? (
-                    <VolumeX className="h-4.5 w-4.5" />
-                  ) : (
-                    <Volume2 className="h-4.5 w-4.5" />
-                  )}
-                </button>
-                
-                <input
-                  type="range"
-                  aria-label="Volume"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={isMuted ? 0 : volume}
-                  onChange={(e) => {
-                    e.stopPropagation();
-                    const v = Number(e.target.value);
-                    if (innerRef.current) {
-                      innerRef.current.volume = v;
-                      innerRef.current.muted = v === 0;
-                    }
-                  }}
-                  className="w-0 group-hover/volume:w-14 h-1 rounded-full bg-white/20 accent-[#FF6B2C] cursor-pointer transition-all duration-300 opacity-0 group-hover/volume:opacity-100"
-                />
-              </div>
-
-              {/* Fullscreen Trigger */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  toggleFullscreen();
-                }}
-                className="hover:text-[#FF6B2C] text-[#A1A8B5] transition p-0.5 cursor-pointer"
-                aria-label={isFullscreen ? "Exit fullscreen" : "Enter fullscreen"}
-              >
-                {isFullscreen ? (
-                  <Minimize className="h-4.5 w-4.5" />
-                ) : (
-                  <Maximize className="h-4.5 w-4.5" />
-                )}
-              </button>
-            </div>
-          </div>
-        </div>
 
         {activeCaptions.map((activeItem) => {
           const isEditing = editingCaptionId === activeItem.id;
