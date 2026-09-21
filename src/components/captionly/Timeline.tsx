@@ -10,6 +10,7 @@ import { EffectPickerPopover } from "./Timeline/EffectPickerPopover";
 import { extractRealWaveform, generateSyntheticSpeechEnvelope } from "@/lib/captions/waveform";
 import { useVideoThumbnails } from "@/lib/captions/thumbnails";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 
 export type TimelineProps = {
   duration: number;
@@ -628,103 +629,119 @@ export function Timeline({
         isMobile={isMobile}
       />
 
-      {/* 2. MAIN HORIZONTAL MULTI-TRACK AREA */}
-      <div className="grid grid-cols-[235px_minmax(0,1fr)] flex-1 min-h-0 overflow-hidden relative w-full h-full bg-card">
-        {/* FIXED TRACK-LABEL SIDEBAR (LEFT) */}
-        <TrackSidebar
-          trackVisibility={trackVisibility}
-          onToggleVisibility={handleToggleVisibility}
-          trackLocks={trackLocks}
-          onToggleLock={handleToggleLock}
-          trackCollapsed={trackCollapsed}
-          onToggleCollapse={handleToggleCollapse}
-          vocalVolume={vocalVolume}
-          onVocalVolumeChange={setVocalVolume}
-          audioSfxVolume={audioSfxVolume}
-          onAudioSfxVolumeChange={setAudioSfxVolume}
-          vocalMuted={vocalMuted}
-          onToggleVocalMute={handleToggleVocalMute}
-          audioSfxMuted={audioSfxMuted}
-          onToggleAudioSfxMute={handleToggleAudioSfxMute}
-          onQuickAdd={handleQuickAdd}
-          isMobile={isMobile}
-          sidebarScrollRef={sidebarScrollRef}
-          onWheel={(e) => {
-            if (scrollContainerRef.current) {
-              scrollContainerRef.current.scrollTop += e.deltaY;
-            }
-          }}
-        />
+      {/* 2. MAIN HORIZONTAL MULTI-TRACK AREA (RESIZABLE TRACKS) */}
+      <ResizablePanelGroup
+        direction="horizontal"
+        autoSaveId="subbly-timeline-tracks-layout"
+        className="flex-1 min-h-0 overflow-hidden relative w-full h-full bg-card"
+      >
+        {/* RESIZABLE TRACK-LABEL SIDEBAR (LEFT) */}
+        <ResizablePanel
+          defaultSize={18}
+          minSize={12}
+          maxSize={35}
+          className="min-w-[170px]"
+        >
+          <TrackSidebar
+            trackVisibility={trackVisibility}
+            onToggleVisibility={handleToggleVisibility}
+            trackLocks={trackLocks}
+            onToggleLock={handleToggleLock}
+            trackCollapsed={trackCollapsed}
+            onToggleCollapse={handleToggleCollapse}
+            vocalVolume={vocalVolume}
+            onVocalVolumeChange={setVocalVolume}
+            audioSfxVolume={audioSfxVolume}
+            onAudioSfxVolumeChange={setAudioSfxVolume}
+            vocalMuted={vocalMuted}
+            onToggleVocalMute={handleToggleVocalMute}
+            audioSfxMuted={audioSfxMuted}
+            onToggleAudioSfxMute={handleToggleAudioSfxMute}
+            onQuickAdd={handleQuickAdd}
+            isMobile={isMobile}
+            sidebarScrollRef={sidebarScrollRef}
+            onWheel={(e) => {
+              if (scrollContainerRef.current) {
+                scrollContainerRef.current.scrollTop += e.deltaY;
+              }
+            }}
+          />
+        </ResizablePanel>
+
+        {/* NLE RESIZABLE DIVIDER */}
+        <ResizableHandle />
 
         {/* HORIZONTAL SCROLLABLE TIMELINE CONTENT (RIGHT) */}
-        <div
-          ref={scrollContainerRef}
-          className="min-w-0 flex-1 overflow-x-auto overflow-y-auto relative scrollbar-thin select-none h-full"
-          onScroll={(e) => {
-            // Sync vertical scroll to the track sidebar
-            if (sidebarScrollRef.current) {
-              sidebarScrollRef.current.scrollTop = (e.target as HTMLDivElement).scrollTop;
-            }
-          }}
-        >
-          <div style={{ width: totalWidth, minWidth: totalWidth }} className="relative flex flex-col min-h-full">
-            {/* TIME RULER */}
-            <div className="sticky top-0 z-30 flex-shrink-0 bg-card w-full">
-              <TimeRuler
+        <ResizablePanel defaultSize={82} minSize={65}>
+          <div
+            ref={scrollContainerRef}
+            className="min-w-0 w-full overflow-x-auto overflow-y-auto relative scrollbar-thin select-none h-full"
+            onScroll={(e) => {
+              // Sync vertical scroll to the track sidebar
+              if (sidebarScrollRef.current) {
+                sidebarScrollRef.current.scrollTop = (e.target as HTMLDivElement).scrollTop;
+              }
+            }}
+          >
+            <div style={{ width: totalWidth, minWidth: totalWidth }} className="relative flex flex-col min-h-full">
+              {/* TIME RULER */}
+              <div className="sticky top-0 z-30 flex-shrink-0 bg-card w-full">
+                <TimeRuler
+                  duration={duration}
+                  pxPerSec={pxPerSec}
+                  totalWidth={totalWidth}
+                  currentTime={currentTime}
+                  onSeek={onSeek}
+                />
+              </div>
+
+              {/* TRACK LANES */}
+              <TrackLanes
                 duration={duration}
+                currentTime={currentTime}
                 pxPerSec={pxPerSec}
                 totalWidth={totalWidth}
+                captions={captions}
+                effects={currentEffects}
+                audioClips={currentAudioClips}
+                vocalWaveform={vocalWaveform}
+                videoThumbnails={videoThumbnails}
+                selectedId={selected}
+                onSelect={setSelected}
+                trackVisibility={trackVisibility}
+                trackLocks={trackLocks}
+                trackCollapsed={trackCollapsed}
+                onStartDrag={setActiveDrag}
+                snapGuideTime={snapGuideTime}
+                onQuickAdd={handleQuickAdd}
+                onAddAfter={handleAddAfter}
+                onUpdateText={handleUpdateText}
+              />
+
+              {/* SINGLE GLOBAL PLAYHEAD PASSING DOWN EVERY TRACK */}
+              <GlobalPlayhead
                 currentTime={currentTime}
-                onSeek={onSeek}
+                pxPerSec={pxPerSec}
+                totalHeight={totalContentHeight + 24}
+                onScrubStart={(e) => {
+                  const startX = e.clientX;
+                  const origTime = currentTime;
+                  const onMove = (moveEv: PointerEvent) => {
+                    const dt = (moveEv.clientX - startX) / pxPerSec;
+                    onSeek(Math.max(0, Math.min(duration, origTime + dt)));
+                  };
+                  const onUp = () => {
+                    window.removeEventListener("pointermove", onMove);
+                    window.removeEventListener("pointerup", onUp);
+                  };
+                  window.addEventListener("pointermove", onMove);
+                  window.addEventListener("pointerup", onUp);
+                }}
               />
             </div>
-
-            {/* TRACK LANES */}
-            <TrackLanes
-              duration={duration}
-              currentTime={currentTime}
-              pxPerSec={pxPerSec}
-              totalWidth={totalWidth}
-              captions={captions}
-              effects={currentEffects}
-              audioClips={currentAudioClips}
-              vocalWaveform={vocalWaveform}
-              videoThumbnails={videoThumbnails}
-              selectedId={selected}
-              onSelect={setSelected}
-              trackVisibility={trackVisibility}
-              trackLocks={trackLocks}
-              trackCollapsed={trackCollapsed}
-              onStartDrag={setActiveDrag}
-              snapGuideTime={snapGuideTime}
-              onQuickAdd={handleQuickAdd}
-              onAddAfter={handleAddAfter}
-              onUpdateText={handleUpdateText}
-            />
-
-            {/* SINGLE GLOBAL PLAYHEAD PASSING DOWN EVERY TRACK */}
-            <GlobalPlayhead
-              currentTime={currentTime}
-              pxPerSec={pxPerSec}
-              totalHeight={totalContentHeight + 24}
-              onScrubStart={(e) => {
-                const startX = e.clientX;
-                const origTime = currentTime;
-                const onMove = (moveEv: PointerEvent) => {
-                  const dt = (moveEv.clientX - startX) / pxPerSec;
-                  onSeek(Math.max(0, Math.min(duration, origTime + dt)));
-                };
-                const onUp = () => {
-                  window.removeEventListener("pointermove", onMove);
-                  window.removeEventListener("pointerup", onUp);
-                };
-                window.addEventListener("pointermove", onMove);
-                window.addEventListener("pointerup", onUp);
-              }}
-            />
           </div>
-        </div>
-      </div>
+        </ResizablePanel>
+      </ResizablePanelGroup>
 
       {/* MODALS: Audio Routing & Effect Picker */}
       <AudioRoutingDialog

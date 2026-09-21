@@ -86,7 +86,7 @@ export const TrackSidebar: React.FC<TrackSidebarProps> = ({
   return (
     <div
       onWheel={onWheel}
-      className="w-[235px] min-w-[235px] max-w-[235px] h-full flex flex-col bg-card border-r border-border select-none z-20 flex-shrink-0 overflow-hidden"
+      className="w-full h-full min-w-[170px] flex flex-col bg-card select-none z-20 overflow-hidden"
     >
       {/* Top Header matching the Time Ruler height */}
       <div className="h-6 min-h-[24px] max-h-[24px] px-2.5 flex items-center justify-between border-b border-border bg-secondary/80 text-[10px] font-bold text-muted-foreground uppercase tracking-wider flex-shrink-0">

@@ -77,6 +77,7 @@ import { Timeline } from "@/components/captionly/Timeline";
 import { ExportProgressDialog } from "@/components/captionly/ExportProgressDialog";
 import { AudioControlsPanel } from "@/components/captionly/Editor/AudioControlsPanel";
 import { useAudioPreviewEngine } from "@/lib/captions/useAudioPreviewEngine";
+import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from "@/components/ui/resizable";
 
 
 import { AvatarDropdown } from "@/components/AvatarDropdown";
@@ -1997,9 +1998,10 @@ const Editor = () => {
               </div>
 
               <div
-                className="w-full flex-1 min-h-0 flex items-center justify-center overflow-hidden"
+                className="w-full h-full flex-1 min-h-0 flex items-center justify-center overflow-hidden"
                 style={{
-                  maxWidth: isPortrait ? "320px" : "720px"
+                  maxWidth: isPortrait ? "420px" : "100%",
+                  maxHeight: "100%",
                 }}
               >
                 <VideoPreview
@@ -2424,209 +2426,248 @@ const Editor = () => {
                   {/* Soft ambient background glows */}
                   <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-primary/5 via-transparent to-transparent opacity-40" />
 
-                  {/* Top Workspace — Panels + Preview row */}
-                  <div className="flex-1 min-h-0 overflow-hidden px-4 py-3 z-10 flex gap-3">
-
-                    {/* CONTEXTUAL AUDIO CONTROLS PANEL — When an audio/SFX clip is selected */}
-                    {selectedAudioClip ? (
-                      <div className="flex-shrink-0 w-[320px] rounded-2xl border border-border bg-card overflow-hidden shadow-2xl flex flex-col animate-in slide-in-from-left-2 duration-200">
-                        <AudioControlsPanel
-                          clip={selectedAudioClip}
-                          onUpdateClip={(patch) => handleUpdateAudioClip(selectedAudioClip.id, patch)}
-                          onDeleteClip={handleDeleteAudioClip}
-                          onClose={() => setSelectedCaptionId(null)}
-                          liveAudioLevel={liveAudioLevel}
-                          isPlaying={isPlaying}
-                        />
-                      </div>
-                    ) : (
-                      <>
-                        {/* PANEL A: Captions List */}
-                    {activeLeftTool === "captions" && (
-                      <div className="flex-shrink-0 w-[280px] rounded-2xl border border-border bg-card overflow-hidden shadow-2xl flex flex-col animate-in slide-in-from-left-2 duration-200">
-                        {/* Panel header with close button */}
-                        <div className="flex items-center justify-between h-10 px-3 border-b border-border bg-card/80 flex-shrink-0">
-                          <div className="flex items-center gap-2">
-                            <div className="h-5 w-5 flex items-center justify-center rounded bg-primary/10 text-primary">
-                              <Type className="h-3 w-3" />
-                            </div>
-                            <span className="text-[12px] font-extrabold text-foreground tracking-tight">Captions</span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setActiveLeftTool(null)}
-                            className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition cursor-pointer"
-                            title="Close panel"
+                  {/* Desktop Resizable NLE Workspace (Top Panels/Preview vs Bottom Timeline) */}
+                  <ResizablePanelGroup
+                    direction="vertical"
+                    autoSaveId="subbly-main-vertical-layout"
+                    className="flex-1 min-h-0 z-10"
+                  >
+                    {/* Top Workspace — Panels + Preview */}
+                    <ResizablePanel defaultSize={62} minSize={25} maxSize={82} className="flex flex-col min-h-0">
+                      <div className="flex-1 min-h-0 overflow-hidden px-4 pt-3 pb-1 flex">
+                        {(selectedAudioClip || activeLeftTool) ? (
+                          <ResizablePanelGroup
+                            direction="horizontal"
+                            autoSaveId="subbly-top-horizontal-layout"
+                            className="flex-1 min-h-0 w-full"
                           >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                        <div className="flex-1 overflow-hidden">
-                          {captionsPanel}
-                        </div>
-                      </div>
-                    )}
-
-                    {/* PANEL B: Caption Style (appearance + animation) */}
-                    {activeLeftTool === "style" && (
-                      <div className="flex-shrink-0 w-[300px] rounded-2xl border border-border bg-card overflow-hidden shadow-2xl flex flex-col animate-in slide-in-from-left-2 duration-200">
-                        <div className="flex items-center justify-between h-10 px-3 border-b border-border bg-card/80 flex-shrink-0">
-                          <div className="flex items-center gap-2">
-                            <div className="h-5 w-5 flex items-center justify-center rounded bg-primary/10 text-primary">
-                              <Sparkles className="h-3 w-3" />
-                            </div>
-                            <span className="text-[12px] font-extrabold text-foreground tracking-tight">Caption Style</span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setActiveLeftTool(null)}
-                            className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition cursor-pointer"
-                            title="Close panel"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                        {/* Style / Animation sub-tab switcher */}
-                        <div className="flex items-center gap-1 px-2 pt-2 pb-1.5 border-b border-border flex-shrink-0">
-                          {(["style", "anim"] as const).map((tab) => (
-                            <button
-                              key={tab}
-                              type="button"
-                              onClick={() => setActiveTab(tab)}
-                              className={`flex-1 py-1.5 text-[11px] font-bold rounded-lg transition cursor-pointer ${
-                                activeTab === tab
-                                  ? "bg-primary/10 text-primary"
-                                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                              }`}
+                            <ResizablePanel
+                              defaultSize={selectedAudioClip ? 26 : activeLeftTool === "text" ? 40 : 26}
+                              minSize={selectedAudioClip ? 18 : activeLeftTool === "text" ? 22 : 18}
+                              maxSize={55}
+                              className="flex min-w-0"
                             >
-                              {tab === "style" ? "Style" : "Animation"}
-                            </button>
-                          ))}
-                        </div>
-                        <div className="flex-1 overflow-hidden">
-                          {stylePanel}
-                        </div>
-                      </div>
-                    )}
+                              <div className="w-full h-full flex flex-col overflow-hidden pr-2">
+                                {selectedAudioClip ? (
+                                  <div className="w-full h-full rounded-2xl border border-border bg-card overflow-hidden shadow-2xl flex flex-col animate-in slide-in-from-left-2 duration-200">
+                                    <AudioControlsPanel
+                                      clip={selectedAudioClip}
+                                      onUpdateClip={(patch) => handleUpdateAudioClip(selectedAudioClip.id, patch)}
+                                      onDeleteClip={handleDeleteAudioClip}
+                                      onClose={() => setSelectedCaptionId(null)}
+                                      liveAudioLevel={liveAudioLevel}
+                                      isPlaying={isPlaying}
+                                    />
+                                  </div>
+                                ) : (
+                                  <>
+                                    {/* PANEL A: Captions List */}
+                                    {activeLeftTool === "captions" && (
+                                      <div className="w-full h-full rounded-2xl border border-border bg-card overflow-hidden shadow-2xl flex flex-col animate-in slide-in-from-left-2 duration-200">
+                                        {/* Panel header with close button */}
+                                        <div className="flex items-center justify-between h-10 px-3 border-b border-border bg-card/80 flex-shrink-0">
+                                          <div className="flex items-center gap-2">
+                                            <div className="h-5 w-5 flex items-center justify-center rounded bg-primary/10 text-primary">
+                                              <Type className="h-3 w-3" />
+                                            </div>
+                                            <span className="text-[12px] font-extrabold text-foreground tracking-tight">Captions</span>
+                                          </div>
+                                          <button
+                                            type="button"
+                                            onClick={() => setActiveLeftTool(null)}
+                                            className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition cursor-pointer"
+                                            title="Close panel"
+                                          >
+                                            <X className="h-3.5 w-3.5" />
+                                          </button>
+                                        </div>
+                                        <div className="flex-1 overflow-hidden">
+                                          {captionsPanel}
+                                        </div>
+                                      </div>
+                                    )}
 
-                    {/* PANEL C: Templates */}
-                    {activeLeftTool === "templates" && (
-                      <div className="flex-shrink-0 w-[300px] rounded-2xl border border-border bg-card overflow-hidden shadow-2xl flex flex-col animate-in slide-in-from-left-2 duration-200">
-                        <div className="flex items-center justify-between h-10 px-3 border-b border-border bg-card/80 flex-shrink-0">
-                          <div className="flex items-center gap-2">
-                            <div className="h-5 w-5 flex items-center justify-center rounded bg-primary/10 text-primary">
-                              <Layers className="h-3 w-3" />
-                            </div>
-                            <span className="text-[12px] font-extrabold text-foreground tracking-tight">Caption Templates</span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setActiveLeftTool(null)}
-                            className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition cursor-pointer"
-                            title="Close panel"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                        <div className="flex-1 overflow-hidden">
-                          {templatesPanel}
-                        </div>
-                      </div>
-                    )}
+                                    {/* PANEL B: Caption Style (appearance + animation) */}
+                                    {activeLeftTool === "style" && (
+                                      <div className="w-full h-full rounded-2xl border border-border bg-card overflow-hidden shadow-2xl flex flex-col animate-in slide-in-from-left-2 duration-200">
+                                        <div className="flex items-center justify-between h-10 px-3 border-b border-border bg-card/80 flex-shrink-0">
+                                          <div className="flex items-center gap-2">
+                                            <div className="h-5 w-5 flex items-center justify-center rounded bg-primary/10 text-primary">
+                                              <Sparkles className="h-3 w-3" />
+                                            </div>
+                                            <span className="text-[12px] font-extrabold text-foreground tracking-tight">Caption Style</span>
+                                          </div>
+                                          <button
+                                            type="button"
+                                            onClick={() => setActiveLeftTool(null)}
+                                            className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition cursor-pointer"
+                                            title="Close panel"
+                                          >
+                                            <X className="h-3.5 w-3.5" />
+                                          </button>
+                                        </div>
+                                        {/* Style / Animation sub-tab switcher */}
+                                        <div className="flex items-center gap-1 px-2 pt-2 pb-1.5 border-b border-border flex-shrink-0">
+                                          {(["style", "anim"] as const).map((tab) => (
+                                            <button
+                                              key={tab}
+                                              type="button"
+                                              onClick={() => setActiveTab(tab)}
+                                              className={`flex-1 py-1.5 text-[11px] font-bold rounded-lg transition cursor-pointer ${
+                                                activeTab === tab
+                                                  ? "bg-primary/10 text-primary"
+                                                  : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
+                                              }`}
+                                            >
+                                              {tab === "style" ? "Style" : "Animation"}
+                                            </button>
+                                          ))}
+                                        </div>
+                                        <div className="flex-1 overflow-hidden">
+                                          {stylePanel}
+                                        </div>
+                                      </div>
+                                    )}
 
-                    {/* PANEL D: Brand Kit */}
-                    {activeLeftTool === "brand" && (
-                      <div className="flex-shrink-0 w-[300px] rounded-2xl border border-border bg-card overflow-hidden shadow-2xl flex flex-col animate-in slide-in-from-left-2 duration-200">
-                        <div className="flex items-center justify-between h-10 px-3 border-b border-border bg-card/80 flex-shrink-0">
-                          <div className="flex items-center gap-2">
-                            <div className="h-5 w-5 flex items-center justify-center rounded bg-primary/10 text-primary">
-                              <Palette className="h-3 w-3" />
-                            </div>
-                            <span className="text-[12px] font-extrabold text-foreground tracking-tight">Brand Kit</span>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setActiveLeftTool(null)}
-                            className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition cursor-pointer"
-                            title="Close panel"
-                          >
-                            <X className="h-3.5 w-3.5" />
-                          </button>
-                        </div>
-                        <div className="flex-1 overflow-hidden">
-                          {brandPanel}
-                        </div>
-                      </div>
-                    )}
+                                    {/* PANEL C: Templates */}
+                                    {activeLeftTool === "templates" && (
+                                      <div className="w-full h-full rounded-2xl border border-border bg-card overflow-hidden shadow-2xl flex flex-col animate-in slide-in-from-left-2 duration-200">
+                                        <div className="flex items-center justify-between h-10 px-3 border-b border-border bg-card/80 flex-shrink-0">
+                                          <div className="flex items-center gap-2">
+                                            <div className="h-5 w-5 flex items-center justify-center rounded bg-primary/10 text-primary">
+                                              <Layers className="h-3 w-3" />
+                                            </div>
+                                            <span className="text-[12px] font-extrabold text-foreground tracking-tight">Caption Templates</span>
+                                          </div>
+                                          <button
+                                            type="button"
+                                            onClick={() => setActiveLeftTool(null)}
+                                            className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition cursor-pointer"
+                                            title="Close panel"
+                                          >
+                                            <X className="h-3.5 w-3.5" />
+                                          </button>
+                                        </div>
+                                        <div className="flex-1 overflow-hidden">
+                                          {templatesPanel}
+                                        </div>
+                                      </div>
+                                    )}
 
-                    {/* PANEL E: Text Workspace — dual panel (Text Styles + Customize Text) */}
-                    {activeLeftTool === "text" && (
-                      <>
-                        {/* Text Styles Panel — collapsed shows expand button only */}
-                        {textStylesCollapsed ? (
-                          <div className="flex-shrink-0 w-8 flex flex-col items-center py-2 border-r border-border/40 bg-[#13151c]/80">
-                            <button
-                              type="button"
-                              onClick={() => setTextStylesCollapsed(false)}
-                              title="Expand Text Styles"
-                              className="h-7 w-7 flex items-center justify-center rounded-md text-white/30 hover:text-white hover:bg-white/8 transition cursor-pointer"
+                                    {/* PANEL D: Brand Kit */}
+                                    {activeLeftTool === "brand" && (
+                                      <div className="w-full h-full rounded-2xl border border-border bg-card overflow-hidden shadow-2xl flex flex-col animate-in slide-in-from-left-2 duration-200">
+                                        <div className="flex items-center justify-between h-10 px-3 border-b border-border bg-card/80 flex-shrink-0">
+                                          <div className="flex items-center gap-2">
+                                            <div className="h-5 w-5 flex items-center justify-center rounded bg-primary/10 text-primary">
+                                              <Palette className="h-3 w-3" />
+                                            </div>
+                                            <span className="text-[12px] font-extrabold text-foreground tracking-tight">Brand Kit</span>
+                                          </div>
+                                          <button
+                                            type="button"
+                                            onClick={() => setActiveLeftTool(null)}
+                                            className="h-6 w-6 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-muted/80 transition cursor-pointer"
+                                            title="Close panel"
+                                          >
+                                            <X className="h-3.5 w-3.5" />
+                                          </button>
+                                        </div>
+                                        <div className="flex-1 overflow-hidden">
+                                          {brandPanel}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {/* PANEL E: Text Workspace — dual panel (Text Styles + Customize Text) */}
+                                    {activeLeftTool === "text" && (
+                                      <div className="w-full h-full flex gap-2 overflow-hidden">
+                                        {/* Text Styles Panel — collapsed shows expand button only */}
+                                        {textStylesCollapsed ? (
+                                          <div className="flex-shrink-0 w-8 flex flex-col items-center py-2 border border-border/40 bg-[#13151c]/80 rounded-2xl">
+                                            <button
+                                              type="button"
+                                              onClick={() => setTextStylesCollapsed(false)}
+                                              title="Expand Text Styles"
+                                              className="h-7 w-7 flex items-center justify-center rounded-md text-white/30 hover:text-white hover:bg-white/8 transition cursor-pointer"
+                                            >
+                                              <ChevronRight className="h-3.5 w-3.5" />
+                                            </button>
+                                          </div>
+                                        ) : (
+                                          <div className="flex-1 min-w-[200px] rounded-2xl overflow-hidden shadow-2xl flex flex-col animate-in slide-in-from-left-2 duration-200 border border-border/40">
+                                            <TextStylesPanel
+                                              style={commonStylePanelProps.style}
+                                              onChange={commonStylePanelProps.onChange}
+                                              selectedCaptionId={selectedCaptionId}
+                                              onCollapse={() => setTextStylesCollapsed(true)}
+                                            />
+                                          </div>
+                                        )}
+
+                                        {/* Customize Text Panel */}
+                                        {customizeTextCollapsed ? (
+                                          <div className="flex-shrink-0 w-8 flex flex-col items-center py-2 border border-border/40 bg-[#13151c]/80 rounded-2xl">
+                                            <button
+                                              type="button"
+                                              onClick={() => setCustomizeTextCollapsed(false)}
+                                              title="Expand Customize Text"
+                                              className="h-7 w-7 flex items-center justify-center rounded-md text-white/30 hover:text-white hover:bg-white/8 transition cursor-pointer"
+                                            >
+                                              <ChevronRight className="h-3.5 w-3.5" />
+                                            </button>
+                                          </div>
+                                        ) : (
+                                          <div className="flex-1 min-w-[200px] rounded-2xl overflow-hidden shadow-2xl flex flex-col animate-in slide-in-from-left-2 duration-200 border border-border/40">
+                                            <CustomizeTextPanel
+                                              style={commonStylePanelProps.style}
+                                              onChange={commonStylePanelProps.onChange}
+                                              selectedCaption={selectedCaption}
+                                              onCaptionChange={commonStylePanelProps.onCaptionChange}
+                                              onApplyToAll={handleStyleChange}
+                                              onCollapse={() => setCustomizeTextCollapsed(true)}
+                                            />
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+                              </div>
+                            </ResizablePanel>
+
+                            <ResizableHandle className="mx-1" />
+
+                            <ResizablePanel
+                              defaultSize={selectedAudioClip ? 74 : activeLeftTool === "text" ? 60 : 74}
+                              minSize={45}
+                              className="flex min-w-0"
                             >
-                              <ChevronRight className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
+                              <div className="w-full h-full min-w-0 bg-transparent overflow-hidden pl-1">
+                                {previewPanel}
+                              </div>
+                            </ResizablePanel>
+                          </ResizablePanelGroup>
                         ) : (
-                          <div className="flex-shrink-0 w-[300px] rounded-2xl overflow-hidden shadow-2xl flex flex-col animate-in slide-in-from-left-2 duration-200 border border-border/40">
-                            <TextStylesPanel
-                              style={commonStylePanelProps.style}
-                              onChange={commonStylePanelProps.onChange}
-                              selectedCaptionId={selectedCaptionId}
-                              onCollapse={() => setTextStylesCollapsed(true)}
-                            />
+                          <div className="w-full h-full min-w-0 bg-transparent overflow-hidden">
+                            {previewPanel}
                           </div>
                         )}
+                      </div>
+                    </ResizablePanel>
 
-                        {/* Customize Text Panel */}
-                        {customizeTextCollapsed ? (
-                          <div className="flex-shrink-0 w-8 flex flex-col items-center py-2 border-r border-border/40 bg-[#13151c]/80">
-                            <button
-                              type="button"
-                              onClick={() => setCustomizeTextCollapsed(false)}
-                              title="Expand Customize Text"
-                              className="h-7 w-7 flex items-center justify-center rounded-md text-white/30 hover:text-white hover:bg-white/8 transition cursor-pointer"
-                            >
-                              <ChevronRight className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                        ) : (
-                          <div className="flex-shrink-0 w-[360px] rounded-2xl overflow-hidden shadow-2xl flex flex-col animate-in slide-in-from-left-2 duration-200 border border-border/40">
-                            <CustomizeTextPanel
-                              style={commonStylePanelProps.style}
-                              onChange={commonStylePanelProps.onChange}
-                              selectedCaption={selectedCaption}
-                              onCaptionChange={commonStylePanelProps.onCaptionChange}
-                              onApplyToAll={handleStyleChange}
-                              onCollapse={() => setCustomizeTextCollapsed(true)}
-                            />
-                          </div>
-                        )}
-                      </>
-                    )}
-                  </>
-                )}
+                    <ResizableHandle className="my-1 mx-4" />
 
-                    {/* VIDEO PREVIEW — Takes remaining space */}
-                    <div className="flex-1 min-w-0 bg-transparent overflow-hidden">
-                      {previewPanel}
-                    </div>
-                  </div>
-
-                  {/* Bottom Timeline Panel Container */}
-                  <div className="flex-shrink-0 h-[340px] flex flex-col overflow-hidden bg-card border border-border mx-4 mb-3 rounded-2xl shadow-2xl select-none">
-                    {combinedToolbar}
-                    <div className="flex-1 overflow-hidden">
-                      {timelinePanel}
-                    </div>
-                  </div>
+                    {/* Bottom Timeline Panel Container */}
+                    <ResizablePanel defaultSize={38} minSize={18} maxSize={75} className="flex flex-col min-h-0">
+                      <div className="flex-1 flex flex-col overflow-hidden bg-card border border-border mx-4 mb-3 rounded-2xl shadow-2xl select-none min-h-0">
+                        {combinedToolbar}
+                        <div className="flex-1 overflow-hidden">
+                          {timelinePanel}
+                        </div>
+                      </div>
+                    </ResizablePanel>
+                  </ResizablePanelGroup>
                 </div>
               </div>
             )}
