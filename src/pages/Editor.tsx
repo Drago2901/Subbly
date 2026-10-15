@@ -1115,16 +1115,6 @@ const Editor = () => {
     return () => clearInterval(timer);
   }, [projectId, file, captions, style, title]);
 
-  // Toggle rain background based on editing state
-  useEffect(() => {
-    if (file || videoUrl) {
-      document.body.classList.add('hide-rain');
-    } else {
-      document.body.classList.remove('hide-rain');
-    }
-    return () => document.body.classList.remove('hide-rain');
-  }, [file, videoUrl]);
-
   const handleManualSave = useCallback(async () => {
     if (!user) {
       const localState = {

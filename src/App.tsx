@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Route, Routes, useLocation } from "react-router-dom";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -24,7 +24,6 @@ import TypewriterDemo from "./pages/TypewriterDemo.tsx";
 import AICaptionGenerator from "./pages/landing/AICaptionGenerator.tsx";
 
 import { ErrorBoundary } from "@/components/ErrorBoundary";
-import { RainBackground } from "@/components/ui/RainBackground";
 import { CookieConsent } from "@/components/ui/CookieConsent";
 import { registerServiceWorker } from "@/lib/pwa/registerServiceWorker";
 import { PwaUpdateToast } from "@/components/pwa/PwaUpdateToast";
@@ -33,12 +32,6 @@ import { PwaUpdateToast } from "@/components/pwa/PwaUpdateToast";
 registerServiceWorker();
 
 const queryClient = new QueryClient();
-
-const RainBackgroundWrapper = () => {
-  const location = useLocation();
-  if (location.pathname !== "/") return null;
-  return <RainBackground initialDensity={150} initialWind={20} initialSpeed={180} />;
-};
 
 const App = () => (
   <ErrorBoundary>
@@ -49,7 +42,6 @@ const App = () => (
             <Toaster />
             <Sonner />
             <PwaUpdateToast />
-            <RainBackgroundWrapper />
             <CookieConsent />
             <AuthProvider>
             <AvatarProvider>
